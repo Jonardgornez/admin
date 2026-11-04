@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { AdminUserBlock } from '../component/layout/admin-user-block'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcConfirmDialog } from '../component/pc/pc-confirm-dialog'
-import { PcDetailPanel } from '../component/pc/pc-detail-panel'
+import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { Banner } from '../component/ui/banner'
@@ -41,7 +41,7 @@ export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [pcs, setPcs] = useState<Pc[]>(initialPcs)
   const [selectedNames, setSelectedNames] = useState<string[]>([INITIAL_PC_NAME])
-  const [detailPcName, setDetailPcName] = useState<string | null>(INITIAL_PC_NAME)
+  const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('notified')
   const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
@@ -49,7 +49,6 @@ export function DashboardPage() {
   const [sentMessageCount, setSentMessageCount] = useState<number | null>(null)
   const [addTimePcName, setAddTimePcName] = useState<string | null>(null)
   const [timeGrantNotice, setTimeGrantNotice] = useState<string | null>(null)
-  const detailPanelRef = useRef<HTMLElement>(null)
 
   const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -87,11 +86,6 @@ export function DashboardPage() {
 
   function requestShutdownSelected() {
     setPendingAction({ kind: 'shutdown-selected', pcNames: actionableSelectedNames })
-  }
-
-  function openDetail(pcName: string) {
-    setDetailPcName(pcName)
-    requestAnimationFrame(() => detailPanelRef.current?.scrollIntoView({ block: 'nearest' }))
   }
 
   function sendMessage() {
@@ -185,38 +179,36 @@ export function DashboardPage() {
         note="Statuses below are the last known values."
       />
 
-      <div className="flex flex-wrap items-start gap-5">
-        <PcGrid
-          pcs={visiblePcs}
-          selectedNames={isDisconnected ? [] : selectedNames}
-          isDisabled={isDisconnected}
+      <PcGrid
+        pcs={visiblePcs}
+        selectedNames={isDisconnected ? [] : selectedNames}
+        isDisabled={isDisconnected}
+        viewMode={viewMode}
+        emptyMessage={`No PCs match "${searchQuery}".`}
+        onToggleSelect={toggleSelected}
+        onOpenDetail={setDetailPcName}
+        onToggleLock={toggleLock}
+        onViewScreen={(href) => navigate(href)}
+        onAddTime={setAddTimePcName}
+        onShutdown={requestShutdown}
+      />
+
+      {!isDisconnected && detailPc && (
+        <PcDetailDialog
+          pc={detailPc}
           viewMode={viewMode}
-          emptyMessage={`No PCs match "${searchQuery}".`}
-          onToggleSelect={toggleSelected}
-          onOpenDetail={openDetail}
-          onToggleLock={toggleLock}
-          onViewScreen={(href) => navigate(href)}
-          onAddTime={setAddTimePcName}
-          onShutdown={requestShutdown}
+          screenHref={getScreenHref(detailPc.name, viewMode)}
+          onViewModeChange={setViewMode}
+          onClose={() => setDetailPcName(null)}
+          onLock={() => setPcs((current) => updateActionablePcs(current, [detailPc.name], lockPc))}
+          onUnlock={() =>
+            setPcs((current) => updateActionablePcs(current, [detailPc.name], unlockPc))
+          }
+          onReboot={() => setPendingAction({ kind: 'reboot', pcName: detailPc.name })}
+          onShutdown={() => requestShutdown(detailPc.name)}
+          onAddTime={() => setAddTimePcName(detailPc.name)}
         />
-        {!isDisconnected && detailPc && (
-          <PcDetailPanel
-            ref={detailPanelRef}
-            pc={detailPc}
-            viewMode={viewMode}
-            screenHref={getScreenHref(detailPc.name, viewMode)}
-            onViewModeChange={setViewMode}
-            onClose={() => setDetailPcName(null)}
-            onLock={() => setPcs((current) => updateActionablePcs(current, [detailPc.name], lockPc))}
-            onUnlock={() =>
-              setPcs((current) => updateActionablePcs(current, [detailPc.name], unlockPc))
-            }
-            onReboot={() => setPendingAction({ kind: 'reboot', pcName: detailPc.name })}
-            onShutdown={() => requestShutdown(detailPc.name)}
-            onAddTime={() => setAddTimePcName(detailPc.name)}
-          />
-        )}
-      </div>
+      )}
 
       <PcConfirmDialog
         action={pendingAction}

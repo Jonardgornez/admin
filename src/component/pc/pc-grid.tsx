@@ -30,7 +30,7 @@ export function PcGrid({
   onShutdown,
 }: PcGridProps) {
   return (
-    <section aria-labelledby="pc-grid-title" className="min-w-0 grow-999 basis-lg">
+    <section aria-labelledby="pc-grid-title" className="min-w-0">
       <h2 id="pc-grid-title" className="sr-only">
         PCs
       </h2>
