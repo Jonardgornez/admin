@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { AdminUserBlock } from '../component/layout/admin-user-block'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
@@ -10,10 +9,9 @@ import { PcGrid } from '../component/pc/pc-grid'
 import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { Banner } from '../component/ui/banner'
-import { Button, ButtonLink } from '../component/ui/button'
+import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
-import { loginRequests } from '../data/requests'
 import { pcs as initialPcs } from '../data/pcs'
 import {
   countChangedPcs,
@@ -177,18 +175,12 @@ export function DashboardPage() {
             </span>
           }
         >
-          {isDisconnected ? (
+          {isDisconnected && (
             <Button variant="secondary" onClick={retryConnection}>
               <Icon name="refresh" />
               Retry now
             </Button>
-          ) : (
-            <ButtonLink to="/requests" variant="secondary">
-              <Icon name="bell" />
-              {loginRequests.length} requests
-            </ButtonLink>
           )}
-          <AdminUserBlock />
         </PageHeader>
 
         {isDisconnected && (
