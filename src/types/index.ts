@@ -25,6 +25,14 @@ export interface Account {
   lastLogin: string
 }
 
+export type AccountDetails = Pick<Account, 'username' | 'assignedPc' | 'canUseAnyPc'>
+
+export interface AccountFormValues extends AccountDetails {
+  password: string
+}
+
+export type AccountFormErrors = Partial<Record<'username' | 'assignedPc' | 'password', string>>
+
 export interface LoginRequest {
   id: string
   pcName: string
