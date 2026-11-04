@@ -1,9 +1,15 @@
 import { useId, useState, type ChangeEvent, type SubmitEvent } from 'react'
-import { validateAccountForm } from '../../lib/accounts'
+import {
+  getDefaultTimeFields,
+  getFormDefaultTime,
+  NEW_ACCOUNT_DEFAULT_TIME,
+  validateAccountForm,
+} from '../../lib/accounts'
 import type { Account, AccountDetails, AccountFormErrors, AccountFormValues } from '../../types'
 import { Button } from '../ui/button'
 import { Field, TextInput } from '../ui/field'
 import { Modal } from '../ui/modal'
+import { TimeChoiceFields } from '../ui/time-choice-fields'
 
 interface AccountFormDialogProps {
   account?: Account
@@ -27,6 +33,7 @@ export function AccountFormDialog({
   const [values, setValues] = useState<AccountFormValues>({
     username: account?.username ?? '',
     password: '',
+    ...getDefaultTimeFields(account?.defaultTime ?? NEW_ACCOUNT_DEFAULT_TIME),
   })
   const [errors, setErrors] = useState<AccountFormErrors>({})
 
@@ -36,6 +43,9 @@ export function AccountFormDialog({
       const next = { ...current }
       if ('username' in changes) delete next.username
       if ('password' in changes) delete next.password
+      if ('timeMode' in changes || 'timeAmount' in changes || 'timeUnit' in changes) {
+        delete next.defaultTime
+      }
       return next
     })
   }
@@ -43,11 +53,12 @@ export function AccountFormDialog({
   function saveAccount(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const foundErrors = validateAccountForm(values, accounts, account?.username)
-    if (Object.keys(foundErrors).length > 0) {
+    const defaultTime = getFormDefaultTime(values)
+    if (Object.keys(foundErrors).length > 0 || defaultTime === null) {
       setErrors(foundErrors)
       return
     }
-    onSave({ username: values.username })
+    onSave({ username: values.username, defaultTime })
   }
 
   const passwordHelp = isEditing ? 'Leave blank to keep the current password.' : undefined
@@ -97,6 +108,22 @@ export function AccountFormDialog({
               }
             />
           </Field>
+          <TimeChoiceFields
+            legend="Default time"
+            timeLimitLabel="Time limit"
+            timeMode={values.timeMode}
+            amount={values.timeAmount}
+            timeUnit={values.timeUnit}
+            amountError={errors.defaultTime}
+            onTimeModeChange={(timeMode) => updateValues({ timeMode })}
+            onAmountChange={(timeAmount) => updateValues({ timeAmount })}
+            onTimeUnitChange={(timeUnit) => updateValues({ timeUnit })}
+          />
+          {isEditing && (
+            <p className="m-0 text-xs text-ink-muted">
+              A new default time applies from the user's next login.
+            </p>
+          )}
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onCancel}>

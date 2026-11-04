@@ -51,15 +51,19 @@ export interface Account {
   username: string
   isActive: boolean
   lastLogin: string
+  defaultTime: ApprovalChoice
 }
 
-export type AccountDetails = Pick<Account, 'username'>
+export type AccountDetails = Pick<Account, 'username' | 'defaultTime'>
 
-export interface AccountFormValues extends AccountDetails {
+export interface AccountFormValues extends Pick<Account, 'username'> {
   password: string
+  timeMode: ApprovalChoice['mode']
+  timeAmount: string
+  timeUnit: TimeUnit
 }
 
-export type AccountFormErrors = Partial<Record<'username' | 'password', string>>
+export type AccountFormErrors = Partial<Record<'username' | 'password' | 'defaultTime', string>>
 
 export interface LoginRequest {
   id: string

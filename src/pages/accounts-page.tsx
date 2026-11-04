@@ -14,6 +14,7 @@ import {
   addAccount,
   deleteAccount,
   filterAccounts,
+  formatDefaultTime,
   toggleAccountEnabled,
   updateAccount,
 } from '../lib/accounts'
@@ -31,6 +32,11 @@ export function AccountsPage() {
   const columns: DataTableColumn<Account>[] = [
     { key: 'username', label: 'Username', isMono: true, render: (account) => account.username },
     { key: 'status', label: 'Status', render: (account) => <AccountStatus isActive={account.isActive} /> },
+    {
+      key: 'defaultTime',
+      label: 'Default time',
+      render: (account) => formatDefaultTime(account.defaultTime),
+    },
     {
       key: 'lastLogin',
       label: 'Last login',

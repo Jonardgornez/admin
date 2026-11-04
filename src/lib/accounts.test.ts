@@ -5,6 +5,10 @@ import {
   addAccount,
   deleteAccount,
   filterAccounts,
+  formatDefaultTime,
+  getDefaultTimeFields,
+  getFormDefaultTime,
+  NEW_ACCOUNT_DEFAULT_TIME,
   toggleAccountEnabled,
   updateAccount,
   validateAccountForm,
@@ -62,7 +66,87 @@ describe('deleteAccount', () => {
   })
 })
 
-const newDetails: AccountDetails = { username: '  lab-pc09 ' }
+const newDetails: AccountDetails = {
+  username: '  lab-pc09 ',
+  defaultTime: { mode: 'time-limit', minutes: 45 },
+}
+
+describe('NEW_ACCOUNT_DEFAULT_TIME', () => {
+  it('is a 60 minute time limit', () => {
+    expect(NEW_ACCOUNT_DEFAULT_TIME).toEqual({ mode: 'time-limit', minutes: 60 })
+  })
+})
+
+describe('formatDefaultTime', () => {
+  it('labels open time', () => {
+    expect(formatDefaultTime({ mode: 'open-time' })).toBe('Open time')
+  })
+
+  it('formats a time limit in hours and minutes', () => {
+    expect(formatDefaultTime({ mode: 'time-limit', minutes: 30 })).toBe('30m')
+    expect(formatDefaultTime({ mode: 'time-limit', minutes: 120 })).toBe('2h')
+    expect(formatDefaultTime({ mode: 'time-limit', minutes: 90 })).toBe('1h 30m')
+  })
+})
+
+describe('getDefaultTimeFields', () => {
+  it('shows whole hours in hours', () => {
+    expect(getDefaultTimeFields({ mode: 'time-limit', minutes: 120 })).toEqual({
+      timeMode: 'time-limit',
+      timeAmount: '2',
+      timeUnit: 'hours',
+    })
+  })
+
+  it('shows other amounts in minutes', () => {
+    expect(getDefaultTimeFields({ mode: 'time-limit', minutes: 90 })).toEqual({
+      timeMode: 'time-limit',
+      timeAmount: '90',
+      timeUnit: 'minutes',
+    })
+  })
+
+  it('selects open time and keeps a usable amount for switching back', () => {
+    expect(getDefaultTimeFields({ mode: 'open-time' })).toEqual({
+      timeMode: 'open-time',
+      timeAmount: '60',
+      timeUnit: 'minutes',
+    })
+  })
+})
+
+describe('getFormDefaultTime', () => {
+  it('converts hours to minutes', () => {
+    expect(
+      getFormDefaultTime({ timeMode: 'time-limit', timeAmount: '2', timeUnit: 'hours' }),
+    ).toEqual({ mode: 'time-limit', minutes: 120 })
+  })
+
+  it('returns open time and ignores an invalid amount', () => {
+    expect(
+      getFormDefaultTime({ timeMode: 'open-time', timeAmount: 'abc', timeUnit: 'minutes' }),
+    ).toEqual({ mode: 'open-time' })
+  })
+
+  it('returns null for an invalid amount on a time limit', () => {
+    ;['', '0', '1.5', '-5', 'abc'].forEach((timeAmount) => {
+      expect(
+        getFormDefaultTime({ timeMode: 'time-limit', timeAmount, timeUnit: 'minutes' }),
+      ).toBeNull()
+    })
+  })
+
+  it('round-trips with getDefaultTimeFields', () => {
+    const choices = [
+      { mode: 'time-limit', minutes: 90 },
+      { mode: 'time-limit', minutes: 120 },
+      { mode: 'open-time' },
+    ] as const
+    choices.forEach((choice) => {
+      expect(getFormDefaultTime(getDefaultTimeFields(choice))).toEqual(choice)
+    })
+  })
+})
 
 describe('addAccount', () => {
   it('appends an active account with a trimmed username and no login yet', () => {
@@ -72,6 +156,7 @@ describe('addAccount', () => {
       username: 'lab-pc09',
       isActive: true,
       lastLogin: 'Never',
+      defaultTime: { mode: 'time-limit', minutes: 45 },
     })
   })
 
@@ -81,7 +166,7 @@ describe('addAccount', () => {
   })
 
   it('never stores a password, even when given form values', () => {
-    const values: AccountFormValues = { ...newDetails, password: 'secret' }
+    const values = { ...newDetails, password: 'secret' }
     const added = addAccount(accounts, values)[8]
     expect(added).not.toHaveProperty('password')
     expect(JSON.stringify(added)).not.toContain('secret')
@@ -95,6 +180,7 @@ describe('updateAccount', () => {
     expect(result.find((a) => a.username === 'lab-pc09')).toEqual({
       ...original,
       username: 'lab-pc09',
+      defaultTime: { mode: 'time-limit', minutes: 45 },
     })
     expect(result.some((a) => a.username === 'lab-pc04')).toBe(false)
   })
@@ -113,7 +199,7 @@ describe('updateAccount', () => {
   })
 
   it('never stores a password, even when given form values', () => {
-    const values: AccountFormValues = { ...newDetails, password: 'secret' }
+    const values = { ...newDetails, password: 'secret' }
     const result = updateAccount(accounts, 'lab-pc01', values)
     result.forEach((a) => expect(a).not.toHaveProperty('password'))
   })
@@ -123,6 +209,9 @@ describe('validateAccountForm', () => {
   const valid: AccountFormValues = {
     username: 'lab-pc09',
     password: 'pass',
+    timeMode: 'time-limit',
+    timeAmount: '60',
+    timeUnit: 'minutes',
   }
 
   it('returns an empty object for valid values', () => {
@@ -148,8 +237,23 @@ describe('validateAccountForm', () => {
   })
 
   it('reports several errors at once', () => {
-    const errors = validateAccountForm({ username: '', password: '' }, accounts)
-    expect(Object.keys(errors).sort()).toEqual(['password', 'username'])
+    const errors = validateAccountForm(
+      { ...valid, username: '', password: '', timeAmount: '0' },
+      accounts,
+    )
+    expect(Object.keys(errors).sort()).toEqual(['defaultTime', 'password', 'username'])
+  })
+
+  it('rejects an invalid time limit', () => {
+    expect(validateAccountForm({ ...valid, timeAmount: '1.5' }, accounts)).toEqual({
+      defaultTime: 'Enter a whole number of 1 or more.',
+    })
+  })
+
+  it('ignores the amount for open time', () => {
+    expect(
+      validateAccountForm({ ...valid, timeMode: 'open-time', timeAmount: '' }, accounts),
+    ).toEqual({})
   })
 
   it('allows a blank password when editing', () => {
