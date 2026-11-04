@@ -72,7 +72,7 @@ export function ViewScreenPage() {
             <Badge variant="locked" icon="eye">
               {viewModeLabel}
             </Badge>
-            <PcStatusBadge status={pc.status} />
+            <PcStatusBadge pc={pc} />
             {isControlling && (
               <Badge variant="rebooting" icon="monitor">
                 Controlling

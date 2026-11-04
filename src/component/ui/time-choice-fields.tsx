@@ -15,11 +15,18 @@ const legendVariants = cva('', {
   },
 })
 
+interface ExtraTimeOption {
+  label: string
+  isSelected: boolean
+  onSelect: () => void
+}
+
 interface TimeChoiceFieldsProps {
   legend: string
   isLegendHidden?: boolean
   timeLimitLabel: string
-  timeMode: TimeMode
+  timeMode: TimeMode | null
+  extraOption?: ExtraTimeOption
   amount: string
   timeUnit: TimeUnit
   amountError?: string
@@ -33,6 +40,7 @@ export function TimeChoiceFields({
   isLegendHidden = false,
   timeLimitLabel,
   timeMode,
+  extraOption,
   amount,
   timeUnit,
   amountError,
@@ -101,11 +109,21 @@ export function TimeChoiceFields({
       <RadioOption
         name={modeName}
         value="open-time"
-        checked={!hasTimeLimit}
+        checked={timeMode === 'open-time'}
         onChange={() => onTimeModeChange('open-time')}
       >
         Open time – no time limit
       </RadioOption>
+      {extraOption && (
+        <RadioOption
+          name={modeName}
+          value="extra"
+          checked={extraOption.isSelected}
+          onChange={extraOption.onSelect}
+        >
+          {extraOption.label}
+        </RadioOption>
+      )}
     </fieldset>
   )
 }

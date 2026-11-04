@@ -71,7 +71,7 @@ export function PcDetailDialog({
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <PcStatusBadge status={pc.status} />
+          <PcStatusBadge pc={pc} />
           {pc.isOpenTime && <OpenTimeBadge />}
         </div>
         <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
@@ -85,7 +85,7 @@ export function PcDetailDialog({
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" disabled={isBusy} className="col-span-2" onClick={onAddTime}>
             <Icon name="clock" />
-            Add time
+            Edit time
           </Button>
           <Button variant="secondary" disabled={isBusy || pc.status === 'in-use'} onClick={onUnlock}>
             <Icon name="unlock" />

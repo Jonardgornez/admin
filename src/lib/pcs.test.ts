@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
 import type { Pc } from '../types'
 import {
+  canTimeOutPc,
   countChangedPcs,
   countOnlinePcs,
   describeTimeGrant,
@@ -17,6 +18,7 @@ import {
   isPcActionable,
   isPcOff,
   isPcOnline,
+  isPcUnlockedWithoutUser,
   lockAllPcs,
   lockPc,
   parseTimeAmount,
@@ -28,6 +30,36 @@ import {
   unlockPc,
   updateActionablePcs,
 } from './pcs'
+
+describe('canTimeOutPc', () => {
+  it('allows only PCs that are in use', () => {
+    const base: Pc = { name: 'PC-T', status: 'in-use', lastSeen: 'Now' }
+    expect(canTimeOutPc(base)).toBe(true)
+    ;(['locked', 'offline', 'shutdown', 'rebooting'] as const).forEach((status) => {
+      expect(canTimeOutPc({ ...base, status })).toBe(false)
+    })
+  })
+})
+
+describe('isPcUnlockedWithoutUser', () => {
+  it('is true for an in-use PC with no user', () => {
+    expect(isPcUnlockedWithoutUser({ status: 'in-use' })).toBe(true)
+  })
+
+  it('is false once a user is logged in', () => {
+    expect(isPcUnlockedWithoutUser({ status: 'in-use', user: 'lab-pc01' })).toBe(false)
+  })
+
+  it('is false for a PC with no session', () => {
+    expect(isPcUnlockedWithoutUser({ status: 'locked' })).toBe(false)
+    expect(isPcUnlockedWithoutUser({ status: 'offline' })).toBe(false)
+  })
+
+  it('applies to a PC unlocked by the admin', () => {
+    const locked: Pc = { name: 'PC-T', status: 'locked', lastSeen: 'Now' }
+    expect(isPcUnlockedWithoutUser(unlockPc(locked))).toBe(true)
+  })
+})
 
 describe('countChangedPcs', () => {
   it('counts only the PCs whose status changed', () => {

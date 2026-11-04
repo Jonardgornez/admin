@@ -1,6 +1,6 @@
 import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
-import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
+import { getTimeLeftLabel, isPcActionable, isPcOff } from '../../lib/pcs'
 import type { Pc } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
@@ -101,7 +101,7 @@ export function PcCard({
   const lockLabel = `${isInUse ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
   const historyLabel = `View history of ${pc.name}`
-  const addTimeLabel = `Add time to ${pc.name}`
+  const editTimeLabel = `Edit time for ${pc.name}`
   const shutdownLabel = `Shut down ${pc.name}`
 
   return (
@@ -113,16 +113,16 @@ export function PcCard({
             <h3 className="m-0">
               <button
                 type="button"
-                disabled={isDisabled}
+                disabled={isDisabled || !isPcActionable(pc)}
                 onClick={onOpenDetail}
-                className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed"
+                className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink enabled:hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed"
               >
                 {pc.name}
               </button>
             </h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            <PcStatusBadge status={pc.status} />
+            <PcStatusBadge pc={pc} />
             {pc.isOpenTime && <OpenTimeBadge />}
           </div>
         </div>
@@ -182,8 +182,8 @@ export function PcCard({
         <Button
           variant="secondary"
           isIconOnly
-          title={addTimeLabel}
-          aria-label={addTimeLabel}
+          title={editTimeLabel}
+          aria-label={editTimeLabel}
           disabled={areActionsDisabled || pc.status === 'rebooting'}
           onClick={onAddTime}
         >

@@ -146,6 +146,12 @@ export function DashboardPage() {
     setAddTimePcName(null)
   }
 
+  function timeOut(pcName: string) {
+    setPcs((current) => updateActionablePcs(current, [pcName], lockPc))
+    notify(`${pcName} timed out. Its session has ended.`, 'hourglass')
+    setAddTimePcName(null)
+  }
+
   function confirmPendingAction() {
     if (!pendingAction) return
     if (pendingAction.kind === 'reboot') {
@@ -160,6 +166,7 @@ export function DashboardPage() {
       notify(`Shutting down ${formatPcCount(pendingAction.pcNames.length)}.`, 'power')
     }
     setPendingAction(null)
+    setDetailPcName(null)
   }
 
   return (
@@ -249,6 +256,7 @@ export function DashboardPage() {
         <AddTimeDialog
           pc={addTimePc}
           onConfirm={(choice) => grantTime(addTimePc.name, choice)}
+          onTimeOut={() => timeOut(addTimePc.name)}
           onCancel={() => setAddTimePcName(null)}
         />
       )}

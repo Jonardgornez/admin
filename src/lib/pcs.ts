@@ -47,6 +47,14 @@ export function isPcActionable(pc: Pc): boolean {
   return !isPcOff(pc) && pc.status !== 'rebooting'
 }
 
+export function canTimeOutPc(pc: Pc): boolean {
+  return pc.status === 'in-use'
+}
+
+export function isPcUnlockedWithoutUser(pc: Pick<Pc, 'status' | 'user'>): boolean {
+  return pc.status === 'in-use' && !pc.user
+}
+
 function withoutSession(pc: Pc): Pc {
   return {
     ...pc,
