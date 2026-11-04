@@ -8,6 +8,7 @@ const modalVariants = cva(
       size: {
         sm: 'max-w-detail',
         md: 'max-w-dialog',
+        lg: 'max-w-dialog-wide',
       },
     },
     defaultVariants: {
