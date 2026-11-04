@@ -6,7 +6,6 @@ import { Checkbox } from '../ui/choice'
 interface CheckboxGroupOption<T extends string> {
   value: T
   label: string
-  description?: string
 }
 
 interface CheckboxGroupProps<T extends string> {
@@ -14,7 +13,6 @@ interface CheckboxGroupProps<T extends string> {
   options: CheckboxGroupOption<T>[]
   selectedValues: T[]
   onChange: (values: T[]) => void
-  isDisabled?: boolean
   className?: string
 }
 
@@ -23,7 +21,6 @@ export function CheckboxGroup<T extends string>({
   options,
   selectedValues,
   onChange,
-  isDisabled = false,
   className,
 }: CheckboxGroupProps<T>) {
   const allValues = options.map((option) => option.value)
@@ -39,15 +36,9 @@ export function CheckboxGroup<T extends string>({
           <label key={option.value} className="flex items-center gap-2 text-ink">
             <Checkbox
               checked={selectedValues.includes(option.value)}
-              disabled={isDisabled}
               onChange={() => onChange(toggleListValue(selectedValues, option.value))}
             />
-            <span>
-              {option.label}
-              {option.description && (
-                <span className="ml-2 text-xs text-ink-muted">{option.description}</span>
-              )}
-            </span>
+            {option.label}
           </label>
         ))}
       </div>
@@ -57,7 +48,6 @@ export function CheckboxGroup<T extends string>({
             if (checkbox) checkbox.indeterminate = selectionState === 'some'
           }}
           checked={selectionState === 'all'}
-          disabled={isDisabled}
           onChange={() => onChange(toggleAllValues(allValues, selectedValues))}
         />
         Select/Deselect All

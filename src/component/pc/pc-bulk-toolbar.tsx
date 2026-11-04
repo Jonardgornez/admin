@@ -8,6 +8,7 @@ interface PcBulkToolbarProps {
   selectionState: SelectionState
   selectedCount: number
   messageRecipientCount: number
+  restrictionTargetCount: number
   hasVisiblePcs: boolean
   isDisabled: boolean
   searchQuery: string
@@ -29,6 +30,7 @@ export function PcBulkToolbar({
   selectionState,
   selectedCount,
   messageRecipientCount,
+  restrictionTargetCount,
   hasVisiblePcs,
   isDisabled,
   searchQuery,
@@ -82,9 +84,13 @@ export function PcBulkToolbar({
         <Icon name="message" />
         {withCount('Send message', messageRecipientCount)}
       </Button>
-      <Button variant="secondary" disabled={isDisabled} onClick={onOpenRestrictions}>
+      <Button
+        variant="secondary"
+        disabled={isDisabled || restrictionTargetCount === 0}
+        onClick={onOpenRestrictions}
+      >
         <Icon name="shield" />
-        Restrictions
+        {withCount('Restrictions', restrictionTargetCount)}
       </Button>
       {isDisabled ? (
         note && <span className="self-center px-2 text-xs text-ink-muted">{note}</span>

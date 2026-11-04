@@ -1,24 +1,16 @@
 import { useId, useState } from 'react'
 import { restrictionPolicies, driveLetters } from '../../data/restrictions'
-import { isPcOff } from '../../lib/pcs'
 import { getCommonRestrictions } from '../../lib/restrictions'
 import type { Pc, PcRestrictions } from '../../types'
 import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
-import { Checkbox, RadioOption } from '../ui/choice'
+import { Checkbox } from '../ui/choice'
 import { Modal } from '../ui/modal'
 import { CheckboxGroup } from './checkbox-group'
 
-type RestrictionTarget = 'selected' | 'all'
-
 interface RestrictionsDialogProps {
-  pcs: Pc[]
-  initialSelectedNames: string[]
-  onApply: (
-    pcNames: string[],
-    restrictions: PcRestrictions,
-    appliesWithoutRestart: boolean,
-  ) => void
+  targetPcs: Pc[]
+  onApply: (restrictions: PcRestrictions, appliesWithoutRestart: boolean) => void
   onCancel: () => void
 }
 
@@ -29,32 +21,12 @@ const policyOptions = restrictionPolicies.map((policy) => ({
 
 const driveOptions = driveLetters.map((letter) => ({ value: letter, label: letter }))
 
-export function RestrictionsDialog({
-  pcs,
-  initialSelectedNames,
-  onApply,
-  onCancel,
-}: RestrictionsDialogProps) {
+export function RestrictionsDialog({ targetPcs, onApply, onCancel }: RestrictionsDialogProps) {
   const titleId = useId()
-  const targetName = useId()
   const [restrictions, setRestrictions] = useState<PcRestrictions>(() =>
-    getCommonRestrictions(pcs.filter((pc) => initialSelectedNames.includes(pc.name))),
+    getCommonRestrictions(targetPcs),
   )
-  const [selectedNames, setSelectedNames] = useState<string[]>(initialSelectedNames)
-  const [target, setTarget] = useState<RestrictionTarget>('selected')
   const [appliesWithoutRestart, setAppliesWithoutRestart] = useState(false)
-
-  const pcOptions = pcs.map((pc) => ({
-    value: pc.name,
-    label: pc.name,
-    description: isPcOff(pc) ? 'Offline' : undefined,
-  }))
-  const isTargetEmpty = target === 'selected' && selectedNames.length === 0
-
-  function applyRestrictions() {
-    const pcNames = target === 'all' ? pcs.map((pc) => pc.name) : selectedNames
-    onApply(pcNames, restrictions, appliesWithoutRestart)
-  }
 
   return (
     <Modal isOpen size="lg" labelledBy={titleId} onClose={onCancel}>
@@ -62,7 +34,13 @@ export function RestrictionsDialog({
         <h2 id={titleId} className="m-0 text-xl font-semibold">
           Restrictions
         </h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <p className="m-0">
+          <span className="font-semibold">To: </span>
+          <span className="font-mono text-sm">
+            {targetPcs.map((pc) => pc.name).join(', ')}
+          </span>
+        </p>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <CheckboxGroup
             legend="Policies"
             options={policyOptions}
@@ -87,37 +65,6 @@ export function RestrictionsDialog({
               setRestrictions((current) => ({ ...current, disabledDrives }))
             }
           />
-          <div className="flex min-w-0 flex-col gap-4">
-            <CheckboxGroup
-              legend="Computers"
-              options={pcOptions}
-              selectedValues={selectedNames}
-              isDisabled={target === 'all'}
-              className="max-h-64 overflow-y-auto"
-              onChange={setSelectedNames}
-            />
-            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-              <legend className="p-0 pb-2 text-xs font-semibold tracking-label text-ink-muted">
-                Apply to
-              </legend>
-              <RadioOption
-                name={targetName}
-                value="selected"
-                checked={target === 'selected'}
-                onChange={() => setTarget('selected')}
-              >
-                Selected
-              </RadioOption>
-              <RadioOption
-                name={targetName}
-                value="all"
-                checked={target === 'all'}
-                onChange={() => setTarget('all')}
-              >
-                All
-              </RadioOption>
-            </fieldset>
-          </div>
         </div>
         {restrictions.disabledDrives.includes('C') && (
           <Banner variant="warning" icon="alert">
@@ -132,14 +79,14 @@ export function RestrictionsDialog({
           Apply without restarting computer
         </label>
         <div className="flex flex-col gap-1 text-sm text-ink-muted">
-          <p className="m-0">OK replaces the restrictions on every targeted PC.</p>
+          <p className="m-0">OK replaces the restrictions on every PC listed above.</p>
           <p className="m-0">* It may require rebooting the computer.</p>
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={isTargetEmpty} onClick={applyRestrictions}>
+          <Button variant="primary" onClick={() => onApply(restrictions, appliesWithoutRestart)}>
             OK
           </Button>
         </div>

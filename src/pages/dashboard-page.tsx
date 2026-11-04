@@ -133,13 +133,12 @@ export function DashboardPage() {
     setIsSendingMessage(false)
   }
 
-  function applyPcRestrictions(
-    pcNames: string[],
-    restrictions: PcRestrictions,
-    appliesWithoutRestart: boolean,
-  ) {
-    setPcs((current) => applyRestrictions(current, pcNames, restrictions))
-    notify(describeRestrictionsApplied(pcNames.length, restrictions, appliesWithoutRestart), 'shield')
+  function applyPcRestrictions(restrictions: PcRestrictions, appliesWithoutRestart: boolean) {
+    setPcs((current) => applyRestrictions(current, selectedNames, restrictions))
+    notify(
+      describeRestrictionsApplied(selectedNames.length, restrictions, appliesWithoutRestart),
+      'shield',
+    )
     setIsEditingRestrictions(false)
   }
 
@@ -203,6 +202,7 @@ export function DashboardPage() {
           selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
           selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
           messageRecipientCount={isDisconnected ? 0 : messageRecipientNames.length}
+          restrictionTargetCount={isDisconnected ? 0 : selectedNames.length}
           hasVisiblePcs={visiblePcs.length > 0}
           isDisabled={isDisconnected}
           searchQuery={searchQuery}
@@ -263,8 +263,7 @@ export function DashboardPage() {
 
       {!isDisconnected && isEditingRestrictions && (
         <RestrictionsDialog
-          pcs={pcs}
-          initialSelectedNames={selectedNames}
+          targetPcs={pcs.filter((pc) => selectedNames.includes(pc.name))}
           onApply={applyPcRestrictions}
           onCancel={() => setIsEditingRestrictions(false)}
         />
