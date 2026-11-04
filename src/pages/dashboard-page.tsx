@@ -38,7 +38,6 @@ import { applyRestrictions, describeRestrictionsApplied } from '../lib/restricti
 import type { ApprovalChoice, Pc, PcRestrictions, PendingPcAction, ViewMode } from '../types'
 
 const DISCONNECTED_STATE = 'disconnected'
-const DISCONNECTED_LAST_SEEN = '10:44'
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -61,9 +60,7 @@ export function DashboardPage() {
     .filter((pc) => selectedNames.includes(pc.name) && isPcActionable(pc))
     .map((pc) => pc.name)
   const messageRecipientNames = getMessageRecipients(pcs, selectedNames)
-  const visiblePcs = isDisconnected
-    ? pcs.map((pc) => ({ ...pc, lastSeen: DISCONNECTED_LAST_SEEN }))
-    : filterPcs(pcs, searchQuery)
+  const visiblePcs = isDisconnected ? pcs : filterPcs(pcs, searchQuery)
   const visibleNames = visiblePcs.map((pc) => pc.name)
 
   function retryConnection() {

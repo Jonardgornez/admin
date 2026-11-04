@@ -145,9 +145,7 @@ export function PcCard({
       </header>
       <dl className="m-0 flex flex-col gap-1.5 border-t border-border pt-3">
         <PcMetaRow icon="user" label="User" value={pc.user} isOff={isOff} />
-        <PcMetaRow icon="clock" label="Time used" value={pc.timeUsed} isOff={isOff} />
         <PcMetaRow icon="hourglass" label="Time left" value={getTimeLeftLabel(pc)} isOff={isOff} />
-        <PcMetaRow icon="eye" label="Last seen" value={pc.lastSeen} isOff={isOff} />
       </dl>
       <footer className="flex flex-wrap gap-2 border-t border-border pt-3">
         <Button
