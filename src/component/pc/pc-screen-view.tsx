@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cva } from 'class-variance-authority'
+import pcScreenMockImage from '../../assets/pc-screen-mock.jpg'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Icon } from '../ui/icon'
@@ -15,7 +16,7 @@ const containerVariants = cva('flex flex-col', {
 })
 
 const screenVariants = cva(
-  'flex w-full items-center justify-center rounded-lg bg-surface-300 p-4 text-center text-ink-subtle',
+  'flex w-full items-center justify-center overflow-hidden rounded-lg bg-surface-300 text-center text-ink-subtle',
   {
     variants: {
       isControlling: {
@@ -118,9 +119,17 @@ export function PcScreenView({
         </div>
       )}
       <div className={screenVariants({ isControlling, isFullView })}>
-        {isOffline
-          ? "This PC is offline, so its screen can't be viewed."
-          : `[Screenshot of ${pcName}]`}
+        {isOffline ? (
+          <p className="m-0 p-4">This PC is offline, so its screen can't be viewed.</p>
+        ) : (
+          <img
+            src={pcScreenMockImage}
+            alt={`Screenshot of ${pcName}`}
+            width={1920}
+            height={1032}
+            className="size-full object-contain"
+          />
+        )}
       </div>
       {!isFullView && (
         <div className="flex flex-wrap items-center justify-between gap-2">
