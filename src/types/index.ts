@@ -11,6 +11,36 @@ export interface Pc {
   ipAddress?: string
   isOpenTime?: boolean
   minutesLeft?: number
+  restrictions?: PcRestrictions
+}
+
+export type RestrictionPolicyId =
+  | 'task-manager'
+  | 'registry-editor'
+  | 'command-prompt'
+  | 'run-command'
+  | 'control-panel'
+  | 'add-printer'
+  | 'remove-printer'
+  | 'windows-logout'
+  | 'fast-user-switch'
+  | 'windows-shutdown'
+  | 'file-folder-protection'
+
+export type DriveLetter =
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+
+export interface RestrictionPolicy {
+  id: RestrictionPolicyId
+  label: string
+  needsReboot: boolean
+}
+
+export interface PcRestrictions {
+  policies: RestrictionPolicyId[]
+  hiddenDrives: DriveLetter[]
+  disabledDrives: DriveLetter[]
 }
 
 export type TimeUnit = 'minutes' | 'hours'
