@@ -99,9 +99,9 @@ describe('toggleSelectAll', () => {
 })
 
 describe('countOnlinePcs', () => {
-  it('counts 8 of 12 for the sample data', () => {
-    expect(pcs).toHaveLength(12)
-    expect(countOnlinePcs(pcs)).toBe(8)
+  it('counts 40 of 60 for the sample data', () => {
+    expect(pcs).toHaveLength(60)
+    expect(countOnlinePcs(pcs)).toBe(40)
   })
 
   it('counts only locked and in-use', () => {
@@ -122,8 +122,8 @@ describe('countOnlinePcs', () => {
 
 describe('filterPcs', () => {
   it('returns all PCs for an empty or blank query', () => {
-    expect(filterPcs(pcs, '')).toHaveLength(12)
-    expect(filterPcs(pcs, '   ')).toHaveLength(12)
+    expect(filterPcs(pcs, '')).toHaveLength(60)
+    expect(filterPcs(pcs, '   ')).toHaveLength(60)
   })
 
   it('matches PC name case-insensitively', () => {
@@ -240,7 +240,7 @@ describe('lockAllPcs and unlockAllPcs', () => {
     expect(result.filter((pc) => pc.status === 'in-use')).toHaveLength(0)
     expect(result.find((pc) => pc.name === 'PC-04')?.status).toBe('offline')
     expect(result.find((pc) => pc.name === 'PC-08')?.status).toBe('rebooting')
-    expect(result.filter((pc) => pc.status === 'locked')).toHaveLength(8)
+    expect(result.filter((pc) => pc.status === 'locked')).toHaveLength(40)
   })
 
   it('unlock all affects only locked PCs', () => {
@@ -248,7 +248,7 @@ describe('lockAllPcs and unlockAllPcs', () => {
     expect(result.filter((pc) => pc.status === 'locked')).toHaveLength(0)
     expect(result.find((pc) => pc.name === 'PC-07')?.status).toBe('shutdown')
     expect(result.find((pc) => pc.name === 'PC-05')?.user).toBe('lab-pc05')
-    expect(result.filter((pc) => pc.status === 'in-use')).toHaveLength(8)
+    expect(result.filter((pc) => pc.status === 'in-use')).toHaveLength(40)
   })
 })
 
