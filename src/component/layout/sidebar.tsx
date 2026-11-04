@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 const sidebarVariants = cva(
-  'flex flex-col gap-1 border-b border-border bg-surface-200 px-4 py-4 md:flex-none md:border-r md:border-b-0 md:py-6 md:transition-[width] motion-reduce:transition-none',
+  'flex flex-col gap-1 border-b border-border bg-surface-200 px-4 py-4 md:sticky md:top-0 md:h-screen md:flex-none md:overflow-y-auto md:border-r md:border-b-0 md:py-6 md:transition-[width] motion-reduce:transition-none',
   {
     variants: {
       isCollapsed: {

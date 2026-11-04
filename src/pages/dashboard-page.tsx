@@ -116,74 +116,76 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        meta={
-          <span className="text-ink-muted">
-            {isDisconnected
-              ? 'Last update 10:44:12'
-              : `${countOnlinePcs(pcs)} of ${pcs.length} PCs online`}
-          </span>
-        }
-      >
-        {isDisconnected ? (
-          <Button variant="secondary" onClick={retryConnection}>
-            <Icon name="refresh" />
-            Retry now
-          </Button>
-        ) : (
-          <ButtonLink to="/requests" variant="secondary">
-            <Icon name="bell" />
-            {loginRequests.length} requests
-          </ButtonLink>
+      <div className="flex flex-col gap-6 md:sticky md:top-0 md:z-10 md:-mt-6 md:bg-surface-100 md:pt-6">
+        <PageHeader
+          title="Dashboard"
+          meta={
+            <span className="text-ink-muted">
+              {isDisconnected
+                ? 'Last update 10:44:12'
+                : `${countOnlinePcs(pcs)} of ${pcs.length} PCs online`}
+            </span>
+          }
+        >
+          {isDisconnected ? (
+            <Button variant="secondary" onClick={retryConnection}>
+              <Icon name="refresh" />
+              Retry now
+            </Button>
+          ) : (
+            <ButtonLink to="/requests" variant="secondary">
+              <Icon name="bell" />
+              {loginRequests.length} requests
+            </ButtonLink>
+          )}
+          <AdminUserBlock />
+        </PageHeader>
+
+        {isDisconnected && (
+          <Banner variant="danger" icon="alert" role="alert" title="Disconnected">
+            The console lost its connection to the server program. Controls are turned off so no
+            command is sent blindly. Reconnecting automatically…
+          </Banner>
         )}
-        <AdminUserBlock />
-      </PageHeader>
 
-      {isDisconnected && (
-        <Banner variant="danger" icon="alert" role="alert" title="Disconnected">
-          The console lost its connection to the server program. Controls are turned off so no
-          command is sent blindly. Reconnecting automatically…
-        </Banner>
-      )}
+        {!isDisconnected && sentMessageCount !== null && (
+          <Banner
+            variant="info"
+            icon="message"
+            role="status"
+            onDismiss={() => setSentMessageCount(null)}
+          >
+            Message sent to {sentMessageCount} {sentMessageCount === 1 ? 'PC' : 'PCs'}.
+          </Banner>
+        )}
 
-      {!isDisconnected && sentMessageCount !== null && (
-        <Banner
-          variant="info"
-          icon="message"
-          role="status"
-          onDismiss={() => setSentMessageCount(null)}
-        >
-          Message sent to {sentMessageCount} {sentMessageCount === 1 ? 'PC' : 'PCs'}.
-        </Banner>
-      )}
+        {!isDisconnected && timeGrantNotice !== null && (
+          <Banner
+            variant="info"
+            icon="clock"
+            role="status"
+            onDismiss={() => setTimeGrantNotice(null)}
+          >
+            {timeGrantNotice}
+          </Banner>
+        )}
 
-      {!isDisconnected && timeGrantNotice !== null && (
-        <Banner
-          variant="info"
-          icon="clock"
-          role="status"
-          onDismiss={() => setTimeGrantNotice(null)}
-        >
-          {timeGrantNotice}
-        </Banner>
-      )}
-
-      <PcBulkToolbar
-        selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
-        selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
-        messageRecipientCount={isDisconnected ? 0 : messageRecipientNames.length}
-        hasVisiblePcs={visiblePcs.length > 0}
-        isDisabled={isDisconnected}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onToggleSelectAll={() => setSelectedNames(toggleSelectAll(visibleNames, selectedNames))}
-        onUnlockAll={() => setPcs(unlockAllPcs)}
-        onLockAll={() => setPcs(lockAllPcs)}
-        onShutdownSelected={requestShutdownSelected}
-        onSendMessage={() => setIsSendingMessage(true)}
-        note="Statuses below are the last known values."
-      />
+        <PcBulkToolbar
+          selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
+          selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
+          messageRecipientCount={isDisconnected ? 0 : messageRecipientNames.length}
+          hasVisiblePcs={visiblePcs.length > 0}
+          isDisabled={isDisconnected}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onToggleSelectAll={() => setSelectedNames(toggleSelectAll(visibleNames, selectedNames))}
+          onUnlockAll={() => setPcs(unlockAllPcs)}
+          onLockAll={() => setPcs(lockAllPcs)}
+          onShutdownSelected={requestShutdownSelected}
+          onSendMessage={() => setIsSendingMessage(true)}
+          note="Statuses below are the last known values."
+        />
+      </div>
 
       <PcGrid
         pcs={visiblePcs}
