@@ -49,6 +49,9 @@ export function PcScreenView({
 }: PcScreenViewProps) {
   const notify = useNotify()
   const containerRef = useRef<HTMLDivElement>(null)
+  const fullViewButtonRef = useRef<HTMLButtonElement>(null)
+  const exitButtonRef = useRef<HTMLButtonElement>(null)
+  const hasEnteredFullViewRef = useRef(false)
   const [isFullView, setIsFullView] = useState(false)
 
   useEffect(() => {
@@ -59,12 +62,26 @@ export function PcScreenView({
     return () => document.removeEventListener('fullscreenchange', syncFullView)
   }, [])
 
+  useEffect(() => {
+    if (isFullView) {
+      hasEnteredFullViewRef.current = true
+      exitButtonRef.current?.focus()
+    } else if (hasEnteredFullViewRef.current) {
+      fullViewButtonRef.current?.focus()
+    }
+  }, [isFullView])
+
   async function enterFullView() {
     try {
       await containerRef.current?.requestFullscreen()
     } catch {
-      notify('Full view is not available in this browser.', 'alert')
+      notify("Couldn't open full view.", 'alert')
     }
+  }
+
+  function stopControl() {
+    onStopControl()
+    exitButtonRef.current?.focus()
   }
 
   return (
@@ -84,12 +101,16 @@ export function PcScreenView({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isControlling && (
-              <Button variant="secondary" onClick={onStopControl}>
+              <Button variant="secondary" onClick={stopControl}>
                 <Icon name="x" />
                 Stop control
               </Button>
             )}
-            <Button variant="secondary" onClick={() => void document.exitFullscreen()}>
+            <Button
+              ref={exitButtonRef}
+              variant="secondary"
+              onClick={() => void document.exitFullscreen().catch(() => undefined)}
+            >
               <Icon name="collapse" />
               Exit full view
             </Button>
@@ -110,6 +131,7 @@ export function PcScreenView({
             </p>
           )}
           <Button
+            ref={fullViewButtonRef}
             variant="secondary"
             disabled={isOffline}
             className="ml-auto"

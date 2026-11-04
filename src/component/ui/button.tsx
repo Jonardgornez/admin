@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ComponentProps } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Link, type LinkProps } from 'react-router'
 import { cn } from '../../lib/utils'
@@ -37,9 +37,7 @@ const buttonVariants = cva(
   },
 )
 
-interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+interface ButtonProps extends ComponentProps<'button'>, VariantProps<typeof buttonVariants> {}
 
 interface ButtonLinkProps extends LinkProps, VariantProps<typeof buttonVariants> {}
 
