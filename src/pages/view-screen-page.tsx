@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackToDashboardLink } from '../component/layout/back-link'
+import { useNavigationLock } from '../component/layout/navigation-lock-context'
 import { PageHeader } from '../component/layout/page-header'
 import { PcControlPanel } from '../component/pc/pc-control-panel'
 import { PcScreenView } from '../component/pc/pc-screen-view'
@@ -24,6 +25,19 @@ export function ViewScreenPage() {
   const notify = useNotify()
   const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true)
   const [isControlling, setIsControlling] = useState(false)
+  const { setIsNavigationLocked } = useNavigationLock()
+  const navigationBlocker = useBlocker(isControlling)
+
+  useEffect(() => {
+    setIsNavigationLocked(isControlling)
+    return () => setIsNavigationLocked(false)
+  }, [isControlling, setIsNavigationLocked])
+
+  useEffect(() => {
+    if (navigationBlocker.state !== 'blocked') return
+    navigationBlocker.reset()
+    notify('Stop control before leaving this page.', 'alert')
+  }, [navigationBlocker, notify])
 
   const pc = pcs.find((candidate) => candidate.name === pcName)
   const viewMode: ViewMode = searchParams.get('mode') === 'anonymous' ? 'anonymous' : 'notified'
@@ -87,7 +101,7 @@ export function ViewScreenPage() {
           <Icon name="download" />
           Save screenshot
         </Button>
-        <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+        <Button variant="ghost" disabled={isControlling} onClick={() => navigate('/dashboard')}>
           <Icon name="x" />
           Close view
         </Button>

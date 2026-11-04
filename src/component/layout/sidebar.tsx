@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router'
 import { isNavItemActive } from '../../lib/navigation'
 import { Button } from '../ui/button'
 import { Icon, type IconName } from '../ui/icon'
+import { useNavigationLock } from './navigation-lock-context'
 
 interface NavItem {
   label: string
@@ -61,6 +62,7 @@ const linkLabelVariants = cva('', {
 
 export function Sidebar() {
   const { pathname } = useLocation()
+  const { isNavigationLocked } = useNavigationLock()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const toggleLabel = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
 
@@ -79,7 +81,10 @@ export function Sidebar() {
           <Icon name="panel" />
         </Button>
       </div>
-      <ul className="m-0 flex list-none gap-1 overflow-x-auto p-0 md:flex-col md:overflow-visible">
+      <ul
+        inert={isNavigationLocked}
+        className="m-0 flex list-none gap-1 overflow-x-auto p-0 inert:opacity-disabled md:flex-col md:overflow-visible"
+      >
         {NAV_ITEMS.map((item) => (
           <li key={item.to} className="flex-none">
             <Link
