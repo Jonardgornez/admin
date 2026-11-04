@@ -16,7 +16,7 @@ const containerVariants = cva('flex flex-col', {
 })
 
 const screenVariants = cva(
-  'flex w-full items-center justify-center overflow-hidden rounded-lg bg-surface-300 text-center text-ink-subtle',
+  'flex w-full cursor-none items-center justify-center overflow-hidden rounded-lg bg-surface-300 text-center text-ink-subtle',
   {
     variants: {
       isControlling: {
