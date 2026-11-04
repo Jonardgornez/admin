@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { cva } from 'class-variance-authority'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackToDashboardLink } from '../component/layout/back-link'
 import { PageHeader } from '../component/layout/page-header'
 import { PcControlPanel } from '../component/pc/pc-control-panel'
+import { PcScreenView } from '../component/pc/pc-screen-view'
 import { PcStatusBadge } from '../component/pc/pc-status-badge'
 import { Badge } from '../component/ui/badge'
 import { Banner } from '../component/ui/banner'
@@ -16,18 +16,6 @@ import { isPcOff } from '../lib/pcs'
 import type { ViewMode } from '../types'
 
 const CAPTURE_TIME = '10:42:05'
-
-const screenVariants = cva(
-  'flex aspect-video max-h-130 w-full items-center justify-center rounded-lg bg-surface-300 p-4 text-center text-ink-subtle',
-  {
-    variants: {
-      isControlling: {
-        true: 'border-2 border-brand',
-        false: 'border border-border-strong',
-      },
-    },
-  },
-)
 
 export function ViewScreenPage() {
   const { pcName } = useParams()
@@ -105,19 +93,14 @@ export function ViewScreenPage() {
         </Button>
       </PageHeader>
 
-      <div className="flex flex-col gap-2">
-        <div className={screenVariants({ isControlling })}>
-          {isOffline
-            ? "This PC is offline, so its screen can't be viewed."
-            : `[Screenshot of ${pc.name}]`}
-        </div>
-        {!isOffline && (
-          <p className="m-0 flex flex-wrap justify-between gap-2 text-xs text-ink-muted">
-            <span>{captionText}</span>
-            <span>Nothing is saved unless you press Save screenshot.</span>
-          </p>
-        )}
-      </div>
+      <PcScreenView
+        pcName={pc.name}
+        isOffline={isOffline}
+        isControlling={isControlling}
+        viewModeLabel={viewModeLabel}
+        captionText={captionText}
+        onStopControl={() => setIsControlling(false)}
+      />
 
       {!isControlling && viewMode === 'notified' && (
         <Banner variant="info" icon="info" title="Notified view">
