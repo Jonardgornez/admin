@@ -17,6 +17,7 @@ interface PcBulkToolbarProps {
   onLockAll: () => void
   onShutdownSelected: () => void
   onSendMessage: () => void
+  onOpenRestrictions: () => void
   note?: string
 }
 
@@ -37,6 +38,7 @@ export function PcBulkToolbar({
   onLockAll,
   onShutdownSelected,
   onSendMessage,
+  onOpenRestrictions,
   note,
 }: PcBulkToolbarProps) {
   return (
@@ -79,6 +81,10 @@ export function PcBulkToolbar({
       >
         <Icon name="message" />
         {withCount('Send message', messageRecipientCount)}
+      </Button>
+      <Button variant="secondary" disabled={isDisabled} onClick={onOpenRestrictions}>
+        <Icon name="shield" />
+        Restrictions
       </Button>
       {isDisabled ? (
         note && <span className="self-center px-2 text-xs text-ink-muted">{note}</span>

@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
+import { getRestrictionSummary } from '../../lib/restrictions'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
 import { RadioOption } from '../ui/choice'
@@ -79,6 +80,7 @@ export function PcDetailDialog({
           <DetailRow label="Time left" value={getTimeLeftLabel(pc)} />
           <DetailRow label="Last seen" value={pc.lastSeen} />
           <DetailRow label="IP address" value={pc.ipAddress} isMono />
+          <DetailRow label="Restrictions" value={getRestrictionSummary(pc.restrictions)} />
         </dl>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" disabled={isBusy} className="col-span-2" onClick={onAddTime}>

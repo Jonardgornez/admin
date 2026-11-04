@@ -7,6 +7,7 @@ import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcConfirmDialog } from '../component/pc/pc-confirm-dialog'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
+import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { Banner } from '../component/ui/banner'
 import { Button, ButtonLink } from '../component/ui/button'
@@ -35,7 +36,8 @@ import {
   unlockPc,
   updateActionablePcs,
 } from '../lib/pcs'
-import type { ApprovalChoice, Pc, PendingPcAction, ViewMode } from '../types'
+import { applyRestrictions, describeRestrictionsApplied } from '../lib/restrictions'
+import type { ApprovalChoice, Pc, PcRestrictions, PendingPcAction, ViewMode } from '../types'
 
 const DISCONNECTED_STATE = 'disconnected'
 const DISCONNECTED_LAST_SEEN = '10:44'
@@ -52,6 +54,7 @@ export function DashboardPage() {
   const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [addTimePcName, setAddTimePcName] = useState<string | null>(null)
+  const [isEditingRestrictions, setIsEditingRestrictions] = useState(false)
 
   const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -130,6 +133,16 @@ export function DashboardPage() {
     setIsSendingMessage(false)
   }
 
+  function applyPcRestrictions(
+    pcNames: string[],
+    restrictions: PcRestrictions,
+    appliesWithoutRestart: boolean,
+  ) {
+    setPcs((current) => applyRestrictions(current, pcNames, restrictions))
+    notify(describeRestrictionsApplied(pcNames.length, restrictions, appliesWithoutRestart), 'shield')
+    setIsEditingRestrictions(false)
+  }
+
   function grantTime(pcName: string, choice: ApprovalChoice) {
     setPcs((current) => updateActionablePcs(current, [pcName], (pc) => grantPcTime(pc, choice)))
     notify(describeTimeGrant(pcName, choice), 'clock')
@@ -199,6 +212,7 @@ export function DashboardPage() {
           onLockAll={lockAll}
           onShutdownSelected={requestShutdownSelected}
           onSendMessage={() => setIsSendingMessage(true)}
+          onOpenRestrictions={() => setIsEditingRestrictions(true)}
           note="Statuses below are the last known values."
         />
       </div>
@@ -244,6 +258,15 @@ export function DashboardPage() {
           pc={addTimePc}
           onConfirm={(choice) => grantTime(addTimePc.name, choice)}
           onCancel={() => setAddTimePcName(null)}
+        />
+      )}
+
+      {!isDisconnected && isEditingRestrictions && (
+        <RestrictionsDialog
+          pcs={pcs}
+          initialSelectedNames={selectedNames}
+          onApply={applyPcRestrictions}
+          onCancel={() => setIsEditingRestrictions(false)}
         />
       )}
 
