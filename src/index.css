@@ -80,6 +80,25 @@
   --shadow-pop: 0 12px 32px #00000099;
 
   --opacity-disabled: 0.45;
+
+  --animate-notification: notification-fade 4s ease-in-out both;
+
+  @keyframes notification-fade {
+    0% {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    5% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 :root {
