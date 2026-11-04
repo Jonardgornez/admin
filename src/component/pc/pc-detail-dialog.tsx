@@ -129,16 +129,9 @@ export function PcDetailDialog({
             </ButtonLink>
           </fieldset>
         </div>
-        <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
-          <div className="flex min-w-0 flex-col">
-            <span className="text-xs font-semibold tracking-label text-ink-muted">
-              Assigned account
-            </span>
-            <span className="truncate font-mono text-sm">{pc.user ?? '—'}</span>
-          </div>
-          <Button variant="ghost" size="sm">
-            Change
-          </Button>
+        <div className="flex min-w-0 flex-col border-t border-border pt-4">
+          <span className="text-xs font-semibold tracking-label text-ink-muted">Current user</span>
+          <span className="truncate font-mono text-sm">{pc.user ?? '—'}</span>
         </div>
       </div>
     </Modal>

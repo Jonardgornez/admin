@@ -19,19 +19,17 @@ export type SelectionState = 'all' | 'some' | 'none'
 
 export interface Account {
   username: string
-  assignedPc: string
-  canUseAnyPc: boolean
   isActive: boolean
   lastLogin: string
 }
 
-export type AccountDetails = Pick<Account, 'username' | 'assignedPc' | 'canUseAnyPc'>
+export type AccountDetails = Pick<Account, 'username'>
 
 export interface AccountFormValues extends AccountDetails {
   password: string
 }
 
-export type AccountFormErrors = Partial<Record<'username' | 'assignedPc' | 'password', string>>
+export type AccountFormErrors = Partial<Record<'username' | 'password', string>>
 
 export interface LoginRequest {
   id: string

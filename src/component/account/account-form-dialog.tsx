@@ -2,14 +2,12 @@ import { useId, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { validateAccountForm } from '../../lib/accounts'
 import type { Account, AccountDetails, AccountFormErrors, AccountFormValues } from '../../types'
 import { Button } from '../ui/button'
-import { Checkbox } from '../ui/choice'
-import { Field, SelectInput, TextInput } from '../ui/field'
+import { Field, TextInput } from '../ui/field'
 import { Modal } from '../ui/modal'
 
 interface AccountFormDialogProps {
   account?: Account
   accounts: Account[]
-  pcNames: string[]
   onSave: (details: AccountDetails) => void
   onCancel: () => void
 }
@@ -17,7 +15,6 @@ interface AccountFormDialogProps {
 export function AccountFormDialog({
   account,
   accounts,
-  pcNames,
   onSave,
   onCancel,
 }: AccountFormDialogProps) {
@@ -25,14 +22,11 @@ export function AccountFormDialog({
   const titleId = `${baseId}-title`
   const usernameId = `${baseId}-username`
   const passwordId = `${baseId}-password`
-  const pcId = `${baseId}-pc`
   const isEditing = account !== undefined
 
   const [values, setValues] = useState<AccountFormValues>({
     username: account?.username ?? '',
     password: '',
-    assignedPc: account?.assignedPc ?? '',
-    canUseAnyPc: account?.canUseAnyPc ?? false,
   })
   const [errors, setErrors] = useState<AccountFormErrors>({})
 
@@ -42,7 +36,6 @@ export function AccountFormDialog({
       const next = { ...current }
       if ('username' in changes) delete next.username
       if ('password' in changes) delete next.password
-      if ('assignedPc' in changes) delete next.assignedPc
       return next
     })
   }
@@ -54,11 +47,7 @@ export function AccountFormDialog({
       setErrors(foundErrors)
       return
     }
-    onSave({
-      username: values.username,
-      assignedPc: values.assignedPc,
-      canUseAnyPc: values.canUseAnyPc,
-    })
+    onSave({ username: values.username })
   }
 
   const passwordHelp = isEditing ? 'Leave blank to keep the current password.' : undefined
@@ -108,40 +97,6 @@ export function AccountFormDialog({
               }
             />
           </Field>
-          <Field
-            label="Assigned PC"
-            htmlFor={pcId}
-            message={errors.assignedPc}
-            isError={errors.assignedPc !== undefined}
-          >
-            <SelectInput
-              id={pcId}
-              value={values.assignedPc}
-              hasError={errors.assignedPc !== undefined}
-              aria-describedby={errors.assignedPc ? `${pcId}-message` : undefined}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                updateValues({ assignedPc: event.target.value })
-              }
-            >
-              <option value="" disabled>
-                Choose a PC
-              </option>
-              {pcNames.map((pcName) => (
-                <option key={pcName} value={pcName}>
-                  {pcName}
-                </option>
-              ))}
-            </SelectInput>
-          </Field>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={values.canUseAnyPc}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                updateValues({ canUseAnyPc: event.target.checked })
-              }
-            />
-            Allow use on any PC
-          </label>
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onCancel}>

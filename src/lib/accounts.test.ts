@@ -20,10 +20,6 @@ describe('filterAccounts', () => {
     expect(filterAccounts(accounts, 'LAB-PC03').map((a) => a.username)).toEqual(['lab-pc03'])
   })
 
-  it('matches assigned PC', () => {
-    expect(filterAccounts(accounts, 'pc-07').map((a) => a.username)).toEqual(['lab-pc07'])
-  })
-
   it('matches several accounts by a shared fragment', () => {
     expect(filterAccounts(accounts, 'lab-pc0')).toHaveLength(8)
   })
@@ -66,7 +62,7 @@ describe('deleteAccount', () => {
   })
 })
 
-const newDetails: AccountDetails = { username: '  lab-pc09 ', assignedPc: 'PC-09', canUseAnyPc: false }
+const newDetails: AccountDetails = { username: '  lab-pc09 ' }
 
 describe('addAccount', () => {
   it('appends an active account with a trimmed username and no login yet', () => {
@@ -74,8 +70,6 @@ describe('addAccount', () => {
     expect(result).toHaveLength(9)
     expect(result[8]).toEqual({
       username: 'lab-pc09',
-      assignedPc: 'PC-09',
-      canUseAnyPc: false,
       isActive: true,
       lastLogin: 'Never',
     })
@@ -101,8 +95,6 @@ describe('updateAccount', () => {
     expect(result.find((a) => a.username === 'lab-pc09')).toEqual({
       ...original,
       username: 'lab-pc09',
-      assignedPc: 'PC-09',
-      canUseAnyPc: false,
     })
     expect(result.some((a) => a.username === 'lab-pc04')).toBe(false)
   })
@@ -130,8 +122,6 @@ describe('updateAccount', () => {
 describe('validateAccountForm', () => {
   const valid: AccountFormValues = {
     username: 'lab-pc09',
-    assignedPc: 'PC-09',
-    canUseAnyPc: false,
     password: 'pass',
   }
 
@@ -151,12 +141,6 @@ describe('validateAccountForm', () => {
     })
   })
 
-  it('requires an assigned PC', () => {
-    expect(validateAccountForm({ ...valid, assignedPc: '' }, accounts)).toEqual({
-      assignedPc: 'Choose a PC.',
-    })
-  })
-
   it('requires a password when adding', () => {
     expect(validateAccountForm({ ...valid, password: '  ' }, accounts)).toEqual({
       password: 'Enter a password.',
@@ -164,11 +148,8 @@ describe('validateAccountForm', () => {
   })
 
   it('reports several errors at once', () => {
-    const errors = validateAccountForm(
-      { username: '', assignedPc: '', canUseAnyPc: false, password: '' },
-      accounts,
-    )
-    expect(Object.keys(errors).sort()).toEqual(['assignedPc', 'password', 'username'])
+    const errors = validateAccountForm({ username: '', password: '' }, accounts)
+    expect(Object.keys(errors).sort()).toEqual(['password', 'username'])
   })
 
   it('allows a blank password when editing', () => {

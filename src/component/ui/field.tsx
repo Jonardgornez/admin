@@ -1,9 +1,4 @@
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
-} from 'react'
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
@@ -85,20 +80,6 @@ export function TextArea({ className, isMono, hasError, ...props }: TextAreaProp
   return (
     <textarea
       className={cn(inputVariants({ isMono, hasError }), 'py-2', className)}
-      aria-invalid={hasError ? true : undefined}
-      {...props}
-    />
-  )
-}
-
-interface SelectInputProps
-  extends SelectHTMLAttributes<HTMLSelectElement>,
-    VariantProps<typeof inputVariants> {}
-
-export function SelectInput({ className, isMono, hasError, ...props }: SelectInputProps) {
-  return (
-    <select
-      className={cn(inputVariants({ isMono, hasError }), 'h-control-md', className)}
       aria-invalid={hasError ? true : undefined}
       {...props}
     />

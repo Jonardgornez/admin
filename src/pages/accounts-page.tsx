@@ -9,7 +9,6 @@ import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Field, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
 import { accounts as initialAccounts } from '../data/accounts'
-import { pcs } from '../data/pcs'
 import {
   addAccount,
   deleteAccount,
@@ -18,8 +17,6 @@ import {
   updateAccount,
 } from '../lib/accounts'
 import type { Account, AccountDetails } from '../types'
-
-const pcNames = pcs.map((pc) => pc.name)
 
 type AccountFormTarget = { kind: 'add' } | { kind: 'edit'; account: Account }
 
@@ -31,12 +28,6 @@ export function AccountsPage() {
 
   const columns: DataTableColumn<Account>[] = [
     { key: 'username', label: 'Username', isMono: true, render: (account) => account.username },
-    { key: 'assignedPc', label: 'Assigned PC', isMono: true, render: (account) => account.assignedPc },
-    {
-      key: 'canUseAnyPc',
-      label: 'Use on any PC',
-      render: (account) => (account.canUseAnyPc ? 'Yes' : 'No'),
-    },
     { key: 'status', label: 'Status', render: (account) => <AccountStatus isActive={account.isActive} /> },
     {
       key: 'lastLogin',
@@ -80,7 +71,7 @@ export function AccountsPage() {
     <>
       <PageHeader
         title="Accounts"
-        description="An account works only on its PC unless you allow any PC."
+        description="Accounts can sign in on any PC."
       >
         <Button variant="primary" onClick={() => setAccountFormTarget({ kind: 'add' })}>
           <Icon name="user" />
@@ -91,7 +82,7 @@ export function AccountsPage() {
         <TextInput
           id="account-search"
           value={searchQuery}
-          placeholder="Username or PC"
+          placeholder="Username"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
       </Field>
@@ -106,7 +97,6 @@ export function AccountsPage() {
         <AccountFormDialog
           account={accountFormTarget.kind === 'edit' ? accountFormTarget.account : undefined}
           accounts={accounts}
-          pcNames={pcNames}
           onSave={saveAccount}
           onCancel={() => setAccountFormTarget(null)}
         />

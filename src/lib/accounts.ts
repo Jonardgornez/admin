@@ -3,11 +3,7 @@ import type { Account, AccountDetails, AccountFormErrors, AccountFormValues } fr
 export function filterAccounts(accounts: Account[], query: string): Account[] {
   const needle = query.trim().toLowerCase()
   if (needle === '') return accounts
-  return accounts.filter(
-    (account) =>
-      account.username.toLowerCase().includes(needle) ||
-      account.assignedPc.toLowerCase().includes(needle),
-  )
+  return accounts.filter((account) => account.username.toLowerCase().includes(needle))
 }
 
 export function toggleAccountEnabled(accounts: Account[], username: string): Account[] {
@@ -21,11 +17,7 @@ export function deleteAccount(accounts: Account[], username: string): Account[] 
 }
 
 function pickDetails(details: AccountDetails): AccountDetails {
-  return {
-    username: details.username.trim(),
-    assignedPc: details.assignedPc,
-    canUseAnyPc: details.canUseAnyPc,
-  }
+  return { username: details.username.trim() }
 }
 
 export function addAccount(accounts: Account[], details: AccountDetails): Account[] {
@@ -62,7 +54,6 @@ export function validateAccountForm(
     if (isTaken) errors.username = 'That username is already taken.'
   }
 
-  if (values.assignedPc === '') errors.assignedPc = 'Choose a PC.'
   if (!isEditing && values.password.trim() === '') errors.password = 'Enter a password.'
 
   return errors
