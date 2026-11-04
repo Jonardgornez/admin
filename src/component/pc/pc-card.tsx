@@ -1,22 +1,40 @@
 import { cva } from 'class-variance-authority'
+import pcMonitorImage from '../../assets/pc-monitor.png'
 import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
 import type { Pc } from '../../types'
-import { Button } from '../ui/button'
+import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
-import { Icon } from '../ui/icon'
+import { Icon, type IconName } from '../ui/icon'
 import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 
-const cardVariants = cva(
-  'flex flex-col gap-3 rounded-lg border border-border p-4 text-ink shadow-card',
+const cardVariants = cva('flex flex-col gap-3 rounded-lg border p-4 text-ink', {
+  variants: {
+    isSelected: {
+      true: 'bg-brand-tint outline-2 outline-offset-1 outline-brand',
+      false: 'bg-linear-to-br from-card-top to-card',
+    },
+    isOff: {
+      true: 'border-border shadow-card',
+      false: 'border-card-glow shadow-card-glow',
+    },
+  },
+  defaultVariants: {
+    isSelected: false,
+    isOff: false,
+  },
+})
+
+const monitorVariants = cva(
+  'h-auto w-24 [mask-image:radial-gradient(ellipse_at_center,black_60%,transparent_100%)]',
   {
     variants: {
-      isSelected: {
-        true: 'bg-brand-tint outline-2 outline-offset-1 outline-brand',
-        false: 'bg-surface-200',
+      isOff: {
+        true: 'opacity-disabled grayscale',
+        false: '',
       },
     },
     defaultVariants: {
-      isSelected: false,
+      isOff: false,
     },
   },
 )
@@ -37,6 +55,7 @@ interface PcCardProps {
   pc: Pc
   isSelected: boolean
   isDisabled: boolean
+  historyHref: string
   onToggleSelect: () => void
   onOpenDetail: () => void
   onToggleLock: () => void
@@ -46,15 +65,19 @@ interface PcCardProps {
 }
 
 interface PcMetaRowProps {
+  icon: IconName
   label: string
   value?: string
   isOff: boolean
 }
 
-function PcMetaRow({ label, value, isOff }: PcMetaRowProps) {
+function PcMetaRow({ icon, label, value, isOff }: PcMetaRowProps) {
   return (
     <div className="flex justify-between gap-3 text-sm">
-      <dt className="text-ink-muted">{label}</dt>
+      <dt className="flex items-center gap-2 text-ink-muted">
+        <Icon name={icon} />
+        {label}
+      </dt>
       <dd className={metaValueVariants({ isOff })}>{value ?? '—'}</dd>
     </div>
   )
@@ -64,6 +87,7 @@ export function PcCard({
   pc,
   isSelected,
   isDisabled,
+  historyHref,
   onToggleSelect,
   onOpenDetail,
   onToggleLock,
@@ -76,43 +100,58 @@ export function PcCard({
   const areActionsDisabled = isDisabled || isOff
   const lockLabel = `${isInUse ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
+  const historyLabel = `View history of ${pc.name}`
   const addTimeLabel = `Add time to ${pc.name}`
   const shutdownLabel = `Shut down ${pc.name}`
 
   return (
-    <article className={cardVariants({ isSelected })}>
-      <header className="flex items-center justify-between">
-        <h3 className="m-0">
-          <button
-            type="button"
+    <article className={cardVariants({ isSelected, isOff })}>
+      <header className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Icon name="monitor" size={24} className="text-card-glow" />
+            <h3 className="m-0">
+              <button
+                type="button"
+                disabled={isDisabled}
+                onClick={onOpenDetail}
+                className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed"
+              >
+                {pc.name}
+              </button>
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <PcStatusBadge status={pc.status} />
+            {pc.isOpenTime && <OpenTimeBadge />}
+          </div>
+        </div>
+        <div className="flex flex-none items-start gap-2">
+          <img
+            src={pcMonitorImage}
+            alt=""
+            width={240}
+            height={210}
+            loading="lazy"
+            className={monitorVariants({ isOff })}
+          />
+          <Checkbox
+            aria-label={`Select ${pc.name}`}
+            checked={isSelected}
             disabled={isDisabled}
-            onClick={onOpenDetail}
-            className="cursor-pointer rounded-sm bg-transparent p-0 font-mono disabled:cursor-not-allowed text-lg font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {pc.name}
-          </button>
-        </h3>
-        <Checkbox
-          aria-label={`Select ${pc.name}`}
-          checked={isSelected}
-          disabled={isDisabled}
-          onChange={onToggleSelect}
-        />
+            onChange={onToggleSelect}
+          />
+        </div>
       </header>
-      <div className="flex flex-wrap gap-2">
-        <PcStatusBadge status={pc.status} />
-        {pc.isOpenTime && <OpenTimeBadge />}
-      </div>
-      <dl className="m-0 flex flex-col gap-0.5">
-        <PcMetaRow label="User" value={pc.user} isOff={isOff} />
-        <PcMetaRow label="Time used" value={pc.timeUsed} isOff={isOff} />
-        <PcMetaRow label="Time left" value={getTimeLeftLabel(pc)} isOff={isOff} />
-        <PcMetaRow label="Last seen" value={pc.lastSeen} isOff={isOff} />
+      <dl className="m-0 flex flex-col gap-1.5 border-t border-border pt-3">
+        <PcMetaRow icon="user" label="User" value={pc.user} isOff={isOff} />
+        <PcMetaRow icon="clock" label="Time used" value={pc.timeUsed} isOff={isOff} />
+        <PcMetaRow icon="hourglass" label="Time left" value={getTimeLeftLabel(pc)} isOff={isOff} />
+        <PcMetaRow icon="eye" label="Last seen" value={pc.lastSeen} isOff={isOff} />
       </dl>
-      <footer className="flex gap-1 border-t border-border pt-2">
+      <footer className="flex flex-wrap gap-2 border-t border-border pt-3">
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
           isIconOnly
           title={lockLabel}
           aria-label={lockLabel}
@@ -122,8 +161,7 @@ export function PcCard({
           <Icon name={isInUse ? 'lock' : 'unlock'} />
         </Button>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
           isIconOnly
           title={viewLabel}
           aria-label={viewLabel}
@@ -132,9 +170,17 @@ export function PcCard({
         >
           <Icon name="eye" />
         </Button>
+        <ButtonLink
+          to={historyHref}
+          variant="secondary"
+          isIconOnly
+          title={historyLabel}
+          aria-label={historyLabel}
+        >
+          <Icon name="history" />
+        </ButtonLink>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
           isIconOnly
           title={addTimeLabel}
           aria-label={addTimeLabel}
@@ -145,7 +191,6 @@ export function PcCard({
         </Button>
         <Button
           variant="danger"
-          size="sm"
           isIconOnly
           title={shutdownLabel}
           aria-label={shutdownLabel}

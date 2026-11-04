@@ -5,6 +5,10 @@
   --color-surface-200: #182127;
   --color-surface-300: #232e35;
 
+  --color-card: #0a1a26;
+  --color-card-top: #0d2a3c;
+  --color-card-glow: #2fc4ea;
+
   --color-border: #2f3b43;
   --color-border-strong: #74828c;
 
@@ -64,7 +68,7 @@
   --spacing-sidebar-collapsed: 73px;
   --spacing-detail: 360px;
   --spacing-dialog: 440px;
-  --spacing-pc-card: 240px;
+  --spacing-pc-card: 300px;
   --spacing-settings-card: 420px;
 
   --radius-sm: 4px;
@@ -72,6 +76,7 @@
   --radius-lg: 10px;
 
   --shadow-card: 0 1px 2px #00000066;
+  --shadow-card-glow: 0 0 12px #2fc4ea40;
   --shadow-pop: 0 12px 32px #00000099;
 
   --opacity-disabled: 0.45;

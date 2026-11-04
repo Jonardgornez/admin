@@ -21,6 +21,8 @@ const ICONS = {
   user: ['M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M4 20a8 8 0 0 1 16 0'],
   download: ['M12 4v11', 'M7 11l5 5 5-5', 'M5 20h14'],
   panel: ['M3 5h18v14H3z', 'M9 5v14'],
+  hourglass: ['M6 3h12', 'M6 21h12', 'M7 3v4l5 5-5 5v4', 'M17 3v4l-5 5 5 5v4'],
+  history: ['M3.5 9a9 9 0 1 1-.5 3', 'M3 5v4h4', 'M12 8v4l3 2'],
 } as const
 
 export type IconName = keyof typeof ICONS

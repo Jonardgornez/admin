@@ -95,6 +95,10 @@ export function updateActionablePcs(
   return pcs.map((pc) => (pcNames.includes(pc.name) && isPcActionable(pc) ? transform(pc) : pc))
 }
 
+export function getLogsHref(pcName: string): string {
+  return `/logs?pc=${encodeURIComponent(pcName)}`
+}
+
 export function parseTimeAmount(amount: string, unit: TimeUnit): number | null {
   if (!/^\d+$/.test(amount.trim())) return null
   const minutes = Number(amount) * (unit === 'hours' ? MINUTES_PER_HOUR : 1)

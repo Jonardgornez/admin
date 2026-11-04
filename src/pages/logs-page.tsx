@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { LogFiltersForm, type LogFilterDraft } from '../component/log/log-filters-form'
 import { PageHeader } from '../component/layout/page-header'
 import { Button } from '../component/ui/button'
@@ -32,8 +33,10 @@ const columns: DataTableColumn<SessionLog>[] = [
 ]
 
 export function LogsPage() {
-  const [draft, setDraft] = useState<LogFilterDraft>(INITIAL_FILTERS)
-  const [appliedFilters, setAppliedFilters] = useState<LogFilterDraft>(INITIAL_FILTERS)
+  const [searchParams] = useSearchParams()
+  const startingFilters = { ...INITIAL_FILTERS, pc: searchParams.get('pc') ?? '' }
+  const [draft, setDraft] = useState<LogFilterDraft>(startingFilters)
+  const [appliedFilters, setAppliedFilters] = useState<LogFilterDraft>(startingFilters)
   const [requestedPage, setRequestedPage] = useState(1)
 
   const logPage = paginate(filterLogs(sessionLogs, appliedFilters), requestedPage, PAGE_SIZE)

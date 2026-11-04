@@ -6,6 +6,7 @@ import {
   describeTimeGrant,
   filterPcs,
   formatMinutes,
+  getLogsHref,
   getMessageRecipients,
   getScreenHref,
   getSelectionState,
@@ -274,6 +275,13 @@ describe('updateActionablePcs', () => {
     })
     expect(calls).toEqual([])
     expect(result).toEqual(off)
+  })
+})
+
+describe('getLogsHref', () => {
+  it('builds the logs route filtered to the PC', () => {
+    expect(getLogsHref('PC-05')).toBe('/logs?pc=PC-05')
+    expect(getLogsHref('PC 5&x')).toBe('/logs?pc=PC%205%26x')
   })
 })
 
