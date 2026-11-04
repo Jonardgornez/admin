@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { cva } from 'class-variance-authority'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackToDashboardLink } from '../component/layout/back-link'
 import { PageHeader } from '../component/layout/page-header'
+import { PcControlPanel } from '../component/pc/pc-control-panel'
 import { PcStatusBadge } from '../component/pc/pc-status-badge'
 import { Badge } from '../component/ui/badge'
 import { Banner } from '../component/ui/banner'
@@ -14,11 +16,24 @@ import type { ViewMode } from '../types'
 
 const CAPTURE_TIME = '10:42:05'
 
+const screenVariants = cva(
+  'flex aspect-video max-h-130 w-full items-center justify-center rounded-lg bg-surface-300 p-4 text-center text-ink-subtle',
+  {
+    variants: {
+      isControlling: {
+        true: 'border-2 border-brand',
+        false: 'border border-border-strong',
+      },
+    },
+  },
+)
+
 export function ViewScreenPage() {
   const { pcName } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true)
+  const [isControlling, setIsControlling] = useState(false)
 
   const pc = pcs.find((candidate) => candidate.name === pcName)
   const viewMode: ViewMode = searchParams.get('mode') === 'anonymous' ? 'anonymous' : 'notified'
@@ -54,6 +69,11 @@ export function ViewScreenPage() {
               {viewModeLabel}
             </Badge>
             <PcStatusBadge status={pc.status} />
+            {isControlling && (
+              <Badge variant="rebooting" icon="monitor">
+                Controlling
+              </Badge>
+            )}
           </>
         }
       >
@@ -80,7 +100,7 @@ export function ViewScreenPage() {
       </PageHeader>
 
       <div className="flex flex-col gap-2">
-        <div className="flex aspect-video max-h-130 w-full items-center justify-center rounded-lg border border-border-strong bg-surface-300 p-4 text-center text-ink-subtle">
+        <div className={screenVariants({ isControlling })}>
           {isOffline
             ? "This PC is offline, so its screen can't be viewed."
             : `[Screenshot of ${pc.name}]`}
@@ -93,15 +113,23 @@ export function ViewScreenPage() {
         )}
       </div>
 
-      {viewMode === 'notified' ? (
+      {!isControlling && viewMode === 'notified' && (
         <Banner variant="info" icon="info" title="Notified view">
           {pc.name} shows “The administrator is viewing your screen” until you close this view.
         </Banner>
-      ) : (
+      )}
+      {!isControlling && viewMode === 'anonymous' && (
         <Banner variant="neutral" icon="eye" title="Anonymous view">
           {pc.name} shows no sign that you are viewing its screen.
         </Banner>
       )}
+
+      <PcControlPanel
+        pc={pc}
+        isControlling={isControlling}
+        onStartControl={() => setIsControlling(true)}
+        onStopControl={() => setIsControlling(false)}
+      />
     </>
   )
 }
