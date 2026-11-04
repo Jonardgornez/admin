@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { BackToDashboardLink } from '../component/layout/back-link'
 import { LogFiltersForm, type LogFilterDraft } from '../component/log/log-filters-form'
 import { PageHeader } from '../component/layout/page-header'
 import { Button } from '../component/ui/button'
@@ -54,6 +55,7 @@ export function LogsPage() {
 
   return (
     <>
+      {searchParams.has('pc') && <BackToDashboardLink />}
       <PageHeader title="Logs and reports">
         <Button variant="secondary">Purge old logs</Button>
         <Button variant="primary">
