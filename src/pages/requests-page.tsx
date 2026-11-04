@@ -4,6 +4,7 @@ import { RequestCard } from '../component/request/request-card'
 import { Button } from '../component/ui/button'
 import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Icon } from '../component/ui/icon'
+import { useNotify } from '../component/ui/notification-context'
 import { loginRequests, requestHistory } from '../data/requests'
 import { buildApprovedEntry, buildDeniedEntry } from '../lib/requests'
 import type { ApprovalChoice, LoginRequest, RequestHistoryEntry } from '../types'
@@ -16,22 +17,26 @@ const historyColumns: DataTableColumn<RequestHistoryEntry>[] = [
 ]
 
 export function RequestsPage() {
+  const notify = useNotify()
   const [requests, setRequests] = useState<LoginRequest[]>(loginRequests)
   const [history, setHistory] = useState<RequestHistoryEntry[]>(requestHistory)
 
   function approve(request: LoginRequest, approval: ApprovalChoice) {
     setRequests((current) => current.filter((item) => item.id !== request.id))
     setHistory((current) => [buildApprovedEntry(request, approval), ...current])
+    notify(`Request from ${request.pcName} approved.`)
   }
 
   function deny(request: LoginRequest) {
     setRequests((current) => current.filter((item) => item.id !== request.id))
     setHistory((current) => [buildDeniedEntry(request), ...current])
+    notify(`Request from ${request.pcName} denied.`, 'x')
   }
 
   function denyAll() {
     setHistory((current) => [...requests.map(buildDeniedEntry), ...current])
     setRequests([])
+    notify(`Denied ${requests.length} ${requests.length === 1 ? 'request' : 'requests'}.`, 'x')
   }
 
   return (

@@ -11,12 +11,15 @@ import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { Banner } from '../component/ui/banner'
 import { Button, ButtonLink } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
+import { useNotify } from '../component/ui/notification-context'
 import { loginRequests } from '../data/requests'
 import { pcs as initialPcs } from '../data/pcs'
 import {
+  countChangedPcs,
   countOnlinePcs,
   describeTimeGrant,
   filterPcs,
+  formatPcCount,
   getMessageRecipients,
   getScreenHref,
   getSelectionState,
@@ -39,6 +42,7 @@ const DISCONNECTED_LAST_SEEN = '10:44'
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const notify = useNotify()
   const [searchParams, setSearchParams] = useSearchParams()
   const [pcs, setPcs] = useState<Pc[]>(initialPcs)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
@@ -47,9 +51,7 @@ export function DashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('notified')
   const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [sentMessageCount, setSentMessageCount] = useState<number | null>(null)
   const [addTimePcName, setAddTimePcName] = useState<string | null>(null)
-  const [timeGrantNotice, setTimeGrantNotice] = useState<string | null>(null)
 
   const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -78,7 +80,40 @@ export function DashboardPage() {
   }
 
   function toggleLock(pcName: string) {
-    setPcs((current) => current.map((pc) => (pc.name === pcName ? togglePcLock(pc) : pc)))
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    if (!pc) return
+    const updatedPc = togglePcLock(pc)
+    if (updatedPc.status === pc.status) return
+    setPcs((current) => current.map((item) => (item.name === pcName ? updatedPc : item)))
+    if (updatedPc.status === 'locked') {
+      notify(`${pcName} locked.`, 'lock')
+    } else {
+      notify(`${pcName} unlocked.`, 'unlock')
+    }
+  }
+
+  function lockDetailPc(pcName: string) {
+    setPcs((current) => updateActionablePcs(current, [pcName], lockPc))
+    notify(`${pcName} locked.`, 'lock')
+  }
+
+  function unlockDetailPc(pcName: string) {
+    setPcs((current) => updateActionablePcs(current, [pcName], unlockPc))
+    notify(`${pcName} unlocked.`, 'unlock')
+  }
+
+  function lockAll() {
+    const updatedPcs = lockAllPcs(pcs)
+    const changedCount = countChangedPcs(pcs, updatedPcs)
+    setPcs(updatedPcs)
+    if (changedCount > 0) notify(`Locked ${formatPcCount(changedCount)}.`, 'lock')
+  }
+
+  function unlockAll() {
+    const updatedPcs = unlockAllPcs(pcs)
+    const changedCount = countChangedPcs(pcs, updatedPcs)
+    setPcs(updatedPcs)
+    if (changedCount > 0) notify(`Unlocked ${formatPcCount(changedCount)}.`, 'unlock')
   }
 
   function requestShutdown(pcName: string) {
@@ -91,13 +126,13 @@ export function DashboardPage() {
   }
 
   function sendMessage() {
-    setSentMessageCount(messageRecipientNames.length)
+    notify(`Message sent to ${formatPcCount(messageRecipientNames.length)}.`, 'message')
     setIsSendingMessage(false)
   }
 
   function grantTime(pcName: string, choice: ApprovalChoice) {
     setPcs((current) => updateActionablePcs(current, [pcName], (pc) => grantPcTime(pc, choice)))
-    setTimeGrantNotice(describeTimeGrant(pcName, choice))
+    notify(describeTimeGrant(pcName, choice), 'clock')
     setAddTimePcName(null)
   }
 
@@ -105,11 +140,14 @@ export function DashboardPage() {
     if (!pendingAction) return
     if (pendingAction.kind === 'reboot') {
       setPcs((current) => updateActionablePcs(current, [pendingAction.pcName], rebootPc))
+      notify(`${pendingAction.pcName} is rebooting.`, 'refresh')
     } else if (pendingAction.kind === 'shutdown') {
       setPcs((current) => updateActionablePcs(current, [pendingAction.pcName], shutDownPc))
+      notify(`${pendingAction.pcName} is shutting down.`, 'power')
     } else {
       setPcs((current) => updateActionablePcs(current, pendingAction.pcNames, shutDownPc))
       setSelectedNames([])
+      notify(`Shutting down ${formatPcCount(pendingAction.pcNames.length)}.`, 'power')
     }
     setPendingAction(null)
   }
@@ -148,28 +186,6 @@ export function DashboardPage() {
           </Banner>
         )}
 
-        {!isDisconnected && sentMessageCount !== null && (
-          <Banner
-            variant="info"
-            icon="message"
-            role="status"
-            onDismiss={() => setSentMessageCount(null)}
-          >
-            Message sent to {sentMessageCount} {sentMessageCount === 1 ? 'PC' : 'PCs'}.
-          </Banner>
-        )}
-
-        {!isDisconnected && timeGrantNotice !== null && (
-          <Banner
-            variant="info"
-            icon="clock"
-            role="status"
-            onDismiss={() => setTimeGrantNotice(null)}
-          >
-            {timeGrantNotice}
-          </Banner>
-        )}
-
         <PcBulkToolbar
           selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
           selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
@@ -179,8 +195,8 @@ export function DashboardPage() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onToggleSelectAll={() => setSelectedNames(toggleSelectAll(visibleNames, selectedNames))}
-          onUnlockAll={() => setPcs(unlockAllPcs)}
-          onLockAll={() => setPcs(lockAllPcs)}
+          onUnlockAll={unlockAll}
+          onLockAll={lockAll}
           onShutdownSelected={requestShutdownSelected}
           onSendMessage={() => setIsSendingMessage(true)}
           note="Statuses below are the last known values."
@@ -208,10 +224,8 @@ export function DashboardPage() {
           screenHref={getScreenHref(detailPc.name, viewMode)}
           onViewModeChange={setViewMode}
           onClose={() => setDetailPcName(null)}
-          onLock={() => setPcs((current) => updateActionablePcs(current, [detailPc.name], lockPc))}
-          onUnlock={() =>
-            setPcs((current) => updateActionablePcs(current, [detailPc.name], unlockPc))
-          }
+          onLock={() => lockDetailPc(detailPc.name)}
+          onUnlock={() => unlockDetailPc(detailPc.name)}
           onReboot={() => setPendingAction({ kind: 'reboot', pcName: detailPc.name })}
           onShutdown={() => requestShutdown(detailPc.name)}
           onAddTime={() => setAddTimePcName(detailPc.name)}

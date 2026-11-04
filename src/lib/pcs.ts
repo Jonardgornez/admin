@@ -87,6 +87,14 @@ export function unlockAllPcs(pcs: Pc[]): Pc[] {
   return pcs.map((pc) => (pc.status === 'locked' ? unlockPc(pc) : pc))
 }
 
+export function countChangedPcs(before: Pc[], after: Pc[]): number {
+  return after.filter((pc, index) => pc.status !== before[index]?.status).length
+}
+
+export function formatPcCount(count: number): string {
+  return `${count} ${count === 1 ? 'PC' : 'PCs'}`
+}
+
 export function updateActionablePcs(
   pcs: Pc[],
   pcNames: string[],

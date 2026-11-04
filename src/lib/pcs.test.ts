@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
 import type { Pc } from '../types'
 import {
+  countChangedPcs,
   countOnlinePcs,
   describeTimeGrant,
   filterPcs,
   formatMinutes,
+  formatPcCount,
   getLogsHref,
   getMessageRecipients,
   getScreenHref,
@@ -26,6 +28,26 @@ import {
   unlockPc,
   updateActionablePcs,
 } from './pcs'
+
+describe('countChangedPcs', () => {
+  it('counts only the PCs whose status changed', () => {
+    const before = pcs.slice(0, 4)
+    const inUseCount = before.filter((pc) => pc.status === 'in-use').length
+    expect(countChangedPcs(before, lockAllPcs(before))).toBe(inUseCount)
+  })
+
+  it('returns zero when nothing changed', () => {
+    expect(countChangedPcs(pcs, pcs)).toBe(0)
+  })
+})
+
+describe('formatPcCount', () => {
+  it('uses the singular for one PC and the plural otherwise', () => {
+    expect(formatPcCount(1)).toBe('1 PC')
+    expect(formatPcCount(5)).toBe('5 PCs')
+    expect(formatPcCount(0)).toBe('0 PCs')
+  })
+})
 
 describe('isPcOnline', () => {
   it('is true only for locked and in-use PCs', () => {

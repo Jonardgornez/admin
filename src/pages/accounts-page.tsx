@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../component/ui/confirm-dialog'
 import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Field, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
+import { useNotify } from '../component/ui/notification-context'
 import { accounts as initialAccounts } from '../data/accounts'
 import {
   addAccount,
@@ -21,6 +22,7 @@ import type { Account, AccountDetails } from '../types'
 type AccountFormTarget = { kind: 'add' } | { kind: 'edit'; account: Account }
 
 export function AccountsPage() {
+  const notify = useNotify()
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [searchQuery, setSearchQuery] = useState('')
   const [pendingDeleteUsername, setPendingDeleteUsername] = useState<string | null>(null)
@@ -42,27 +44,36 @@ export function AccountsPage() {
         <AccountRowActions
           account={account}
           onEdit={() => setAccountFormTarget({ kind: 'edit', account })}
-          onToggleEnabled={() => setAccounts((current) => toggleAccountEnabled(current, account.username))}
+          onToggleEnabled={() => toggleEnabled(account)}
           onDelete={() => setPendingDeleteUsername(account.username)}
         />
       ),
     },
   ]
 
+  function toggleEnabled(account: Account) {
+    setAccounts((current) => toggleAccountEnabled(current, account.username))
+    notify(`Account ${account.username} ${account.isActive ? 'disabled' : 'enabled'}.`, 'user')
+  }
+
   function confirmDelete() {
     if (pendingDeleteUsername) {
       setAccounts((current) => deleteAccount(current, pendingDeleteUsername))
+      notify(`Account ${pendingDeleteUsername} deleted.`, 'user')
     }
     setPendingDeleteUsername(null)
   }
 
   function saveAccount(details: AccountDetails) {
+    const username = details.username.trim()
     if (accountFormTarget?.kind === 'edit') {
       const originalUsername = accountFormTarget.account.username
       setAccounts((current) => updateAccount(current, originalUsername, details))
+      notify(`Account ${username} updated.`, 'user')
     } else {
       setAccounts((current) => addAccount(current, details))
       setSearchQuery('')
+      notify(`Account ${username} added.`, 'user')
     }
     setAccountFormTarget(null)
   }

@@ -6,12 +6,15 @@ import { Button } from '../component/ui/button'
 import { Checkbox, RadioOption } from '../component/ui/choice'
 import { Field, TextArea, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
+import { useNotify } from '../component/ui/notification-context'
 
 export function SettingsPage() {
+  const notify = useNotify()
+
   return (
     <>
       <PageHeader title="Settings">
-        <Button variant="primary">
+        <Button variant="primary" onClick={() => notify('Settings saved.')}>
           <Icon name="check" />
           Save changes
         </Button>
@@ -39,7 +42,11 @@ export function SettingsPage() {
             Changing the password signs out every open console session.
           </p>
           <div>
-            <Button variant="secondary" type="button">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => notify('Admin password changed.', 'lock')}
+            >
               Change password
             </Button>
           </div>

@@ -10,6 +10,7 @@ import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Checkbox } from '../component/ui/choice'
 import { Icon } from '../component/ui/icon'
+import { useNotify } from '../component/ui/notification-context'
 import { pcs } from '../data/pcs'
 import { isPcOff } from '../lib/pcs'
 import type { ViewMode } from '../types'
@@ -32,6 +33,7 @@ export function ViewScreenPage() {
   const { pcName } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const notify = useNotify()
   const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true)
   const [isControlling, setIsControlling] = useState(false)
 
@@ -89,7 +91,11 @@ export function ViewScreenPage() {
           />
           Auto-refresh every 5 s
         </label>
-        <Button variant="secondary" disabled={isOffline} onClick={() => undefined}>
+        <Button
+          variant="secondary"
+          disabled={isOffline}
+          onClick={() => notify(`Screenshot of ${pc.name} saved.`, 'download')}
+        >
           <Icon name="download" />
           Save screenshot
         </Button>
