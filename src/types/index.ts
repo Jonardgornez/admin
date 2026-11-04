@@ -46,3 +46,10 @@ export interface SessionLog {
   durationMinutes: number
   endedBy: string | null
 }
+
+export type ApprovalChoice = { mode: 'time-limit'; minutes: number } | { mode: 'open-time' }
+
+export type PendingPcAction =
+  | { kind: 'shutdown'; pcName: string }
+  | { kind: 'shutdown-selected'; pcNames: string[] }
+  | { kind: 'reboot'; pcName: string }

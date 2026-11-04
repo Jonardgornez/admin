@@ -1,0 +1,58 @@
+import { getScreenHref } from '../../lib/pcs'
+import type { Pc, ViewMode } from '../../types'
+import { PcCard } from './pc-card'
+
+interface PcGridProps {
+  pcs: Pc[]
+  selectedNames: string[]
+  isDisabled: boolean
+  viewMode: ViewMode
+  emptyMessage: string
+  onToggleSelect: (pcName: string) => void
+  onOpenDetail: (pcName: string) => void
+  onToggleLock: (pcName: string) => void
+  onViewScreen: (href: string) => void
+  onShutdown: (pcName: string) => void
+}
+
+export function PcGrid({
+  pcs,
+  selectedNames,
+  isDisabled,
+  viewMode,
+  emptyMessage,
+  onToggleSelect,
+  onOpenDetail,
+  onToggleLock,
+  onViewScreen,
+  onShutdown,
+}: PcGridProps) {
+  return (
+    <section aria-labelledby="pc-grid-title" className="min-w-0 grow-999 basis-lg">
+      <h2 id="pc-grid-title" className="sr-only">
+        PCs
+      </h2>
+      {pcs.length === 0 ? (
+        <p className="m-0 rounded-lg border border-border bg-surface-200 p-6 text-center text-ink-muted">
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(var(--spacing-pc-card),100%),1fr))] gap-4">
+          {pcs.map((pc) => (
+            <PcCard
+              key={pc.name}
+              pc={pc}
+              isSelected={selectedNames.includes(pc.name)}
+              isDisabled={isDisabled}
+              onToggleSelect={() => onToggleSelect(pc.name)}
+              onOpenDetail={() => onOpenDetail(pc.name)}
+              onToggleLock={() => onToggleLock(pc.name)}
+              onViewScreen={() => onViewScreen(getScreenHref(pc.name, viewMode))}
+              onShutdown={() => onShutdown(pc.name)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}

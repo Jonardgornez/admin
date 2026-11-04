@@ -9,7 +9,7 @@ const cellVariants = cva('', {
       false: 'text-left',
     },
     isMono: {
-      true: 'font-mono text-sm',
+      true: 'font-mono text-sm whitespace-nowrap',
       false: '',
     },
   },

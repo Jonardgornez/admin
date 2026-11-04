@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router'
-import { Icon, type IconName } from '../ui/icon'
+import { isNavItemActive } from '../../lib/navigation'
+import { Icon,type IconName } from '../ui/icon'
 
 interface NavItem {
   label: string
@@ -15,10 +16,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Logs and reports', to: '/logs', icon: 'clock', activePaths: ['/logs'] },
   { label: 'Settings', to: '/settings', icon: 'info', activePaths: ['/settings'] },
 ]
-
-function isNavItemActive(item: NavItem, pathname: string): boolean {
-  return item.activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))
-}
 
 export function Sidebar() {
   const { pathname } = useLocation()

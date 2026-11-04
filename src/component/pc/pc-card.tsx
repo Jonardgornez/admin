@@ -82,8 +82,9 @@ export function PcCard({
         <h3 className="m-0">
           <button
             type="button"
+            disabled={isDisabled}
             onClick={onOpenDetail}
-            className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-lg font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="cursor-pointer rounded-sm bg-transparent p-0 font-mono disabled:cursor-not-allowed text-lg font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {pc.name}
           </button>
@@ -91,6 +92,7 @@ export function PcCard({
         <Checkbox
           aria-label={`Select ${pc.name}`}
           checked={isSelected}
+          disabled={isDisabled}
           onChange={onToggleSelect}
         />
       </header>
@@ -110,7 +112,7 @@ export function PcCard({
           isIconOnly
           title={lockLabel}
           aria-label={lockLabel}
-          disabled={areActionsDisabled}
+          disabled={areActionsDisabled || pc.status === 'rebooting'}
           onClick={onToggleLock}
         >
           <Icon name={isInUse ? 'lock' : 'unlock'} />

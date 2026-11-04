@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { isPcOff } from '../../lib/pcs'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
@@ -15,6 +16,7 @@ interface PcDetailPanelProps {
   viewMode: ViewMode
   onViewModeChange: (viewMode: ViewMode) => void
   screenHref: string
+  ref?: Ref<HTMLElement>
 }
 
 interface DetailRowProps {
@@ -42,6 +44,7 @@ export function PcDetailPanel({
   viewMode,
   onViewModeChange,
   screenHref,
+  ref,
 }: PcDetailPanelProps) {
   const titleId = `detail-title-${pc.name}`
   const isBusy = isPcOff(pc) || pc.status === 'rebooting'
@@ -49,6 +52,7 @@ export function PcDetailPanel({
 
   return (
     <aside
+      ref={ref}
       aria-labelledby={titleId}
       className="flex max-w-detail grow basis-80 flex-col gap-4 rounded-lg border border-border-strong bg-surface-200 p-5"
     >
