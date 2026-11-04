@@ -1,2 +1,6 @@
 - 2026-08-19 14:09 → C:\Users\sorio\AppData\Local\Temp\claude\c--Users-sorio-Videos-claude-code-setup-claude-code-setup-1\b712d32d-247d-4ac1-9881-5957d2892c23\scratchpad\extract.js
 - 2026-11-04 13:36 → C:\Users\sorio\Desktop\client and server\admin\.gitignore
+- 2026-11-04 13:37 → C:\Users\sorio\Desktop\client and server\admin\vite.config.ts
+- 2026-11-04 13:37 → C:\Users\sorio\Desktop\client and server\admin\src\index.css
+- 2026-11-04 13:37 → C:\Users\sorio\Desktop\client and server\admin\package.json
+- 2026-11-04 13:38 → C:\Users\sorio\Desktop\client and server\admin\index.html
