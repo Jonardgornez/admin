@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AccountFormDialog } from '../component/account/account-form-dialog'
 import { AccountRowActions } from '../component/account/account-row-actions'
 import { AccountStatus } from '../component/account/account-status'
 import { PageHeader } from '../component/layout/page-header'
@@ -8,13 +9,25 @@ import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Field, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
 import { accounts as initialAccounts } from '../data/accounts'
-import { deleteAccount, filterAccounts, toggleAccountEnabled } from '../lib/accounts'
-import type { Account } from '../types'
+import { pcs } from '../data/pcs'
+import {
+  addAccount,
+  deleteAccount,
+  filterAccounts,
+  toggleAccountEnabled,
+  updateAccount,
+} from '../lib/accounts'
+import type { Account, AccountDetails } from '../types'
+
+const pcNames = pcs.map((pc) => pc.name)
+
+type AccountFormTarget = { kind: 'add' } | { kind: 'edit'; account: Account }
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [searchQuery, setSearchQuery] = useState('')
   const [pendingDeleteUsername, setPendingDeleteUsername] = useState<string | null>(null)
+  const [accountFormTarget, setAccountFormTarget] = useState<AccountFormTarget | null>(null)
 
   const columns: DataTableColumn<Account>[] = [
     { key: 'username', label: 'Username', isMono: true, render: (account) => account.username },
@@ -37,6 +50,7 @@ export function AccountsPage() {
       render: (account) => (
         <AccountRowActions
           account={account}
+          onEdit={() => setAccountFormTarget({ kind: 'edit', account })}
           onToggleEnabled={() => setAccounts((current) => toggleAccountEnabled(current, account.username))}
           onDelete={() => setPendingDeleteUsername(account.username)}
         />
@@ -51,13 +65,24 @@ export function AccountsPage() {
     setPendingDeleteUsername(null)
   }
 
+  function saveAccount(details: AccountDetails) {
+    if (accountFormTarget?.kind === 'edit') {
+      const originalUsername = accountFormTarget.account.username
+      setAccounts((current) => updateAccount(current, originalUsername, details))
+    } else {
+      setAccounts((current) => addAccount(current, details))
+      setSearchQuery('')
+    }
+    setAccountFormTarget(null)
+  }
+
   return (
     <>
       <PageHeader
         title="Accounts"
         description="An account works only on its PC unless you allow any PC."
       >
-        <Button variant="primary">
+        <Button variant="primary" onClick={() => setAccountFormTarget({ kind: 'add' })}>
           <Icon name="user" />
           Add account
         </Button>
@@ -77,9 +102,15 @@ export function AccountsPage() {
         minWidthClassName="min-w-190"
         emptyMessage="No accounts match your search."
       />
-      <p className="m-0 text-xs text-ink-subtle">
-        Reset password sets a new one; the old password cannot be shown.
-      </p>
+      {accountFormTarget && (
+        <AccountFormDialog
+          account={accountFormTarget.kind === 'edit' ? accountFormTarget.account : undefined}
+          accounts={accounts}
+          pcNames={pcNames}
+          onSave={saveAccount}
+          onCancel={() => setAccountFormTarget(null)}
+        />
+      )}
       <ConfirmDialog
         isOpen={pendingDeleteUsername !== null}
         title={`Delete ${pendingDeleteUsername ?? ''}?`}

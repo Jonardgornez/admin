@@ -4,20 +4,18 @@ import { Icon } from '../ui/icon'
 
 interface AccountRowActionsProps {
   account: Account
+  onEdit: () => void
   onToggleEnabled: () => void
   onDelete: () => void
 }
 
-export function AccountRowActions({ account, onToggleEnabled, onDelete }: AccountRowActionsProps) {
+export function AccountRowActions({ account, onEdit, onToggleEnabled, onDelete }: AccountRowActionsProps) {
   const deleteLabel = `Delete ${account.username}`
 
   return (
     <span className="inline-flex justify-end gap-1">
-      <Button variant="ghost" size="sm">
+      <Button variant="ghost" size="sm" aria-label={`Edit ${account.username}`} onClick={onEdit}>
         Edit
-      </Button>
-      <Button variant="ghost" size="sm">
-        Reset password
       </Button>
       <Button variant="ghost" size="sm" onClick={onToggleEnabled}>
         {account.isActive ? 'Disable' : 'Enable'}
