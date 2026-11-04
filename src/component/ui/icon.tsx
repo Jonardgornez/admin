@@ -20,6 +20,7 @@ const ICONS = {
   plug: ['M9 3v5', 'M15 3v5', 'M7 8h10v4a5 5 0 0 1-10 0z', 'M12 17v4'],
   user: ['M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M4 20a8 8 0 0 1 16 0'],
   download: ['M12 4v11', 'M7 11l5 5 5-5', 'M5 20h14'],
+  panel: ['M3 5h18v14H3z', 'M9 5v14'],
 } as const
 
 export type IconName = keyof typeof ICONS
