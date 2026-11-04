@@ -10,7 +10,6 @@ interface SendMessageDialogProps {
 
 export function SendMessageDialog({ recipientNames, onSend, onCancel }: SendMessageDialogProps) {
   const [messageText, setMessageText] = useState('')
-  const hasRecipients = recipientNames.length > 0
 
   return (
     <ConfirmDialog
@@ -18,27 +17,20 @@ export function SendMessageDialog({ recipientNames, onSend, onCancel }: SendMess
       title="Send message"
       confirmLabel="Send"
       confirmVariant="primary"
-      isConfirmDisabled={!hasRecipients || messageText.trim() === ''}
+      isConfirmDisabled={messageText.trim() === ''}
       onConfirm={onSend}
       onCancel={onCancel}
     >
       <div className="flex flex-col gap-4">
         <p className="m-0">
-          {hasRecipients ? (
-            <>
-              <span className="font-semibold">To: </span>
-              <span className="font-mono text-sm">{recipientNames.join(', ')}</span>
-            </>
-          ) : (
-            'No PCs are online, so there is nobody to send a message to.'
-          )}
+          <span className="font-semibold">To: </span>
+          <span className="font-mono text-sm">{recipientNames.join(', ')}</span>
         </p>
         <Field label="Message" htmlFor="message-text">
           <TextArea
             id="message-text"
             rows={3}
             value={messageText}
-            disabled={!hasRecipients}
             onChange={(event) => setMessageText(event.target.value)}
           />
         </Field>

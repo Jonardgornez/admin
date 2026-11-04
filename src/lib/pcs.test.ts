@@ -8,6 +8,7 @@ import {
   formatMinutes,
   getMessageRecipients,
   getScreenHref,
+  getSelectionState,
   getTimeLeftLabel,
   grantPcTime,
   isPcActionable,
@@ -19,6 +20,7 @@ import {
   rebootPc,
   shutDownPc,
   togglePcLock,
+  toggleSelectAll,
   unlockAllPcs,
   unlockPc,
   updateActionablePcs,
@@ -49,17 +51,50 @@ describe('getMessageRecipients', () => {
     expect(getMessageRecipients(list, ['A', 'C', 'D'])).toEqual(['A'])
   })
 
-  it('falls back to all online PCs when nothing is selected', () => {
-    expect(getMessageRecipients(list, [])).toEqual(['A', 'B'])
+  it('returns nothing when nothing is selected', () => {
+    expect(getMessageRecipients(list, [])).toEqual([])
   })
 
-  it('falls back to all online PCs when no selected PC is online', () => {
-    expect(getMessageRecipients(list, ['C', 'D'])).toEqual(['A', 'B'])
+  it('returns nothing when no selected PC is online', () => {
+    expect(getMessageRecipients(list, ['C', 'D'])).toEqual([])
   })
 
   it('returns nothing when no PC is online', () => {
     const offlineList: Pc[] = [{ name: 'C', status: 'offline', lastSeen: '09:00' }]
     expect(getMessageRecipients(offlineList, ['C'])).toEqual([])
+  })
+})
+
+describe('getSelectionState', () => {
+  it('reports all, some or none of the visible PCs', () => {
+    expect(getSelectionState(['A', 'B'], ['A', 'B'])).toBe('all')
+    expect(getSelectionState(['A', 'B'], ['A'])).toBe('some')
+    expect(getSelectionState(['A', 'B'], [])).toBe('none')
+  })
+
+  it('ignores selected PCs that are not visible', () => {
+    expect(getSelectionState(['A'], ['B'])).toBe('none')
+    expect(getSelectionState(['A'], ['A', 'B'])).toBe('all')
+  })
+
+  it('is none when no PCs are visible', () => {
+    expect(getSelectionState([], ['A'])).toBe('none')
+  })
+})
+
+describe('toggleSelectAll', () => {
+  it('selects every visible PC when none or some are selected', () => {
+    expect(toggleSelectAll(['A', 'B'], [])).toEqual(['A', 'B'])
+    expect(toggleSelectAll(['A', 'B'], ['B'])).toEqual(['B', 'A'])
+  })
+
+  it('clears the visible PCs when all are selected', () => {
+    expect(toggleSelectAll(['A', 'B'], ['A', 'B'])).toEqual([])
+  })
+
+  it('keeps selected PCs that are not visible', () => {
+    expect(toggleSelectAll(['A'], ['C'])).toEqual(['C', 'A'])
+    expect(toggleSelectAll(['A'], ['A', 'C'])).toEqual(['C'])
   })
 })
 

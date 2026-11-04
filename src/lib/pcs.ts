@@ -1,4 +1,4 @@
-import type { ApprovalChoice, Pc, TimeUnit, ViewMode } from '../types'
+import type { ApprovalChoice, Pc, SelectionState, TimeUnit, ViewMode } from '../types'
 
 const MINUTES_PER_HOUR = 60
 
@@ -11,9 +11,22 @@ export function countOnlinePcs(pcs: Pc[]): number {
 }
 
 export function getMessageRecipients(pcs: Pc[], selectedNames: string[]): string[] {
-  const onlineNames = pcs.filter(isPcOnline).map((pc) => pc.name)
-  const selectedOnlineNames = onlineNames.filter((name) => selectedNames.includes(name))
-  return selectedOnlineNames.length > 0 ? selectedOnlineNames : onlineNames
+  return pcs
+    .filter((pc) => isPcOnline(pc) && selectedNames.includes(pc.name))
+    .map((pc) => pc.name)
+}
+
+export function getSelectionState(visibleNames: string[], selectedNames: string[]): SelectionState {
+  const selectedVisibleCount = visibleNames.filter((name) => selectedNames.includes(name)).length
+  if (selectedVisibleCount === 0) return 'none'
+  return selectedVisibleCount === visibleNames.length ? 'all' : 'some'
+}
+
+export function toggleSelectAll(visibleNames: string[], selectedNames: string[]): string[] {
+  if (getSelectionState(visibleNames, selectedNames) === 'all') {
+    return selectedNames.filter((name) => !visibleNames.includes(name))
+  }
+  return [...new Set([...selectedNames, ...visibleNames])]
 }
 
 export function filterPcs(pcs: Pc[], query: string): Pc[] {

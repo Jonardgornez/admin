@@ -15,6 +15,8 @@ export interface Pc {
 
 export type TimeUnit = 'minutes' | 'hours'
 
+export type SelectionState = 'all' | 'some' | 'none'
+
 export interface Account {
   username: string
   assignedPc: string

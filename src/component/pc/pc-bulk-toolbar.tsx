@@ -1,12 +1,18 @@
+import type { SelectionState } from '../../types'
 import { Button } from '../ui/button'
+import { Checkbox } from '../ui/choice'
 import { Field, TextInput } from '../ui/field'
 import { Icon } from '../ui/icon'
 
 interface PcBulkToolbarProps {
+  selectionState: SelectionState
   selectedCount: number
+  messageRecipientCount: number
+  hasVisiblePcs: boolean
   isDisabled: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
+  onToggleSelectAll: () => void
   onUnlockAll: () => void
   onLockAll: () => void
   onShutdownSelected: () => void
@@ -14,26 +20,42 @@ interface PcBulkToolbarProps {
   note?: string
 }
 
+function withCount(label: string, count: number): string {
+  return count > 0 ? `${label} (${count})` : label
+}
+
 export function PcBulkToolbar({
+  selectionState,
   selectedCount,
+  messageRecipientCount,
+  hasVisiblePcs,
   isDisabled,
   searchQuery,
   onSearchChange,
+  onToggleSelectAll,
   onUnlockAll,
   onLockAll,
   onShutdownSelected,
   onSendMessage,
   note,
 }: PcBulkToolbarProps) {
-  const shutdownLabel =
-    selectedCount > 0 ? `Shut down selected (${selectedCount})` : 'Shut down selected'
-
   return (
     <div
       role="toolbar"
       aria-label="All PCs"
       className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-surface-200 p-3"
     >
+      <label className="flex h-control-md items-center gap-2 pr-2 text-ink">
+        <Checkbox
+          ref={(checkbox) => {
+            if (checkbox) checkbox.indeterminate = selectionState === 'some'
+          }}
+          checked={selectionState === 'all'}
+          disabled={isDisabled || !hasVisiblePcs}
+          onChange={onToggleSelectAll}
+        />
+        Select all
+      </label>
       <Button variant="primary" disabled={isDisabled} onClick={onUnlockAll}>
         <Icon name="unlock" />
         Unlock all
@@ -48,11 +70,15 @@ export function PcBulkToolbar({
         onClick={onShutdownSelected}
       >
         <Icon name="power" />
-        {shutdownLabel}
+        {withCount('Shut down selected', selectedCount)}
       </Button>
-      <Button variant="secondary" disabled={isDisabled} onClick={onSendMessage}>
+      <Button
+        variant="secondary"
+        disabled={isDisabled || messageRecipientCount === 0}
+        onClick={onSendMessage}
+      >
         <Icon name="message" />
-        Send message
+        {withCount('Send message', messageRecipientCount)}
       </Button>
       {isDisabled ? (
         note && <span className="self-center px-2 text-xs text-ink-muted">{note}</span>

@@ -19,6 +19,7 @@ import {
   filterPcs,
   getMessageRecipients,
   getScreenHref,
+  getSelectionState,
   grantPcTime,
   isPcActionable,
   lockAllPcs,
@@ -26,6 +27,7 @@ import {
   rebootPc,
   shutDownPc,
   togglePcLock,
+  toggleSelectAll,
   unlockAllPcs,
   unlockPc,
   updateActionablePcs,
@@ -34,13 +36,12 @@ import type { ApprovalChoice, Pc, PendingPcAction, ViewMode } from '../types'
 
 const DISCONNECTED_STATE = 'disconnected'
 const DISCONNECTED_LAST_SEEN = '10:44'
-const INITIAL_PC_NAME = 'PC-05'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [pcs, setPcs] = useState<Pc[]>(initialPcs)
-  const [selectedNames, setSelectedNames] = useState<string[]>([INITIAL_PC_NAME])
+  const [selectedNames, setSelectedNames] = useState<string[]>([])
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('notified')
@@ -60,6 +61,7 @@ export function DashboardPage() {
   const visiblePcs = isDisconnected
     ? pcs.map((pc) => ({ ...pc, lastSeen: DISCONNECTED_LAST_SEEN }))
     : filterPcs(pcs, searchQuery)
+  const visibleNames = visiblePcs.map((pc) => pc.name)
 
   function retryConnection() {
     setSearchParams((current) => {
@@ -168,10 +170,14 @@ export function DashboardPage() {
       )}
 
       <PcBulkToolbar
+        selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
         selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
+        messageRecipientCount={isDisconnected ? 0 : messageRecipientNames.length}
+        hasVisiblePcs={visiblePcs.length > 0}
         isDisabled={isDisconnected}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onToggleSelectAll={() => setSelectedNames(toggleSelectAll(visibleNames, selectedNames))}
         onUnlockAll={() => setPcs(unlockAllPcs)}
         onLockAll={() => setPcs(lockAllPcs)}
         onShutdownSelected={requestShutdownSelected}
