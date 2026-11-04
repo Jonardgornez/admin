@@ -1,5 +1,5 @@
 import type { Ref } from 'react'
-import { isPcOff } from '../../lib/pcs'
+import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
 import { RadioOption } from '../ui/choice'
@@ -13,6 +13,7 @@ interface PcDetailPanelProps {
   onUnlock: () => void
   onReboot: () => void
   onShutdown: () => void
+  onAddTime: () => void
   viewMode: ViewMode
   onViewModeChange: (viewMode: ViewMode) => void
   screenHref: string
@@ -41,6 +42,7 @@ export function PcDetailPanel({
   onUnlock,
   onReboot,
   onShutdown,
+  onAddTime,
   viewMode,
   onViewModeChange,
   screenHref,
@@ -78,10 +80,15 @@ export function PcDetailPanel({
       <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
         <DetailRow label="User" value={pc.user} />
         <DetailRow label="Time used" value={pc.timeUsed} />
+        <DetailRow label="Time left" value={getTimeLeftLabel(pc)} />
         <DetailRow label="Last seen" value={pc.lastSeen} />
         <DetailRow label="IP address" value={pc.ipAddress} isMono />
       </dl>
       <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" disabled={isBusy} className="col-span-2" onClick={onAddTime}>
+          <Icon name="clock" />
+          Add time
+        </Button>
         <Button variant="secondary" disabled={isBusy || pc.status === 'in-use'} onClick={onUnlock}>
           <Icon name="unlock" />
           Unlock

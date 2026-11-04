@@ -12,6 +12,7 @@ interface PcGridProps {
   onOpenDetail: (pcName: string) => void
   onToggleLock: (pcName: string) => void
   onViewScreen: (href: string) => void
+  onAddTime: (pcName: string) => void
   onShutdown: (pcName: string) => void
 }
 
@@ -25,6 +26,7 @@ export function PcGrid({
   onOpenDetail,
   onToggleLock,
   onViewScreen,
+  onAddTime,
   onShutdown,
 }: PcGridProps) {
   return (
@@ -48,6 +50,7 @@ export function PcGrid({
               onOpenDetail={() => onOpenDetail(pc.name)}
               onToggleLock={() => onToggleLock(pc.name)}
               onViewScreen={() => onViewScreen(getScreenHref(pc.name, viewMode))}
+              onAddTime={() => onAddTime(pc.name)}
               onShutdown={() => onShutdown(pc.name)}
             />
           ))}

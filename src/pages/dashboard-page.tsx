@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { AdminUserBlock } from '../component/layout/admin-user-block'
 import { PageHeader } from '../component/layout/page-header'
+import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcConfirmDialog } from '../component/pc/pc-confirm-dialog'
 import { PcDetailPanel } from '../component/pc/pc-detail-panel'
@@ -14,9 +15,11 @@ import { loginRequests } from '../data/requests'
 import { pcs as initialPcs } from '../data/pcs'
 import {
   countOnlinePcs,
+  describeTimeGrant,
   filterPcs,
   getMessageRecipients,
   getScreenHref,
+  grantPcTime,
   isPcActionable,
   lockAllPcs,
   lockPc,
@@ -27,7 +30,7 @@ import {
   unlockPc,
   updateActionablePcs,
 } from '../lib/pcs'
-import type { Pc, PendingPcAction, ViewMode } from '../types'
+import type { ApprovalChoice, Pc, PendingPcAction, ViewMode } from '../types'
 
 const DISCONNECTED_STATE = 'disconnected'
 const DISCONNECTED_LAST_SEEN = '10:44'
@@ -44,10 +47,13 @@ export function DashboardPage() {
   const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [sentMessageCount, setSentMessageCount] = useState<number | null>(null)
+  const [addTimePcName, setAddTimePcName] = useState<string | null>(null)
+  const [timeGrantNotice, setTimeGrantNotice] = useState<string | null>(null)
   const detailPanelRef = useRef<HTMLElement>(null)
 
   const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
+  const addTimePc = pcs.find((pc) => pc.name === addTimePcName)
   const actionableSelectedNames = pcs
     .filter((pc) => selectedNames.includes(pc.name) && isPcActionable(pc))
     .map((pc) => pc.name)
@@ -91,6 +97,12 @@ export function DashboardPage() {
   function sendMessage() {
     setSentMessageCount(messageRecipientNames.length)
     setIsSendingMessage(false)
+  }
+
+  function grantTime(pcName: string, choice: ApprovalChoice) {
+    setPcs((current) => updateActionablePcs(current, [pcName], (pc) => grantPcTime(pc, choice)))
+    setTimeGrantNotice(describeTimeGrant(pcName, choice))
+    setAddTimePcName(null)
   }
 
   function confirmPendingAction() {
@@ -150,6 +162,17 @@ export function DashboardPage() {
         </Banner>
       )}
 
+      {!isDisconnected && timeGrantNotice !== null && (
+        <Banner
+          variant="info"
+          icon="clock"
+          role="status"
+          onDismiss={() => setTimeGrantNotice(null)}
+        >
+          {timeGrantNotice}
+        </Banner>
+      )}
+
       <PcBulkToolbar
         selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
         isDisabled={isDisconnected}
@@ -173,6 +196,7 @@ export function DashboardPage() {
           onOpenDetail={openDetail}
           onToggleLock={toggleLock}
           onViewScreen={(href) => navigate(href)}
+          onAddTime={setAddTimePcName}
           onShutdown={requestShutdown}
         />
         {!isDisconnected && detailPc && (
@@ -189,6 +213,7 @@ export function DashboardPage() {
             }
             onReboot={() => setPendingAction({ kind: 'reboot', pcName: detailPc.name })}
             onShutdown={() => requestShutdown(detailPc.name)}
+            onAddTime={() => setAddTimePcName(detailPc.name)}
           />
         )}
       </div>
@@ -199,6 +224,14 @@ export function DashboardPage() {
         onConfirm={confirmPendingAction}
         onCancel={() => setPendingAction(null)}
       />
+
+      {addTimePc && (
+        <AddTimeDialog
+          pc={addTimePc}
+          onConfirm={(choice) => grantTime(addTimePc.name, choice)}
+          onCancel={() => setAddTimePcName(null)}
+        />
+      )}
 
       {isSendingMessage && (
         <SendMessageDialog

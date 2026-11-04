@@ -1,5 +1,5 @@
 import { cva } from 'class-variance-authority'
-import { isPcOff } from '../../lib/pcs'
+import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
 import type { Pc } from '../../types'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/choice'
@@ -41,6 +41,7 @@ interface PcCardProps {
   onOpenDetail: () => void
   onToggleLock: () => void
   onViewScreen: () => void
+  onAddTime: () => void
   onShutdown: () => void
 }
 
@@ -67,6 +68,7 @@ export function PcCard({
   onOpenDetail,
   onToggleLock,
   onViewScreen,
+  onAddTime,
   onShutdown,
 }: PcCardProps) {
   const isOff = isPcOff(pc)
@@ -74,6 +76,7 @@ export function PcCard({
   const areActionsDisabled = isDisabled || isOff
   const lockLabel = `${isInUse ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
+  const addTimeLabel = `Add time to ${pc.name}`
   const shutdownLabel = `Shut down ${pc.name}`
 
   return (
@@ -103,6 +106,7 @@ export function PcCard({
       <dl className="m-0 flex flex-col gap-0.5">
         <PcMetaRow label="User" value={pc.user} isOff={isOff} />
         <PcMetaRow label="Time used" value={pc.timeUsed} isOff={isOff} />
+        <PcMetaRow label="Time left" value={getTimeLeftLabel(pc)} isOff={isOff} />
         <PcMetaRow label="Last seen" value={pc.lastSeen} isOff={isOff} />
       </dl>
       <footer className="flex gap-1 border-t border-border pt-2">
@@ -127,6 +131,17 @@ export function PcCard({
           onClick={onViewScreen}
         >
           <Icon name="eye" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          title={addTimeLabel}
+          aria-label={addTimeLabel}
+          disabled={areActionsDisabled || pc.status === 'rebooting'}
+          onClick={onAddTime}
+        >
+          <Icon name="clock" />
         </Button>
         <Button
           variant="danger"
