@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
+import { Button } from './button'
 import { Icon, type IconName } from './icon'
 
 const bannerVariants = cva(
@@ -39,9 +40,18 @@ interface BannerProps
     VariantProps<typeof bannerVariants> {
   icon: IconName
   title?: string
+  onDismiss?: () => void
 }
 
-export function Banner({ className, variant, icon, title, children, ...props }: BannerProps) {
+export function Banner({
+  className,
+  variant,
+  icon,
+  title,
+  onDismiss,
+  children,
+  ...props
+}: BannerProps) {
   return (
     <div className={cn(bannerVariants({ variant }), className)} {...props}>
       <Icon name={icon} size={20} className={bannerIconVariants({ variant })} />
@@ -49,6 +59,18 @@ export function Banner({ className, variant, icon, title, children, ...props }: 
         {title && <p className="m-0 text-base font-semibold">{title}</p>}
         <p className={cn('m-0 text-base', title && 'mt-0.5')}>{children}</p>
       </div>
+      {onDismiss && (
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label="Dismiss"
+          title="Dismiss"
+          onClick={onDismiss}
+        >
+          <Icon name="x" />
+        </Button>
+      )}
     </div>
   )
 }

@@ -1,7 +1,17 @@
 import type { Pc, ViewMode } from '../types'
 
+export function isPcOnline(pc: Pc): boolean {
+  return pc.status === 'locked' || pc.status === 'in-use'
+}
+
 export function countOnlinePcs(pcs: Pc[]): number {
-  return pcs.filter((pc) => pc.status === 'locked' || pc.status === 'in-use').length
+  return pcs.filter(isPcOnline).length
+}
+
+export function getMessageRecipients(pcs: Pc[], selectedNames: string[]): string[] {
+  const onlineNames = pcs.filter(isPcOnline).map((pc) => pc.name)
+  const selectedOnlineNames = onlineNames.filter((name) => selectedNames.includes(name))
+  return selectedOnlineNames.length > 0 ? selectedOnlineNames : onlineNames
 }
 
 export function filterPcs(pcs: Pc[], query: string): Pc[] {

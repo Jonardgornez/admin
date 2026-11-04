@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const inputVariants = cva(
-  'h-control-md w-full rounded-md border bg-surface-200 px-3 text-base text-ink placeholder:text-ink-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-disabled',
+  'w-full rounded-md border bg-surface-200 px-3 text-base text-ink placeholder:text-ink-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-disabled',
   {
     variants: {
       isMono: {
@@ -65,7 +65,7 @@ interface TextInputProps
 export function TextInput({ className, isMono, hasError, ...props }: TextInputProps) {
   return (
     <input
-      className={cn(inputVariants({ isMono, hasError }), className)}
+      className={cn(inputVariants({ isMono, hasError }), 'h-control-md', className)}
       aria-invalid={hasError ? true : undefined}
       {...props}
     />
@@ -79,7 +79,7 @@ interface TextAreaProps
 export function TextArea({ className, isMono, hasError, ...props }: TextAreaProps) {
   return (
     <textarea
-      className={cn(inputVariants({ isMono, hasError }), 'h-auto py-2', className)}
+      className={cn(inputVariants({ isMono, hasError }), 'py-2', className)}
       aria-invalid={hasError ? true : undefined}
       {...props}
     />

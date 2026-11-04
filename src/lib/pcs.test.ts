@@ -4,9 +4,11 @@ import type { Pc } from '../types'
 import {
   countOnlinePcs,
   filterPcs,
+  getMessageRecipients,
   getScreenHref,
   isPcActionable,
   isPcOff,
+  isPcOnline,
   lockAllPcs,
   lockPc,
   rebootPc,
@@ -16,6 +18,45 @@ import {
   unlockPc,
   updateActionablePcs,
 } from './pcs'
+
+describe('isPcOnline', () => {
+  it('is true only for locked and in-use PCs', () => {
+    const onlineByStatus = (['locked', 'in-use', 'offline', 'shutdown', 'rebooting'] as const).map(
+      (status) => isPcOnline({ name: 'A', status, lastSeen: 'Now' }),
+    )
+    expect(onlineByStatus).toEqual([true, true, false, false, false])
+  })
+})
+
+describe('getMessageRecipients', () => {
+  const list: Pc[] = [
+    { name: 'A', status: 'locked', lastSeen: 'Now' },
+    { name: 'B', status: 'in-use', lastSeen: 'Now' },
+    { name: 'C', status: 'offline', lastSeen: '09:00' },
+    { name: 'D', status: 'rebooting', lastSeen: '10:00' },
+  ]
+
+  it('returns the selected online PCs', () => {
+    expect(getMessageRecipients(list, ['B'])).toEqual(['B'])
+  })
+
+  it('leaves out selected PCs that are not online', () => {
+    expect(getMessageRecipients(list, ['A', 'C', 'D'])).toEqual(['A'])
+  })
+
+  it('falls back to all online PCs when nothing is selected', () => {
+    expect(getMessageRecipients(list, [])).toEqual(['A', 'B'])
+  })
+
+  it('falls back to all online PCs when no selected PC is online', () => {
+    expect(getMessageRecipients(list, ['C', 'D'])).toEqual(['A', 'B'])
+  })
+
+  it('returns nothing when no PC is online', () => {
+    const offlineList: Pc[] = [{ name: 'C', status: 'offline', lastSeen: '09:00' }]
+    expect(getMessageRecipients(offlineList, ['C'])).toEqual([])
+  })
+})
 
 describe('countOnlinePcs', () => {
   it('counts 8 of 12 for the sample data', () => {

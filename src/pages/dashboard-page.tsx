@@ -6,6 +6,7 @@ import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcConfirmDialog } from '../component/pc/pc-confirm-dialog'
 import { PcDetailPanel } from '../component/pc/pc-detail-panel'
 import { PcGrid } from '../component/pc/pc-grid'
+import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { Banner } from '../component/ui/banner'
 import { Button, ButtonLink } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
@@ -14,6 +15,7 @@ import { pcs as initialPcs } from '../data/pcs'
 import {
   countOnlinePcs,
   filterPcs,
+  getMessageRecipients,
   getScreenHref,
   isPcActionable,
   lockAllPcs,
@@ -40,6 +42,8 @@ export function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('notified')
   const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
+  const [sentMessageCount, setSentMessageCount] = useState<number | null>(null)
   const detailPanelRef = useRef<HTMLElement>(null)
 
   const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
@@ -47,6 +51,7 @@ export function DashboardPage() {
   const actionableSelectedNames = pcs
     .filter((pc) => selectedNames.includes(pc.name) && isPcActionable(pc))
     .map((pc) => pc.name)
+  const messageRecipientNames = getMessageRecipients(pcs, selectedNames)
   const visiblePcs = isDisconnected
     ? pcs.map((pc) => ({ ...pc, lastSeen: DISCONNECTED_LAST_SEEN }))
     : filterPcs(pcs, searchQuery)
@@ -81,6 +86,11 @@ export function DashboardPage() {
   function openDetail(pcName: string) {
     setDetailPcName(pcName)
     requestAnimationFrame(() => detailPanelRef.current?.scrollIntoView({ block: 'nearest' }))
+  }
+
+  function sendMessage() {
+    setSentMessageCount(messageRecipientNames.length)
+    setIsSendingMessage(false)
   }
 
   function confirmPendingAction() {
@@ -129,6 +139,17 @@ export function DashboardPage() {
         </Banner>
       )}
 
+      {!isDisconnected && sentMessageCount !== null && (
+        <Banner
+          variant="info"
+          icon="message"
+          role="status"
+          onDismiss={() => setSentMessageCount(null)}
+        >
+          Message sent to {sentMessageCount} {sentMessageCount === 1 ? 'PC' : 'PCs'}.
+        </Banner>
+      )}
+
       <PcBulkToolbar
         selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
         isDisabled={isDisconnected}
@@ -137,7 +158,7 @@ export function DashboardPage() {
         onUnlockAll={() => setPcs(unlockAllPcs)}
         onLockAll={() => setPcs(lockAllPcs)}
         onShutdownSelected={requestShutdownSelected}
-        onSendMessage={() => undefined}
+        onSendMessage={() => setIsSendingMessage(true)}
         note="Statuses below are the last known values."
       />
 
@@ -178,6 +199,14 @@ export function DashboardPage() {
         onConfirm={confirmPendingAction}
         onCancel={() => setPendingAction(null)}
       />
+
+      {isSendingMessage && (
+        <SendMessageDialog
+          recipientNames={messageRecipientNames}
+          onSend={sendMessage}
+          onCancel={() => setIsSendingMessage(false)}
+        />
+      )}
     </>
   )
 }
