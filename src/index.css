@@ -1,41 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-100: #f3f5f6;
-  --color-surface-200: #ffffff;
-  --color-surface-300: #e8ecee;
+  --color-surface-100: #0f1519;
+  --color-surface-200: #182127;
+  --color-surface-300: #232e35;
 
-  --color-border: #d3dade;
-  --color-border-strong: #7b8892;
+  --color-border: #2f3b43;
+  --color-border-strong: #74828c;
 
-  --color-ink: #14212b;
-  --color-ink-muted: #4a5863;
-  --color-ink-subtle: #5a6772;
+  --color-ink: #e8edf0;
+  --color-ink-muted: #aab6be;
+  --color-ink-subtle: #98a5ae;
 
-  --color-brand: #0b6b6e;
-  --color-brand-strong: #08555a;
-  --color-brand-tint: #dcefef;
-  --color-on-brand: #ffffff;
+  --color-brand: #4fc1c0;
+  --color-brand-strong: #3da8a8;
+  --color-brand-tint: #133638;
+  --color-on-brand: #06282a;
 
-  --color-focus: #0b6b6e;
-  --color-scrim: #0e161c99;
+  --color-focus: #4fc1c0;
+  --color-scrim: #000000b3;
 
-  --color-st-locked: #0b5cad;
-  --color-st-locked-bg: #dbe9f8;
-  --color-st-inuse: #00775a;
-  --color-st-inuse-bg: #d8f1e8;
-  --color-st-offline: #5b6670;
-  --color-st-offline-bg: #e6e9eb;
-  --color-st-shutdown: #26323c;
-  --color-st-shutdown-bg: #cfd6db;
-  --color-st-reboot: #8a4b00;
-  --color-st-reboot-bg: #fdebc8;
-  --color-st-open: #a1457a;
-  --color-st-open-bg: #f8e8f1;
+  --color-st-locked: #7db8f5;
+  --color-st-locked-bg: #14304d;
+  --color-st-inuse: #5fd4ae;
+  --color-st-inuse-bg: #0f3a2e;
+  --color-st-offline: #a7b3bb;
+  --color-st-offline-bg: #2a343b;
+  --color-st-shutdown: #c5ced4;
+  --color-st-shutdown-bg: #38444c;
+  --color-st-reboot: #f0b866;
+  --color-st-reboot-bg: #43300f;
+  --color-st-open: #eb9ac8;
+  --color-st-open-bg: #47203a;
 
-  --color-danger: #b3261e;
-  --color-danger-bg: #fbe1de;
-  --color-on-danger: #ffffff;
+  --color-danger: #f4877f;
+  --color-danger-bg: #451a17;
+  --color-on-danger: #2d0805;
 
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
@@ -71,14 +71,14 @@
   --radius-md: 6px;
   --radius-lg: 10px;
 
-  --shadow-card: 0 1px 2px #14212b1f;
-  --shadow-pop: 0 12px 32px #14212b33;
+  --shadow-card: 0 1px 2px #00000066;
+  --shadow-pop: 0 12px 32px #00000099;
 
   --opacity-disabled: 0.45;
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
