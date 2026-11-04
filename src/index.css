@@ -60,6 +60,9 @@
   --spacing-control-sm: 28px;
   --spacing-control-md: 36px;
   --spacing-control-lg: 48px;
+  --spacing-sidebar: 260px;
+  --spacing-detail: 360px;
+  --spacing-dialog: 440px;
 
   --radius-sm: 4px;
   --radius-md: 6px;

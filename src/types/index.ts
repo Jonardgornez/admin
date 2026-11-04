@@ -1,5 +1,7 @@
 export type PcStatus = 'locked' | 'in-use' | 'offline' | 'shutdown' | 'rebooting'
 
+export type ViewMode = 'notified' | 'anonymous'
+
 export interface Pc {
   name: string
   status: PcStatus
