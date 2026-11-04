@@ -1,4 +1,6 @@
-import type { Pc, ViewMode } from '../types'
+import type { ApprovalChoice, Pc, TimeUnit, ViewMode } from '../types'
+
+const MINUTES_PER_HOUR = 60
 
 export function isPcOnline(pc: Pc): boolean {
   return pc.status === 'locked' || pc.status === 'in-use'
@@ -33,7 +35,13 @@ export function isPcActionable(pc: Pc): boolean {
 }
 
 function withoutSession(pc: Pc): Pc {
-  return { ...pc, user: undefined, timeUsed: undefined, isOpenTime: undefined }
+  return {
+    ...pc,
+    user: undefined,
+    timeUsed: undefined,
+    isOpenTime: undefined,
+    minutesLeft: undefined,
+  }
 }
 
 export function lockPc(pc: Pc): Pc {
@@ -72,6 +80,38 @@ export function updateActionablePcs(
   transform: (pc: Pc) => Pc,
 ): Pc[] {
   return pcs.map((pc) => (pcNames.includes(pc.name) && isPcActionable(pc) ? transform(pc) : pc))
+}
+
+export function parseTimeAmount(amount: string, unit: TimeUnit): number | null {
+  if (!/^\d+$/.test(amount.trim())) return null
+  const minutes = Number(amount) * (unit === 'hours' ? MINUTES_PER_HOUR : 1)
+  return minutes >= 1 && Number.isSafeInteger(minutes) ? minutes : null
+}
+
+export function formatMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR)
+  const minutes = totalMinutes % MINUTES_PER_HOUR
+  if (hours === 0) return `${minutes}m`
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
+}
+
+export function getTimeLeftLabel(pc: Pc): string | undefined {
+  if (pc.isOpenTime) return 'Open time'
+  return pc.minutesLeft === undefined ? undefined : formatMinutes(pc.minutesLeft)
+}
+
+export function grantPcTime(pc: Pc, choice: ApprovalChoice): Pc {
+  const session = pc.status === 'locked' ? unlockPc(pc) : pc
+  if (choice.mode === 'open-time') {
+    return { ...session, isOpenTime: true, minutesLeft: undefined }
+  }
+  const currentMinutes = pc.isOpenTime ? 0 : (pc.minutesLeft ?? 0)
+  return { ...session, isOpenTime: undefined, minutesLeft: currentMinutes + choice.minutes }
+}
+
+export function describeTimeGrant(pcName: string, choice: ApprovalChoice): string {
+  if (choice.mode === 'open-time') return `${pcName} is now on open time.`
+  return `Added ${formatMinutes(choice.minutes)} to ${pcName}.`
 }
 
 export function getScreenHref(pcName: string, viewMode: ViewMode): string {

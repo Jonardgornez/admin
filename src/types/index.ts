@@ -10,7 +10,10 @@ export interface Pc {
   lastSeen: string
   ipAddress?: string
   isOpenTime?: boolean
+  minutesLeft?: number
 }
+
+export type TimeUnit = 'minutes' | 'hours'
 
 export interface Account {
   username: string

@@ -3,14 +3,19 @@ import { pcs } from '../data/pcs'
 import type { Pc } from '../types'
 import {
   countOnlinePcs,
+  describeTimeGrant,
   filterPcs,
+  formatMinutes,
   getMessageRecipients,
   getScreenHref,
+  getTimeLeftLabel,
+  grantPcTime,
   isPcActionable,
   isPcOff,
   isPcOnline,
   lockAllPcs,
   lockPc,
+  parseTimeAmount,
   rebootPc,
   shutDownPc,
   togglePcLock,
@@ -234,6 +239,97 @@ describe('updateActionablePcs', () => {
     })
     expect(calls).toEqual([])
     expect(result).toEqual(off)
+  })
+})
+
+describe('parseTimeAmount', () => {
+  it('converts minutes and hours to minutes', () => {
+    expect(parseTimeAmount('45', 'minutes')).toBe(45)
+    expect(parseTimeAmount('2', 'hours')).toBe(120)
+    expect(parseTimeAmount(' 30 ', 'minutes')).toBe(30)
+  })
+
+  it('rejects anything but a whole number of 1 or more', () => {
+    for (const amount of ['', '  ', '0', '-5', '1.5', '1e3', 'abc', '99999999999999999999']) {
+      expect(parseTimeAmount(amount, 'minutes')).toBeNull()
+    }
+  })
+})
+
+describe('formatMinutes', () => {
+  it('formats minutes, whole hours and mixed values', () => {
+    expect(formatMinutes(45)).toBe('45m')
+    expect(formatMinutes(120)).toBe('2h')
+    expect(formatMinutes(90)).toBe('1h 30m')
+  })
+})
+
+describe('getTimeLeftLabel', () => {
+  it('shows open time, the remaining time, or nothing', () => {
+    expect(getTimeLeftLabel(inUsePc)).toBe('Open time')
+    expect(getTimeLeftLabel({ ...inUsePc, isOpenTime: undefined, minutesLeft: 90 })).toBe('1h 30m')
+    expect(getTimeLeftLabel({ name: 'A', status: 'locked', lastSeen: '' })).toBeUndefined()
+  })
+})
+
+describe('grantPcTime', () => {
+  const limitedPc: Pc = { ...inUsePc, isOpenTime: undefined, minutesLeft: 30 }
+  const lockedPc: Pc = { name: 'A', status: 'locked', lastSeen: 'Now' }
+
+  it('adds to the time left on a limited session', () => {
+    expect(grantPcTime(limitedPc, { mode: 'time-limit', minutes: 60 })).toMatchObject({
+      status: 'in-use',
+      timeUsed: '01:12',
+      minutesLeft: 90,
+    })
+  })
+
+  it('removes the limit when switching to open time', () => {
+    const result = grantPcTime(limitedPc, { mode: 'open-time' })
+    expect(result.isOpenTime).toBe(true)
+    expect(result.minutesLeft).toBeUndefined()
+  })
+
+  it('switches an open session to a limit of the given amount', () => {
+    const result = grantPcTime(inUsePc, { mode: 'time-limit', minutes: 45 })
+    expect(result.isOpenTime).toBeUndefined()
+    expect(result.minutesLeft).toBe(45)
+  })
+
+  it('unlocks a locked PC and starts a session', () => {
+    expect(grantPcTime(lockedPc, { mode: 'time-limit', minutes: 60 })).toMatchObject({
+      status: 'in-use',
+      timeUsed: '00:00',
+      minutesLeft: 60,
+    })
+    expect(grantPcTime(lockedPc, { mode: 'open-time' })).toMatchObject({
+      status: 'in-use',
+      timeUsed: '00:00',
+      isOpenTime: true,
+    })
+  })
+
+  it('does not mutate the input', () => {
+    grantPcTime(limitedPc, { mode: 'time-limit', minutes: 60 })
+    expect(limitedPc.minutesLeft).toBe(30)
+  })
+})
+
+describe('session end', () => {
+  it('clears the time left', () => {
+    const limitedPc: Pc = { ...inUsePc, isOpenTime: undefined, minutesLeft: 30 }
+    expect(lockPc(limitedPc).minutesLeft).toBeUndefined()
+    expect(shutDownPc(limitedPc).minutesLeft).toBeUndefined()
+    expect(rebootPc(limitedPc).minutesLeft).toBeUndefined()
+  })
+})
+
+describe('describeTimeGrant', () => {
+  it('describes added time and open time', () => {
+    expect(describeTimeGrant('PC-05', { mode: 'time-limit', minutes: 90 })).toBe(
+      'Added 1h 30m to PC-05.',
+    )
+    expect(describeTimeGrant('PC-05', { mode: 'open-time' })).toBe('PC-05 is now on open time.')
   })
 })
 
