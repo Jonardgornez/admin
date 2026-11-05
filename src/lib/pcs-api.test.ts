@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
-import { listPcs, removePc } from './pcs-api'
+import { listPcs, lockAllPcs, lockPc, removePc, unlockAllPcs, unlockPc } from './pcs-api'
 
 const serverPc = {
   id: 3,
@@ -74,6 +74,17 @@ describe('pcs api', () => {
       expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, session }] })
     })
 
+    it('keeps an admin unlock session with no username', async () => {
+      const session = {
+        username: null,
+        startedAt: '2026-11-05T09:00:00.000Z',
+        time: { mode: 'open-time' },
+        secondsRemaining: null,
+      }
+      stubFetch(Response.json([{ ...serverPc, session }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, session }] })
+    })
+
     it.each([
       ['a missing username', { startedAt: 'x', time: { mode: 'open-time' }, secondsRemaining: null }],
       ['an unknown time mode', { username: 'a', startedAt: 'x', time: { mode: 'forever' }, secondsRemaining: null }],
@@ -122,6 +133,66 @@ describe('pcs api', () => {
     it.each([404, 409])('returns the server message on %i', async (status) => {
       stubFetch(Response.json({ error: 'Nope.' }, { status }))
       expect(await removePc(7)).toEqual({ success: false, status, error: 'Nope.' })
+    })
+  })
+
+  describe('lockPc and unlockPc', () => {
+    it('posts an empty body to the lock route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await lockPc(7)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/lock',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it('posts to the unlock route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await unlockPc(7)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/unlock',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it.each([404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'This PC is offline.' }, { status }))
+      expect(await unlockPc(7)).toEqual({ success: false, status, error: 'This PC is offline.' })
+    })
+  })
+
+  describe('lockAllPcs and unlockAllPcs', () => {
+    it('returns how many PCs were locked', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 8 }))
+      expect(await lockAllPcs()).toEqual({ success: true, data: { affected: 8 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/lock-all',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it('returns how many PCs were unlocked', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 0 }))
+      expect(await unlockAllPcs()).toEqual({ success: true, data: { affected: 0 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/unlock-all',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it('fails on a count that is not a whole number of PCs', async () => {
+      stubFetch(Response.json({ affected: -1 }))
+      expect(await unlockAllPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('fails when the response has no count', async () => {
+      stubFetch(Response.json({ count: 3 }))
+      expect(await lockAllPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('returns the server message when the request fails', async () => {
+      stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
+      expect(await lockAllPcs()).toEqual({ success: false, status: 401, error: 'Sign in again.' })
     })
   })
 })

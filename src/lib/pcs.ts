@@ -32,12 +32,13 @@ export function formatTimeUsed(startedAt: string, now: Date): string | undefined
 
 function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
   const timeUsed = formatTimeUsed(session.startedAt, now)
+  const user = session.username ?? undefined
   if (session.time.mode === 'open-time') {
-    return { status: 'in-use', user: session.username, timeUsed, isOpenTime: true }
+    return { status: 'in-use', user, timeUsed, isOpenTime: true }
   }
   return {
     status: 'in-use',
-    user: session.username,
+    user,
     timeUsed,
     minutesLeft:
       session.secondsRemaining === null

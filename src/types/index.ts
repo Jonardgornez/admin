@@ -15,7 +15,8 @@ export interface Pc {
 }
 
 export interface ServerPcSession {
-  username: string
+  // Null for a session the admin unlocked, where nobody signed in.
+  username: string | null
   startedAt: string
   time: ApprovalChoice
   secondsRemaining: number | null

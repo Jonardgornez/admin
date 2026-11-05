@@ -516,6 +516,23 @@ describe('toRegisteredPc', () => {
     expect(toRegisteredPc({ ...serverPc, session: { ...session, secondsRemaining: 0 } }, now).minutesLeft).toBe(0)
   })
 
+  it('shows an admin unlock with no user as open time', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        session: {
+          username: null,
+          startedAt,
+          time: { mode: 'open-time' },
+          secondsRemaining: null,
+        },
+      },
+      now,
+    )
+    expect(pc).toMatchObject({ status: 'in-use', timeUsed: '00:00', isOpenTime: true })
+    expect(pc.user).toBeUndefined()
+  })
+
   it('shows open time without minutes left', () => {
     const pc = toRegisteredPc(
       {
