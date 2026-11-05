@@ -137,10 +137,6 @@ function withoutSession(pc: Pc): Pc {
   }
 }
 
-export function lockPc(pc: Pc): Pc {
-  return { ...withoutSession(pc), status: 'locked' }
-}
-
 export function unlockPc(pc: Pc): Pc {
   return { ...pc, status: 'in-use', timeUsed: '00:00' }
 }
@@ -153,22 +149,13 @@ export function rebootPc(pc: Pc): Pc {
   return { ...withoutSession(pc), status: 'rebooting' }
 }
 
-export function togglePcLock(pc: Pc): Pc {
-  if (pc.status === 'in-use') return lockPc(pc)
-  if (pc.status === 'locked') return unlockPc(pc)
-  return pc
+export function countPcsToLock(pcs: Pc[]): number {
+  return pcs.filter((pc) => pc.status === 'in-use').length
 }
 
-export function lockAllPcs(pcs: Pc[]): Pc[] {
-  return pcs.map((pc) => (pc.status === 'in-use' ? lockPc(pc) : pc))
-}
-
-export function unlockAllPcs(pcs: Pc[]): Pc[] {
-  return pcs.map((pc) => (pc.status === 'locked' ? unlockPc(pc) : pc))
-}
-
-export function countChangedPcs(before: Pc[], after: Pc[]): number {
-  return after.filter((pc, index) => pc.status !== before[index]?.status).length
+// A locked PC is online with no session, so it is waiting to be unlocked.
+export function countPcsToUnlock(pcs: Pc[]): number {
+  return pcs.filter((pc) => pc.status === 'locked').length
 }
 
 export function formatPcCount(count: number): string {

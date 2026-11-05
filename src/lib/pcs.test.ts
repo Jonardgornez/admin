@@ -8,8 +8,9 @@ import {
   formatTimeUsed,
   toRegisteredPc,
   toSortedRegisteredPcs,
-  countChangedPcs,
   countOnlinePcs,
+  countPcsToLock,
+  countPcsToUnlock,
   describeTimeGrant,
   filterPcs,
   formatMinutes,
@@ -24,14 +25,10 @@ import {
   isPcOff,
   isPcOnline,
   isPcUnlockedWithoutUser,
-  lockAllPcs,
-  lockPc,
   parseTimeAmount,
   rebootPc,
   shutDownPc,
-  togglePcLock,
   toggleSelectAll,
-  unlockAllPcs,
   unlockPc,
   updateActionablePcs,
 } from './pcs'
@@ -66,15 +63,36 @@ describe('isPcUnlockedWithoutUser', () => {
   })
 })
 
-describe('countChangedPcs', () => {
-  it('counts only the PCs whose status changed', () => {
-    const before = pcs.slice(0, 4)
-    const inUseCount = before.filter((pc) => pc.status === 'in-use').length
-    expect(countChangedPcs(before, lockAllPcs(before))).toBe(inUseCount)
+describe('countPcsToLock', () => {
+  it('counts only the PCs that are in use', () => {
+    const list: Pc[] = [
+      { name: 'A', status: 'in-use', lastSeen: 'Now' },
+      { name: 'B', status: 'in-use', lastSeen: 'Now' },
+      { name: 'C', status: 'locked', lastSeen: 'Now' },
+      { name: 'D', status: 'offline', lastSeen: '09:00' },
+      { name: 'E', status: 'rebooting', lastSeen: '09:00' },
+    ]
+    expect(countPcsToLock(list)).toBe(2)
   })
 
-  it('returns zero when nothing changed', () => {
-    expect(countChangedPcs(pcs, pcs)).toBe(0)
+  it('returns 0 for an empty list', () => {
+    expect(countPcsToLock([])).toBe(0)
+  })
+})
+
+describe('countPcsToUnlock', () => {
+  it('counts only the locked PCs', () => {
+    const list: Pc[] = [
+      { name: 'A', status: 'in-use', lastSeen: 'Now' },
+      { name: 'B', status: 'locked', lastSeen: 'Now' },
+      { name: 'C', status: 'locked', lastSeen: 'Now' },
+      { name: 'D', status: 'shutdown', lastSeen: '09:00' },
+    ]
+    expect(countPcsToUnlock(list)).toBe(2)
+  })
+
+  it('returns 0 for an empty list', () => {
+    expect(countPcsToUnlock([])).toBe(0)
   })
 })
 
@@ -236,21 +254,6 @@ describe('isPcActionable', () => {
   })
 })
 
-describe('lockPc', () => {
-  it('locks and clears the session details', () => {
-    const result = lockPc(inUsePc)
-    expect(result).toMatchObject({ status: 'locked', ipAddress: '192.168.1.25' })
-    expect(result.user).toBeUndefined()
-    expect(result.timeUsed).toBeUndefined()
-    expect(result.isOpenTime).toBeUndefined()
-  })
-
-  it('does not mutate the input', () => {
-    lockPc(inUsePc)
-    expect(inUsePc.status).toBe('in-use')
-  })
-})
-
 describe('unlockPc', () => {
   it('sets in-use with a fresh timer', () => {
     expect(unlockPc({ name: 'A', status: 'locked', lastSeen: 'Now' })).toEqual({
@@ -279,36 +282,6 @@ describe('rebootPc', () => {
     expect(result.user).toBeUndefined()
     expect(result.timeUsed).toBeUndefined()
     expect(result.isOpenTime).toBeUndefined()
-  })
-})
-
-describe('togglePcLock', () => {
-  it('locks an in-use PC and unlocks a locked one', () => {
-    expect(togglePcLock(inUsePc).status).toBe('locked')
-    expect(togglePcLock({ name: 'A', status: 'locked', lastSeen: '' }).status).toBe('in-use')
-  })
-
-  it('leaves other statuses unchanged', () => {
-    const rebooting: Pc = { name: 'A', status: 'rebooting', lastSeen: '' }
-    expect(togglePcLock(rebooting)).toBe(rebooting)
-  })
-})
-
-describe('lockAllPcs and unlockAllPcs', () => {
-  it('lock all affects only in-use PCs', () => {
-    const result = lockAllPcs(pcs)
-    expect(result.filter((pc) => pc.status === 'in-use')).toHaveLength(0)
-    expect(result.find((pc) => pc.name === 'PC-04')?.status).toBe('offline')
-    expect(result.find((pc) => pc.name === 'PC-08')?.status).toBe('rebooting')
-    expect(result.filter((pc) => pc.status === 'locked')).toHaveLength(40)
-  })
-
-  it('unlock all affects only locked PCs', () => {
-    const result = unlockAllPcs(pcs)
-    expect(result.filter((pc) => pc.status === 'locked')).toHaveLength(0)
-    expect(result.find((pc) => pc.name === 'PC-07')?.status).toBe('shutdown')
-    expect(result.find((pc) => pc.name === 'PC-05')?.user).toBe('lab-pc05')
-    expect(result.filter((pc) => pc.status === 'in-use')).toHaveLength(40)
   })
 })
 
@@ -420,7 +393,6 @@ describe('grantPcTime', () => {
 describe('session end', () => {
   it('clears the time left', () => {
     const limitedPc: Pc = { ...inUsePc, isOpenTime: undefined, minutesLeft: 30 }
-    expect(lockPc(limitedPc).minutesLeft).toBeUndefined()
     expect(shutDownPc(limitedPc).minutesLeft).toBeUndefined()
     expect(rebootPc(limitedPc).minutesLeft).toBeUndefined()
   })
