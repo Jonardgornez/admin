@@ -1,4 +1,5 @@
 import { PageHeader } from '../component/layout/page-header'
+import { ChangePasswordForm } from '../component/settings/change-password-form'
 import { SettingsCard } from '../component/settings/settings-card'
 import { SettingsFieldset } from '../component/settings/settings-fieldset'
 import { Banner } from '../component/ui/banner'
@@ -21,35 +22,7 @@ export function SettingsPage() {
       </PageHeader>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(var(--spacing-settings-card),100%),1fr))] items-start gap-5">
         <SettingsCard title="Admin password">
-          <Field label="Current password" htmlFor="settings-current-password">
-            <TextInput
-              id="settings-current-password"
-              type="password"
-              autoComplete="current-password"
-            />
-          </Field>
-          <Field label="New password" htmlFor="settings-new-password">
-            <TextInput id="settings-new-password" type="password" autoComplete="new-password" />
-          </Field>
-          <Field label="Confirm new password" htmlFor="settings-confirm-password">
-            <TextInput
-              id="settings-confirm-password"
-              type="password"
-              autoComplete="new-password"
-            />
-          </Field>
-          <p className="m-0 text-xs text-ink-muted">
-            Changing the password signs out every open console session.
-          </p>
-          <div>
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => notify('Admin password changed.', 'lock')}
-            >
-              Change password
-            </Button>
-          </div>
+          <ChangePasswordForm />
         </SettingsCard>
 
         <SettingsCard title="Server">
