@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cva } from 'class-variance-authority'
 import { Link, useLocation } from 'react-router'
+import lykantraMark from '../../assets/lykantra-mark.svg'
 import { isNavItemActive } from '../../lib/navigation'
 import { Button } from '../ui/button'
 import { Icon, type IconName } from '../ui/icon'
@@ -36,16 +37,25 @@ const sidebarVariants = cva(
 const headerVariants = cva('flex items-center pb-2 md:pb-4', {
   variants: {
     isCollapsed: {
-      true: 'justify-between md:justify-center',
+      true: 'justify-between md:flex-col md:justify-center md:gap-2',
       false: 'justify-between',
     },
   },
 })
 
-const wordmarkVariants = cva('px-3 text-xl font-bold', {
+const brandVariants = cva('flex min-w-0 items-center gap-2', {
   variants: {
     isCollapsed: {
-      true: 'md:hidden',
+      true: 'md:justify-center',
+      false: '',
+    },
+  },
+})
+
+const wordmarkVariants = cva('text-xl font-bold', {
+  variants: {
+    isCollapsed: {
+      true: 'md:sr-only',
       false: '',
     },
   },
@@ -69,7 +79,10 @@ export function Sidebar() {
   return (
     <nav aria-label="Main" className={sidebarVariants({ isCollapsed })}>
       <div className={headerVariants({ isCollapsed })}>
-        <span className={wordmarkVariants({ isCollapsed })}>LabGuard</span>
+        <div className={brandVariants({ isCollapsed })}>
+          <img src={lykantraMark} alt="" width={40} height={40} className="size-10 flex-none" />
+          <span className={wordmarkVariants({ isCollapsed })}>Lykantra</span>
+        </div>
         <Button
           variant="ghost"
           isIconOnly

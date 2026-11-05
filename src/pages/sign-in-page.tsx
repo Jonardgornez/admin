@@ -1,5 +1,6 @@
 import type { SubmitEvent } from 'react'
 import { useNavigate } from 'react-router'
+import lykantraMark from '../assets/lykantra-mark.svg'
 import { Button } from '../component/ui/button'
 import { Field, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
@@ -19,7 +20,8 @@ export function SignInPage() {
         className="flex w-full max-w-100 flex-col gap-4 rounded-lg border border-border bg-surface-200 p-6 shadow-card"
       >
         <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-brand">LabGuard Admin Console</span>
+          <img src={lykantraMark} alt="" width={96} height={96} className="size-24 self-center" />
+          <span className="text-sm font-semibold text-brand">Lykantra Admin Console</span>
           <h1 className="m-0 text-2xl font-semibold">Sign in</h1>
         </div>
         <Field label="Username" htmlFor="sign-in-username">

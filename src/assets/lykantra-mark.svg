@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="464 74 480 480" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">Lykantra</title>
+  <defs>
+    <linearGradient id="steel-lines" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="520">
+      <stop offset="0" stop-color="#C9D3DC"/>
+      <stop offset="1" stop-color="#8FA0AF"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#9DF3FF"/>
+      <stop offset="1" stop-color="#1AD8F7"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-strong" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="13" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .frame { fill: none; stroke: url(#steel-lines); stroke-width: 4; stroke-linejoin: miter; stroke-linecap: round; }
+      .eye { fill: #C9D3DC; }
+      .trace { fill: none; stroke: #1AD8F7; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+      .ring { fill: none; stroke: #1AD8F7; stroke-width: 3; }
+      .node { fill: #1AD8F7; }
+      .letters { fill: none; stroke: #B4C2CE; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: square; }
+    </style>
+    <g id="half">
+      <path class="frame" d="M704 170L655 178M595 100L572 155V240L595 282L535 342L600 420L704 518M595 100L655 178L632 200L572 155M632 200L572 240M595 282L640 262M595 282L585 342L600 420M595 282L635 342L665 432L704 462M535 342L585 342"/>
+      <path class="frame" d="M665 432L704 446M704 425V446"/>
+      <path class="eye" d="M623 282L680 303L664 322L638 310Z"/>
+      <g filter="url(#glow)">
+        <path class="trace" d="M595 180L627 214H666L700 262"/>
+        <path class="trace" d="M673 203V226L698 264"/>
+        <path class="trace" d="M648 240H668L694 268"/>
+        <path class="trace" d="M620 255H660L690 276"/>
+        <path class="trace" d="M535 342H635"/>
+        <path class="trace" d="M600 389L635 356V342"/>
+        <path class="trace" d="M628 392V432L704 518"/>
+        <circle class="node" cx="595" cy="180" r="11"/>
+        <circle class="node" cx="535" cy="342" r="11"/>
+        <circle class="node" cx="635" cy="342" r="10"/>
+        <circle class="node" cx="600" cy="389" r="10"/>
+      </g>
+      <circle class="ring" cx="673" cy="195" r="7.5"/>
+      <circle class="ring" cx="640" cy="240" r="7.5"/>
+      <circle class="ring" cx="612" cy="255" r="7.5"/>
+    </g>
+  </defs>
+
+  <g id="mark">
+    <use href="#half"/>
+    <use href="#half" transform="translate(1408 0) scale(-1 1)"/>
+    <path class="frame" d="M704 268V384M704 462V518M680 400L694 384H714L728 400L720 416L704 425L688 416Z"/>
+    <g filter="url(#glow)">
+      <path class="trace" d="M704 170V268M704 462V518"/>
+      <circle class="node" cx="704" cy="170" r="11"/>
+      <circle class="node" cx="704" cy="518" r="10"/>
+    </g>
+    <circle cx="704" cy="268" r="15" fill="url(#core)" filter="url(#glow-strong)"/>
+  </g>
+</svg>
