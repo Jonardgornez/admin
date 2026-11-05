@@ -46,6 +46,7 @@ export function SignInPage() {
           Opens only on the server PC at <span className="font-mono">localhost:[PORT]</span>
         </span>
       </p>
+      <p className="m-0 text-xs text-ink-subtle">© 2026 Jonard M. Gornez</p>
     </main>
   )
 }
