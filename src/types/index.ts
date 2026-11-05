@@ -61,21 +61,15 @@ export interface TimeChoiceValues {
   timeUnit: TimeUnit
 }
 
+export type LoginRequestStatus = 'pending' | 'approved' | 'denied'
+
 export interface LoginRequest {
-  id: string
+  id: number
   pcName: string
   requestedAt: string
-  requestedAgo: string
-}
-
-export type RequestDecision = 'Approved' | 'Denied'
-
-export interface RequestHistoryEntry {
-  id: string
-  pcName: string
-  requestedAt: string
-  decision: RequestDecision
-  session: string
+  status: LoginRequestStatus
+  time?: ApprovalChoice
+  decidedAt: string | null
 }
 
 export interface SessionLog {

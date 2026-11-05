@@ -2,20 +2,22 @@ import { z } from 'zod'
 import { apiRequest, FALLBACK_ERROR_MESSAGE, type ApiResult } from './api'
 import type { Account } from '../types'
 
+export const approvalChoiceSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('time-limit'), minutes: z.number().int() }),
+  z.object({ mode: z.literal('open-time') }),
+])
+
 const accountSchema = z.object({
   id: z.number().int(),
   username: z.string(),
   isActive: z.boolean(),
-  defaultTime: z.discriminatedUnion('mode', [
-    z.object({ mode: z.literal('time-limit'), minutes: z.number().int() }),
-    z.object({ mode: z.literal('open-time') }),
-  ]),
+  defaultTime: approvalChoiceSchema,
   lastLoginAt: z.string().nullable(),
 })
 
 const accountListSchema = z.array(accountSchema)
 
-const OK_STATUS = 200
+export const OK_STATUS = 200
 const CREATED_STATUS = 201
 
 export interface AccountPayload {
@@ -25,7 +27,7 @@ export interface AccountPayload {
 }
 
 // Keeps only the fields the schema names, so anything extra the server sends is dropped.
-function parseBody<T>(
+export function parseBody<T>(
   result: ApiResult<unknown>,
   schema: z.ZodType<T>,
   successStatus: number,
