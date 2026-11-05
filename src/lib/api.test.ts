@@ -30,6 +30,12 @@ describe('apiRequest', () => {
     })
   })
 
+  it.each(['PUT', 'PATCH', 'DELETE'] as const)('sends the %s method', async (method) => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }))
+    await apiRequest('/api/x/1', { method })
+    expect(fetchMock).toHaveBeenCalledWith('/api/x/1', expect.objectContaining({ method }))
+  })
+
   it('handles an empty 204 body', async () => {
     stubFetch(new Response(null, { status: 204 }))
     expect(await apiRequest('/api/auth/logout', { method: 'POST' })).toEqual({

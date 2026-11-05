@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   authStateFromResult,
+  isSessionExpired,
   readNotice,
   reconcileAuthState,
   SESSION_EXPIRED_NOTICE,
@@ -24,6 +25,18 @@ describe('authStateFromResult', () => {
   it('maps network and server failures to unreachable, not signed-out', () => {
     expect(authStateFromResult({ success: false, status: 0, error: 'down' })).toEqual(unreachable)
     expect(authStateFromResult({ success: false, status: 500, error: 'down' })).toEqual(unreachable)
+  })
+})
+
+describe('isSessionExpired', () => {
+  it('is true only for a failed 401', () => {
+    expect(isSessionExpired({ success: false, status: 401, error: 'x' })).toBe(true)
+  })
+
+  it('is false for other failures and for success', () => {
+    expect(isSessionExpired({ success: false, status: 404, error: 'x' })).toBe(false)
+    expect(isSessionExpired({ success: false, status: 0, error: 'x' })).toBe(false)
+    expect(isSessionExpired({ success: true, data: undefined })).toBe(false)
   })
 })
 

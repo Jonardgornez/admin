@@ -7,7 +7,7 @@ export const NETWORK_ERROR_MESSAGE = "Can't reach the server. Check that it's ru
 export const FALLBACK_ERROR_MESSAGE = 'Something went wrong. Try again.'
 
 interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
 }
 

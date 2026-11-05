@@ -12,9 +12,13 @@ export type AuthState =
 
 const UNAUTHORIZED_STATUS = 401
 
+export function isSessionExpired(result: ApiResult<unknown>): boolean {
+  return !result.success && result.status === UNAUTHORIZED_STATUS
+}
+
 export function authStateFromResult(result: ApiResult<AdminSession>): AuthState {
   if (result.success) return { status: 'signed-in', username: result.data.username }
-  if (result.status === UNAUTHORIZED_STATUS) return { status: 'signed-out' }
+  if (isSessionExpired(result)) return { status: 'signed-out' }
   return { status: 'unreachable', error: result.error }
 }
 
