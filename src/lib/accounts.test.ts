@@ -1,31 +1,47 @@
 import { describe, expect, it } from 'vitest'
-import { accounts } from '../data/accounts'
-import type { AccountDetails, AccountFormValues } from '../types'
+import type { Account } from '../types'
 import {
-  addAccount,
-  deleteAccount,
+  buildAccountPayload,
   filterAccounts,
   formatDefaultTime,
+  formatLastLogin,
   getDefaultTimeFields,
   getFormDefaultTime,
   NEW_ACCOUNT_DEFAULT_TIME,
-  toggleAccountEnabled,
-  updateAccount,
-  validateAccountForm,
+  removeAccount,
+  upsertAccount,
 } from './accounts'
+
+function makeAccount(id: number, username: string, overrides: Partial<Account> = {}): Account {
+  return {
+    id,
+    username,
+    isActive: true,
+    defaultTime: { mode: 'time-limit', minutes: 60 },
+    lastLoginAt: null,
+    ...overrides,
+  }
+}
+
+const accounts: Account[] = [
+  makeAccount(1, 'alice'),
+  makeAccount(2, 'Bob'),
+  makeAccount(3, 'carol'),
+  makeAccount(4, 'lab-pc04', { isActive: false }),
+]
 
 describe('filterAccounts', () => {
   it('returns all accounts for an empty or blank query', () => {
-    expect(filterAccounts(accounts, '')).toHaveLength(8)
-    expect(filterAccounts(accounts, '  ')).toHaveLength(8)
+    expect(filterAccounts(accounts, '')).toHaveLength(4)
+    expect(filterAccounts(accounts, '  ')).toHaveLength(4)
   })
 
   it('matches username case-insensitively', () => {
-    expect(filterAccounts(accounts, 'LAB-PC03').map((a) => a.username)).toEqual(['lab-pc03'])
+    expect(filterAccounts(accounts, 'BOB').map((a) => a.username)).toEqual(['Bob'])
   })
 
   it('matches several accounts by a shared fragment', () => {
-    expect(filterAccounts(accounts, 'lab-pc0')).toHaveLength(8)
+    expect(filterAccounts(accounts, 'a').map((a) => a.id)).toEqual([1, 3, 4])
   })
 
   it('returns an empty list when nothing matches', () => {
@@ -33,43 +49,67 @@ describe('filterAccounts', () => {
   })
 })
 
-describe('toggleAccountEnabled', () => {
-  it('disables an active account and enables a disabled one', () => {
-    const disabled = toggleAccountEnabled(accounts, 'lab-pc01')
-    expect(disabled.find((a) => a.username === 'lab-pc01')?.isActive).toBe(false)
-    const enabled = toggleAccountEnabled(accounts, 'lab-pc04')
-    expect(enabled.find((a) => a.username === 'lab-pc04')?.isActive).toBe(true)
+describe('upsertAccount', () => {
+  it('replaces an existing account by id', () => {
+    const updated = makeAccount(3, 'carol', { isActive: false })
+    const result = upsertAccount(accounts, updated)
+    expect(result).toHaveLength(4)
+    expect(result.find((a) => a.id === 3)).toEqual(updated)
   })
 
-  it('leaves other accounts and the original list untouched', () => {
-    const result = toggleAccountEnabled(accounts, 'lab-pc01')
-    expect(result.filter((a) => a.username !== 'lab-pc01')).toEqual(
-      accounts.filter((a) => a.username !== 'lab-pc01'),
-    )
-    expect(accounts[0].isActive).toBe(true)
+  it('moves a renamed account to its new username position', () => {
+    const renamed = makeAccount(1, 'zed')
+    expect(upsertAccount(accounts, renamed).map((a) => a.username)).toEqual([
+      'Bob',
+      'carol',
+      'lab-pc04',
+      'zed',
+    ])
   })
 
-  it('does nothing for an unknown username', () => {
-    expect(toggleAccountEnabled(accounts, 'nobody')).toEqual(accounts)
+  it('inserts a new account in username order, ignoring case', () => {
+    const added = makeAccount(9, 'BEN')
+    expect(upsertAccount(accounts, added).map((a) => a.username)).toEqual([
+      'alice',
+      'BEN',
+      'Bob',
+      'carol',
+      'lab-pc04',
+    ])
+  })
+
+  it('does not mutate the original list', () => {
+    const snapshot = structuredClone(accounts)
+    upsertAccount(accounts, makeAccount(9, 'aaa'))
+    expect(accounts).toEqual(snapshot)
   })
 })
 
-describe('deleteAccount', () => {
-  it('removes only the matching account', () => {
-    const result = deleteAccount(accounts, 'lab-pc03')
-    expect(result).toHaveLength(7)
-    expect(result.some((a) => a.username === 'lab-pc03')).toBe(false)
+describe('removeAccount', () => {
+  it('removes only the account with that id', () => {
+    expect(removeAccount(accounts, 2).map((a) => a.id)).toEqual([1, 3, 4])
   })
 
-  it('does nothing for an unknown username', () => {
-    expect(deleteAccount(accounts, 'nobody')).toHaveLength(8)
+  it('does nothing for an unknown id', () => {
+    expect(removeAccount(accounts, 99)).toEqual(accounts)
   })
 })
 
-const newDetails: AccountDetails = {
-  username: '  lab-pc09 ',
-  defaultTime: { mode: 'time-limit', minutes: 45 },
-}
+describe('formatLastLogin', () => {
+  it('says Never when the account has not signed in', () => {
+    expect(formatLastLogin(null)).toBe('Never')
+  })
+
+  it('formats a timestamp as a local date and time', () => {
+    const text = formatLastLogin('2026-06-15T12:30:00Z')
+    expect(text).toContain('2026')
+    expect(text).not.toBe('Never')
+  })
+
+  it('does not throw on an unreadable timestamp', () => {
+    expect(formatLastLogin('not a date')).toBe('Unknown')
+  })
+})
 
 describe('NEW_ACCOUNT_DEFAULT_TIME', () => {
   it('is a 60 minute time limit', () => {
@@ -148,133 +188,45 @@ describe('getFormDefaultTime', () => {
   })
 })
 
-describe('addAccount', () => {
-  it('appends an active account with a trimmed username and no login yet', () => {
-    const result = addAccount(accounts, newDetails)
-    expect(result).toHaveLength(9)
-    expect(result[8]).toEqual({
-      username: 'lab-pc09',
-      isActive: true,
-      lastLogin: 'Never',
-      defaultTime: { mode: 'time-limit', minutes: 45 },
-    })
-  })
-
-  it('does not mutate the original list', () => {
-    addAccount(accounts, newDetails)
-    expect(accounts).toHaveLength(8)
-  })
-
-  it('never stores a password, even when given form values', () => {
-    const values = { ...newDetails, password: 'secret' }
-    const added = addAccount(accounts, values)[8]
-    expect(added).not.toHaveProperty('password')
-    expect(JSON.stringify(added)).not.toContain('secret')
-  })
-})
-
-describe('updateAccount', () => {
-  it('updates details with a trimmed username and preserves status and last login', () => {
-    const original = accounts.find((a) => a.username === 'lab-pc04')!
-    const result = updateAccount(accounts, 'lab-pc04', newDetails)
-    expect(result.find((a) => a.username === 'lab-pc09')).toEqual({
-      ...original,
-      username: 'lab-pc09',
-      defaultTime: { mode: 'time-limit', minutes: 45 },
-    })
-    expect(result.some((a) => a.username === 'lab-pc04')).toBe(false)
-  })
-
-  it('leaves other accounts untouched and does not mutate the original list', () => {
-    const snapshot = structuredClone(accounts)
-    const result = updateAccount(accounts, 'lab-pc01', newDetails)
-    expect(result.filter((a) => a.username !== 'lab-pc09')).toEqual(
-      accounts.filter((a) => a.username !== 'lab-pc01'),
-    )
-    expect(accounts).toEqual(snapshot)
-  })
-
-  it('leaves the list equal for an unknown username', () => {
-    expect(updateAccount(accounts, 'nobody', newDetails)).toEqual(accounts)
-  })
-
-  it('never stores a password, even when given form values', () => {
-    const values = { ...newDetails, password: 'secret' }
-    const result = updateAccount(accounts, 'lab-pc01', values)
-    result.forEach((a) => expect(a).not.toHaveProperty('password'))
-  })
-})
-
-describe('validateAccountForm', () => {
-  const valid: AccountFormValues = {
+describe('buildAccountPayload', () => {
+  const values = {
     username: 'lab-pc09',
-    password: 'pass',
+    password: 'longenough',
     timeMode: 'time-limit',
-    timeAmount: '60',
-    timeUnit: 'minutes',
-  }
+    timeAmount: '2',
+    timeUnit: 'hours',
+  } as const
 
-  it('returns an empty object for valid values', () => {
-    expect(validateAccountForm(valid, accounts)).toEqual({})
-  })
-
-  it('requires a username', () => {
-    expect(validateAccountForm({ ...valid, username: '   ' }, accounts)).toEqual({
-      username: 'Enter a username.',
+  it('includes the password and converted default time', () => {
+    expect(buildAccountPayload(values)).toEqual({
+      username: 'lab-pc09',
+      password: 'longenough',
+      defaultTime: { mode: 'time-limit', minutes: 120 },
     })
   })
 
-  it('rejects a username used by another account, case-insensitively and trimmed', () => {
-    expect(validateAccountForm({ ...valid, username: ' LAB-PC02 ' }, accounts)).toEqual({
-      username: 'That username is already taken.',
+  it('omits the password key when it is blank', () => {
+    const payload = buildAccountPayload({ ...values, password: '' })
+    expect(payload).toEqual({
+      username: 'lab-pc09',
+      defaultTime: { mode: 'time-limit', minutes: 120 },
+    })
+    expect(payload).not.toHaveProperty('password')
+  })
+
+  it('keeps a password made of spaces untouched', () => {
+    expect(buildAccountPayload({ ...values, password: ' pass word ' })?.password).toBe(' pass word ')
+  })
+
+  it('builds open time ignoring the amount', () => {
+    expect(buildAccountPayload({ ...values, timeMode: 'open-time', timeAmount: 'x' })).toEqual({
+      username: 'lab-pc09',
+      password: 'longenough',
+      defaultTime: { mode: 'open-time' },
     })
   })
 
-  it('requires a password when adding', () => {
-    expect(validateAccountForm({ ...valid, password: '  ' }, accounts)).toEqual({
-      password: 'Enter a password.',
-    })
-  })
-
-  it('reports several errors at once', () => {
-    const errors = validateAccountForm(
-      { ...valid, username: '', password: '', timeAmount: '0' },
-      accounts,
-    )
-    expect(Object.keys(errors).sort()).toEqual(['defaultTime', 'password', 'username'])
-  })
-
-  it('rejects an invalid time limit', () => {
-    expect(validateAccountForm({ ...valid, timeAmount: '1.5' }, accounts)).toEqual({
-      defaultTime: 'Enter a whole number of 1 or more.',
-    })
-  })
-
-  it('ignores the amount for open time', () => {
-    expect(
-      validateAccountForm({ ...valid, timeMode: 'open-time', timeAmount: '' }, accounts),
-    ).toEqual({})
-  })
-
-  it('allows a blank password when editing', () => {
-    expect(validateAccountForm({ ...valid, password: '' }, accounts, 'lab-pc01')).toEqual({})
-  })
-
-  it('allows keeping the same username when editing', () => {
-    expect(
-      validateAccountForm({ ...valid, username: 'lab-pc01', password: '' }, accounts, 'lab-pc01'),
-    ).toEqual({})
-  })
-
-  it('allows renaming to the same username with different case when editing', () => {
-    expect(
-      validateAccountForm({ ...valid, username: 'LAB-PC01', password: '' }, accounts, 'lab-pc01'),
-    ).toEqual({})
-  })
-
-  it('still rejects another account username when editing', () => {
-    expect(
-      validateAccountForm({ ...valid, username: 'lab-pc02', password: '' }, accounts, 'lab-pc01'),
-    ).toEqual({ username: 'That username is already taken.' })
+  it('returns null when the time limit is invalid', () => {
+    expect(buildAccountPayload({ ...values, timeAmount: '0' })).toBeNull()
   })
 })

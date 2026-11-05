@@ -1,10 +1,5 @@
-import type {
-  Account,
-  AccountDetails,
-  AccountFormErrors,
-  AccountFormValues,
-  ApprovalChoice,
-} from '../types'
+import type { Account, ApprovalChoice, TimeChoiceValues } from '../types'
+import type { AccountPayload } from './accounts-api'
 import { formatMinutes, parseTimeAmount } from './pcs'
 
 const MINUTES_PER_HOUR = 60
@@ -16,9 +11,7 @@ export function formatDefaultTime(defaultTime: ApprovalChoice): string {
   return defaultTime.mode === 'open-time' ? 'Open time' : formatMinutes(defaultTime.minutes)
 }
 
-export function getDefaultTimeFields(
-  defaultTime: ApprovalChoice,
-): Pick<AccountFormValues, 'timeMode' | 'timeAmount' | 'timeUnit'> {
+export function getDefaultTimeFields(defaultTime: ApprovalChoice): TimeChoiceValues {
   if (defaultTime.mode === 'open-time') {
     return { timeMode: 'open-time', timeAmount: FALLBACK_TIME_AMOUNT, timeUnit: 'minutes' }
   }
@@ -33,7 +26,7 @@ export function getDefaultTimeFields(
 }
 
 export function getFormDefaultTime(
-  values: Pick<AccountFormValues, 'timeMode' | 'timeAmount' | 'timeUnit'>,
+  values: TimeChoiceValues,
 ): ApprovalChoice | null {
   if (values.timeMode === 'open-time') return { mode: 'open-time' }
   const minutes = parseTimeAmount(values.timeAmount, values.timeUnit)
@@ -46,59 +39,34 @@ export function filterAccounts(accounts: Account[], query: string): Account[] {
   return accounts.filter((account) => account.username.toLowerCase().includes(needle))
 }
 
-export function toggleAccountEnabled(accounts: Account[], username: string): Account[] {
-  return accounts.map((account) =>
-    account.username === username ? { ...account, isActive: !account.isActive } : account,
-  )
+export function upsertAccount(accounts: Account[], account: Account): Account[] {
+  return [...removeAccount(accounts, account.id), account].sort(compareUsernames)
 }
 
-export function deleteAccount(accounts: Account[], username: string): Account[] {
-  return accounts.filter((account) => account.username !== username)
+export function removeAccount(accounts: Account[], id: number): Account[] {
+  return accounts.filter((account) => account.id !== id)
 }
 
-function pickDetails(details: AccountDetails): AccountDetails {
-  return { username: details.username.trim(), defaultTime: details.defaultTime }
+function compareUsernames(first: Account, second: Account): number {
+  const firstName = first.username.toLowerCase()
+  const secondName = second.username.toLowerCase()
+  if (firstName === secondName) return 0
+  return firstName < secondName ? -1 : 1
 }
 
-export function addAccount(accounts: Account[], details: AccountDetails): Account[] {
-  return [...accounts, { ...pickDetails(details), isActive: true, lastLogin: 'Never' }]
+export function formatLastLogin(lastLoginAt: string | null): string {
+  if (lastLoginAt === null) return 'Never'
+  const date = new Date(lastLoginAt)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export function updateAccount(
-  accounts: Account[],
-  originalUsername: string,
-  details: AccountDetails,
-): Account[] {
-  return accounts.map((account) =>
-    account.username === originalUsername ? { ...account, ...pickDetails(details) } : account,
-  )
-}
-
-export function validateAccountForm(
-  values: AccountFormValues,
-  accounts: Account[],
-  originalUsername?: string,
-): AccountFormErrors {
-  const errors: AccountFormErrors = {}
-  const username = values.username.trim()
-  const isEditing = originalUsername !== undefined
-
-  if (username === '') {
-    errors.username = 'Enter a username.'
-  } else {
-    const needle = username.toLowerCase()
-    const isTaken = accounts.some(
-      (account) =>
-        account.username !== originalUsername && account.username.toLowerCase() === needle,
-    )
-    if (isTaken) errors.username = 'That username is already taken.'
-  }
-
-  if (!isEditing && values.password.trim() === '') errors.password = 'Enter a password.'
-
-  if (getFormDefaultTime(values) === null) {
-    errors.defaultTime = 'Enter a whole number of 1 or more.'
-  }
-
-  return errors
+export function buildAccountPayload(
+  values: TimeChoiceValues & { username: string; password: string },
+): AccountPayload | null {
+  const defaultTime = getFormDefaultTime(values)
+  if (defaultTime === null) return null
+  const payload: AccountPayload = { username: values.username, defaultTime }
+  if (values.password !== '') payload.password = values.password
+  return payload
 }

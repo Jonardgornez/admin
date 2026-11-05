@@ -1,123 +1,164 @@
-import { useId, useState, type ChangeEvent, type SubmitEvent } from 'react'
+import { useId, useRef } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm, useWatch } from 'react-hook-form'
 import {
+  addAccountSchema,
+  editAccountSchema,
+  PASSWORD_RULE_TEXT,
+  type AccountFormValues,
+} from '../../lib/account-schemas'
+import type { AccountPayload } from '../../lib/accounts-api'
+import {
+  buildAccountPayload,
   getDefaultTimeFields,
-  getFormDefaultTime,
   NEW_ACCOUNT_DEFAULT_TIME,
-  validateAccountForm,
 } from '../../lib/accounts'
-import type { Account, AccountDetails, AccountFormErrors, AccountFormValues } from '../../types'
+import type { ApiResult } from '../../lib/api'
+import { isSessionExpired } from '../../lib/auth-state'
+import type { Account } from '../../types'
+import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { Field, TextInput } from '../ui/field'
 import { Modal } from '../ui/modal'
 import { TimeChoiceFields } from '../ui/time-choice-fields'
 
+const USERNAME_TAKEN_STATUS = 409
+
 interface AccountFormDialogProps {
   account?: Account
-  accounts: Account[]
-  onSave: (details: AccountDetails) => void
+  onSave: (payload: AccountPayload) => Promise<ApiResult<Account>>
   onCancel: () => void
 }
 
-export function AccountFormDialog({
-  account,
-  accounts,
-  onSave,
-  onCancel,
-}: AccountFormDialogProps) {
+export function AccountFormDialog({ account, onSave, onCancel }: AccountFormDialogProps) {
   const baseId = useId()
   const titleId = `${baseId}-title`
   const usernameId = `${baseId}-username`
   const passwordId = `${baseId}-password`
   const isEditing = account !== undefined
+  const isSubmittingRef = useRef(false)
 
-  const [values, setValues] = useState<AccountFormValues>({
-    username: account?.username ?? '',
-    password: '',
-    ...getDefaultTimeFields(account?.defaultTime ?? NEW_ACCOUNT_DEFAULT_TIME),
+  const {
+    register,
+    handleSubmit,
+    setError,
+    setValue,
+    trigger,
+    control,
+    formState: { errors, isSubmitting, isSubmitted },
+  } = useForm<AccountFormValues>({
+    resolver: zodResolver(isEditing ? editAccountSchema : addAccountSchema),
+    defaultValues: {
+      username: account?.username ?? '',
+      password: '',
+      ...getDefaultTimeFields(account?.defaultTime ?? NEW_ACCOUNT_DEFAULT_TIME),
+    },
   })
-  const [errors, setErrors] = useState<AccountFormErrors>({})
+  const [timeMode, timeAmount, timeUnit] = useWatch({
+    control,
+    name: ['timeMode', 'timeAmount', 'timeUnit'],
+  })
 
-  function updateValues(changes: Partial<AccountFormValues>) {
-    setValues((current) => ({ ...current, ...changes }))
-    setErrors((current) => {
-      const next = { ...current }
-      if ('username' in changes) delete next.username
-      if ('password' in changes) delete next.password
-      if ('timeMode' in changes || 'timeAmount' in changes || 'timeUnit' in changes) {
-        delete next.defaultTime
+  // After a failed submit, re-check so the amount error clears once it is corrected.
+  function recheckAmount() {
+    if (isSubmitted) void trigger('timeAmount')
+  }
+
+  function changeTimeMode(value: AccountFormValues['timeMode']) {
+    setValue('timeMode', value, { shouldDirty: true })
+    recheckAmount()
+  }
+
+  function changeTimeAmount(value: string) {
+    setValue('timeAmount', value, { shouldDirty: true })
+    recheckAmount()
+  }
+
+  function changeTimeUnit(value: AccountFormValues['timeUnit']) {
+    setValue('timeUnit', value, { shouldDirty: true })
+    recheckAmount()
+  }
+
+  async function saveAccount(values: AccountFormValues) {
+    if (isSubmittingRef.current) return
+    const payload = buildAccountPayload(values)
+    if (payload === null) return
+    isSubmittingRef.current = true
+    try {
+      const result = await onSave(payload)
+      if (result.success || isSessionExpired(result)) return
+      if (result.status === USERNAME_TAKEN_STATUS) {
+        setError('username', { message: result.error })
+      } else {
+        setError('root', { message: result.error })
       }
-      return next
-    })
-  }
-
-  function saveAccount(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const foundErrors = validateAccountForm(values, accounts, account?.username)
-    const defaultTime = getFormDefaultTime(values)
-    if (Object.keys(foundErrors).length > 0 || defaultTime === null) {
-      setErrors(foundErrors)
-      return
+    } finally {
+      isSubmittingRef.current = false
     }
-    onSave({ username: values.username, defaultTime })
   }
 
-  const passwordHelp = isEditing ? 'Leave blank to keep the current password.' : undefined
+  function closeUnlessSaving() {
+    if (!isSubmitting) onCancel()
+  }
+
+  const passwordHelp = isEditing
+    ? `Leave blank to keep the current password. Otherwise ${PASSWORD_RULE_TEXT}`
+    : PASSWORD_RULE_TEXT
+  const idleLabel = isEditing ? 'Save changes' : 'Add account'
+  const savingLabel = isEditing ? 'Saving...' : 'Adding...'
 
   return (
-    <Modal isOpen labelledBy={titleId} onClose={onCancel}>
-      <form noValidate onSubmit={saveAccount}>
+    <Modal isOpen labelledBy={titleId} onClose={closeUnlessSaving}>
+      <form noValidate onSubmit={(event) => handleSubmit(saveAccount)(event)}>
         <h2 id={titleId} className="m-0 mb-2 text-xl font-semibold">
           {isEditing ? `Edit ${account.username}` : 'Add account'}
         </h2>
         <div className="mb-6 flex flex-col gap-4">
+          {errors.root && (
+            <Banner variant="danger" icon="alert" role="alert">
+              {errors.root.message}
+            </Banner>
+          )}
           <Field
             label="Username"
             htmlFor={usernameId}
-            message={errors.username}
-            isError={errors.username !== undefined}
+            message={errors.username?.message}
+            isError={Boolean(errors.username)}
           >
             <TextInput
               id={usernameId}
               isMono
               autoComplete="off"
-              value={values.username}
-              hasError={errors.username !== undefined}
+              hasError={Boolean(errors.username)}
               aria-describedby={errors.username ? `${usernameId}-message` : undefined}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                updateValues({ username: event.target.value })
-              }
+              {...register('username')}
             />
           </Field>
           <Field
             label={isEditing ? 'New password (optional)' : 'Password'}
             htmlFor={passwordId}
-            message={errors.password ?? passwordHelp}
-            isError={errors.password !== undefined}
+            message={errors.password?.message ?? passwordHelp}
+            isError={Boolean(errors.password)}
           >
             <TextInput
               id={passwordId}
               type="password"
               autoComplete="new-password"
-              value={values.password}
-              hasError={errors.password !== undefined}
-              aria-describedby={
-                errors.password || passwordHelp ? `${passwordId}-message` : undefined
-              }
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                updateValues({ password: event.target.value })
-              }
+              hasError={Boolean(errors.password)}
+              aria-describedby={`${passwordId}-message`}
+              {...register('password')}
             />
           </Field>
           <TimeChoiceFields
             legend="Default time"
             timeLimitLabel="Time limit"
-            timeMode={values.timeMode}
-            amount={values.timeAmount}
-            timeUnit={values.timeUnit}
-            amountError={errors.defaultTime}
-            onTimeModeChange={(timeMode) => updateValues({ timeMode })}
-            onAmountChange={(timeAmount) => updateValues({ timeAmount })}
-            onTimeUnitChange={(timeUnit) => updateValues({ timeUnit })}
+            timeMode={timeMode}
+            amount={timeAmount}
+            timeUnit={timeUnit}
+            amountError={errors.timeAmount?.message}
+            onTimeModeChange={changeTimeMode}
+            onAmountChange={changeTimeAmount}
+            onTimeUnitChange={changeTimeUnit}
           />
           {isEditing && (
             <p className="m-0 text-xs text-ink-muted">
@@ -126,11 +167,11 @@ export function AccountFormDialog({
           )}
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onCancel}>
+          <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Save changes' : 'Add account'}
+          <Button type="submit" variant="primary" disabled={isSubmitting}>
+            {isSubmitting ? savingLabel : idleLabel}
           </Button>
         </div>
       </form>

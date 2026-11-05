@@ -48,22 +48,18 @@ export type TimeUnit = 'minutes' | 'hours'
 export type SelectionState = 'all' | 'some' | 'none'
 
 export interface Account {
+  id: number
   username: string
   isActive: boolean
-  lastLogin: string
   defaultTime: ApprovalChoice
+  lastLoginAt: string | null
 }
 
-export type AccountDetails = Pick<Account, 'username' | 'defaultTime'>
-
-export interface AccountFormValues extends Pick<Account, 'username'> {
-  password: string
+export interface TimeChoiceValues {
   timeMode: ApprovalChoice['mode']
   timeAmount: string
   timeUnit: TimeUnit
 }
-
-export type AccountFormErrors = Partial<Record<'username' | 'password' | 'defaultTime', string>>
 
 export interface LoginRequest {
   id: string

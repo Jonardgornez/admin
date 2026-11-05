@@ -2,31 +2,39 @@ import { useState } from 'react'
 import { AccountFormDialog } from '../component/account/account-form-dialog'
 import { AccountRowActions } from '../component/account/account-row-actions'
 import { AccountStatus } from '../component/account/account-status'
+import { useAccounts } from '../component/account/use-accounts'
 import { PageHeader } from '../component/layout/page-header'
+import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { ConfirmDialog } from '../component/ui/confirm-dialog'
 import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Field, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
-import { accounts as initialAccounts } from '../data/accounts'
-import {
-  addAccount,
-  deleteAccount,
-  filterAccounts,
-  formatDefaultTime,
-  toggleAccountEnabled,
-  updateAccount,
-} from '../lib/accounts'
-import type { Account, AccountDetails } from '../types'
+import type { AccountPayload } from '../lib/accounts-api'
+import { filterAccounts, formatDefaultTime, formatLastLogin } from '../lib/accounts'
+import type { ApiResult } from '../lib/api'
+import { isSessionExpired } from '../lib/auth-state'
+import type { Account } from '../types'
 
 type AccountFormTarget = { kind: 'add' } | { kind: 'edit'; account: Account }
 
+const NOT_FOUND_STATUS = 404
+
 export function AccountsPage() {
   const notify = useNotify()
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
+  const {
+    accounts,
+    loadState,
+    busyAccountIds,
+    reload,
+    createAccount,
+    updateAccount,
+    setAccountActive,
+    deleteAccount,
+  } = useAccounts()
   const [searchQuery, setSearchQuery] = useState('')
-  const [pendingDeleteUsername, setPendingDeleteUsername] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Account | null>(null)
   const [accountFormTarget, setAccountFormTarget] = useState<AccountFormTarget | null>(null)
 
   const columns: DataTableColumn<Account>[] = [
@@ -40,7 +48,7 @@ export function AccountsPage() {
     {
       key: 'lastLogin',
       label: 'Last login',
-      render: (account) => <span className="text-ink-subtle">{account.lastLogin}</span>,
+      render: (account) => <span className="text-ink-subtle">{formatLastLogin(account.lastLoginAt)}</span>,
     },
     {
       key: 'actions',
@@ -49,48 +57,71 @@ export function AccountsPage() {
       render: (account) => (
         <AccountRowActions
           account={account}
+          isBusy={busyAccountIds.includes(account.id)}
           onEdit={() => setAccountFormTarget({ kind: 'edit', account })}
-          onToggleEnabled={() => toggleEnabled(account)}
-          onDelete={() => setPendingDeleteUsername(account.username)}
+          onToggleEnabled={() => void toggleEnabled(account)}
+          onDelete={() => setPendingDelete(account)}
         />
       ),
     },
   ]
 
-  function toggleEnabled(account: Account) {
-    setAccounts((current) => toggleAccountEnabled(current, account.username))
-    notify(`Account ${account.username} ${account.isActive ? 'disabled' : 'enabled'}.`, 'user')
+  // An expired session is handled by the sign-out redirect, so say nothing here.
+  function notifyFailure(result: ApiResult<unknown>) {
+    if (!result.success && !isSessionExpired(result)) notify(result.error, 'alert')
   }
 
-  function confirmDelete() {
-    if (pendingDeleteUsername) {
-      setAccounts((current) => deleteAccount(current, pendingDeleteUsername))
-      notify(`Account ${pendingDeleteUsername} deleted.`, 'user')
-    }
-    setPendingDeleteUsername(null)
-  }
-
-  function saveAccount(details: AccountDetails) {
-    const username = details.username.trim()
-    if (accountFormTarget?.kind === 'edit') {
-      const originalUsername = accountFormTarget.account.username
-      setAccounts((current) => updateAccount(current, originalUsername, details))
-      notify(`Account ${username} updated.`, 'user')
+  async function toggleEnabled(account: Account) {
+    const result = await setAccountActive(account, !account.isActive)
+    if (result.success) {
+      notify(`Account ${result.data.username} ${result.data.isActive ? 'enabled' : 'disabled'}.`, 'user')
     } else {
-      setAccounts((current) => addAccount(current, details))
-      setSearchQuery('')
-      notify(`Account ${username} added.`, 'user')
+      notifyFailure(result)
     }
-    setAccountFormTarget(null)
   }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    const account = pendingDelete
+    setPendingDelete(null)
+    const result = await deleteAccount(account)
+    if (result.success) notify(`Account ${account.username} deleted.`, 'user')
+    else notifyFailure(result)
+  }
+
+  async function saveAccount(payload: AccountPayload) {
+    const result =
+      accountFormTarget?.kind === 'edit'
+        ? await updateAccount(accountFormTarget.account.id, payload)
+        : await createAccount(payload)
+    if (result.success) {
+      if (accountFormTarget?.kind === 'add') setSearchQuery('')
+      notify(
+        `Account ${result.data.username} ${accountFormTarget?.kind === 'edit' ? 'updated' : 'added'}.`,
+        'user',
+      )
+      setAccountFormTarget(null)
+    } else if (result.status === NOT_FOUND_STATUS) {
+      notify(result.error, 'alert')
+      setAccountFormTarget(null)
+    }
+    return result
+  }
+
+  const visibleAccounts = filterAccounts(accounts, searchQuery)
+  const emptyMessage =
+    accounts.length === 0
+      ? 'No accounts yet. Add one to get started.'
+      : 'No accounts match your search.'
 
   return (
     <>
-      <PageHeader
-        title="Accounts"
-        description="Accounts can sign in on any PC."
-      >
-        <Button variant="primary" onClick={() => setAccountFormTarget({ kind: 'add' })}>
+      <PageHeader title="Accounts" description="Accounts can sign in on any PC.">
+        <Button
+          variant="primary"
+          disabled={loadState.status !== 'loaded'}
+          onClick={() => setAccountFormTarget({ kind: 'add' })}
+        >
           <Icon name="user" />
           Add account
         </Button>
@@ -103,29 +134,45 @@ export function AccountsPage() {
           onChange={(event) => setSearchQuery(event.target.value)}
         />
       </Field>
-      <DataTable
-        columns={columns}
-        rows={filterAccounts(accounts, searchQuery)}
-        getRowKey={(account) => account.username}
-        minWidthClassName="min-w-190"
-        emptyMessage="No accounts match your search."
-      />
+      {loadState.status === 'loading' && (
+        <p role="status" className="m-0 text-base text-ink-muted">
+          Loading accounts...
+        </p>
+      )}
+      {loadState.status === 'error' && (
+        <div className="flex flex-col items-start gap-3">
+          <Banner variant="danger" icon="alert" title="Can't load accounts" role="alert" className="w-full">
+            {loadState.error}
+          </Banner>
+          <Button variant="secondary" onClick={() => void reload()}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {loadState.status === 'loaded' && (
+        <DataTable
+          columns={columns}
+          rows={visibleAccounts}
+          getRowKey={(account) => String(account.id)}
+          minWidthClassName="min-w-190"
+          emptyMessage={emptyMessage}
+        />
+      )}
       {accountFormTarget && (
         <AccountFormDialog
           account={accountFormTarget.kind === 'edit' ? accountFormTarget.account : undefined}
-          accounts={accounts}
           onSave={saveAccount}
           onCancel={() => setAccountFormTarget(null)}
         />
       )}
       <ConfirmDialog
-        isOpen={pendingDeleteUsername !== null}
-        title={`Delete ${pendingDeleteUsername ?? ''}?`}
+        isOpen={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.username ?? ''}?`}
         confirmLabel="Delete"
-        onConfirm={confirmDelete}
-        onCancel={() => setPendingDeleteUsername(null)}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
       >
-        This removes the account from the list. This cannot be undone.
+        This permanently deletes the account. This cannot be undone.
       </ConfirmDialog>
     </>
   )
