@@ -9,6 +9,15 @@ export const FALLBACK_ERROR_MESSAGE = 'Something went wrong. Try again.'
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
+  // Tells the server this request is automatic, so it doesn't extend the idle session.
+  isBackground?: boolean
+}
+
+function buildHeaders(hasBody: boolean, isBackground: boolean): Record<string, string> | undefined {
+  const headers: Record<string, string> = {}
+  if (hasBody) headers['Content-Type'] = 'application/json'
+  if (isBackground) headers['X-Background-Refresh'] = '1'
+  return Object.keys(headers).length === 0 ? undefined : headers
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -29,14 +38,14 @@ function readErrorMessage(body: unknown): string {
 
 export async function apiRequest<T = undefined>(
   path: string,
-  { method = 'GET', body }: RequestOptions = {},
+  { method = 'GET', body, isBackground = false }: RequestOptions = {},
 ): Promise<ApiResult<T>> {
   let response: Response
   try {
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: buildHeaders(body !== undefined, isBackground),
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {

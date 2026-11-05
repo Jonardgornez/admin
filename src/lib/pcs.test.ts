@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
-import type { Pc } from '../types'
+import type { Pc, ServerPc } from '../types'
 import {
   canTimeOutPc,
+  comparePcNames,
+  formatLastUpdate,
+  toRegisteredPc,
+  toSortedRegisteredPcs,
   countChangedPcs,
   countOnlinePcs,
   describeTimeGrant,
@@ -433,5 +437,83 @@ describe('describeTimeGrant', () => {
 describe('getScreenHref', () => {
   it('builds the screen route with the view mode', () => {
     expect(getScreenHref('PC-05', 'anonymous')).toBe('/pc/PC-05/screen?mode=anonymous')
+  })
+})
+
+const serverPc: ServerPc = {
+  id: 9,
+  name: 'PC-09',
+  isOnline: true,
+  ipAddress: '192.168.1.19',
+  registeredAt: '2026-11-01T08:00:00.000Z',
+  lastSeenAt: '2026-11-05T10:00:00.000Z',
+}
+
+describe('toRegisteredPc', () => {
+  it('shows an online PC as online with no user, seen now', () => {
+    expect(toRegisteredPc(serverPc)).toEqual({
+      id: 9,
+      name: 'PC-09',
+      status: 'locked',
+      lastSeen: 'Now',
+      ipAddress: '192.168.1.19',
+    })
+  })
+
+  it('shows an offline PC with its last seen date and time', () => {
+    const pc = toRegisteredPc({ ...serverPc, isOnline: false })
+    expect(pc.status).toBe('offline')
+    expect(pc.lastSeen).toBe(
+      new Date(serverPc.lastSeenAt).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    )
+  })
+
+  it('does not invent a user, time, or restrictions', () => {
+    const pc = toRegisteredPc(serverPc)
+    expect(pc.user).toBeUndefined()
+    expect(pc.timeUsed).toBeUndefined()
+    expect(pc.minutesLeft).toBeUndefined()
+    expect(pc.isOpenTime).toBeUndefined()
+    expect(pc.restrictions).toBeUndefined()
+  })
+
+  it('leaves the address out when the server has none', () => {
+    expect(toRegisteredPc({ ...serverPc, ipAddress: null }).ipAddress).toBeUndefined()
+  })
+
+  it('says Unknown when the last seen time is not a date', () => {
+    expect(toRegisteredPc({ ...serverPc, isOnline: false, lastSeenAt: 'garbage' }).lastSeen).toBe(
+      'Unknown',
+    )
+  })
+})
+
+describe('comparePcNames', () => {
+  it('orders numbers inside names by value', () => {
+    expect(comparePcNames('PC-2', 'PC-10')).toBeLessThan(0)
+    expect(comparePcNames('PC-10', 'PC-2')).toBeGreaterThan(0)
+    expect(comparePcNames('PC-2', 'PC-2')).toBe(0)
+  })
+})
+
+describe('toSortedRegisteredPcs', () => {
+  it('converts and sorts by name numerically without changing the input', () => {
+    const input = ['PC-10', 'PC-2', 'PC-1'].map((name, index) => ({ ...serverPc, id: index, name }))
+    expect(toSortedRegisteredPcs(input).map((pc) => pc.name)).toEqual(['PC-1', 'PC-2', 'PC-10'])
+    expect(input.map((pc) => pc.name)).toEqual(['PC-10', 'PC-2', 'PC-1'])
+  })
+
+  it('returns an empty list for no PCs', () => {
+    expect(toSortedRegisteredPcs([])).toEqual([])
+  })
+})
+
+describe('formatLastUpdate', () => {
+  it('formats the time of day', () => {
+    const date = new Date(2026, 10, 5, 10, 44, 12)
+    expect(formatLastUpdate(date)).toBe(date.toLocaleTimeString(undefined, { timeStyle: 'medium' }))
   })
 })

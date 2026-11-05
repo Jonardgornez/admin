@@ -30,6 +30,35 @@ describe('apiRequest', () => {
     })
   })
 
+  it('sends the background refresh header only when asked', async () => {
+    const fetchMock = stubFetch(Response.json([]))
+    await apiRequest('/api/x', { isBackground: true })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/x',
+      expect.objectContaining({ headers: { 'X-Background-Refresh': '1' } }),
+    )
+  })
+
+  it('keeps the JSON content type next to the background header', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }))
+    await apiRequest('/api/x', { method: 'POST', body: {}, isBackground: true })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/x',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json', 'X-Background-Refresh': '1' },
+      }),
+    )
+  })
+
+  it('does not send the background header on normal requests', async () => {
+    const fetchMock = stubFetch(Response.json([]))
+    await apiRequest('/api/x')
+    await apiRequest('/api/x', { isBackground: false })
+    for (const [, init] of fetchMock.mock.calls as unknown as [string, RequestInit][]) {
+      expect(init.headers).toBeUndefined()
+    }
+  })
+
   it.each(['PUT', 'PATCH', 'DELETE'] as const)('sends the %s method', async (method) => {
     const fetchMock = stubFetch(new Response(null, { status: 204 }))
     await apiRequest('/api/x/1', { method })

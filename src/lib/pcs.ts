@@ -1,6 +1,44 @@
-import type { ApprovalChoice, Pc, SelectionState, TimeUnit, ViewMode } from '../types'
+import type {
+  ApprovalChoice,
+  Pc,
+  RegisteredPc,
+  SelectionState,
+  ServerPc,
+  TimeUnit,
+  ViewMode,
+} from '../types'
 
 const MINUTES_PER_HOUR = 60
+const UNKNOWN_TIME_LABEL = 'Unknown'
+
+function formatLastSeen(lastSeenAt: string): string {
+  const date = new Date(lastSeenAt)
+  if (Number.isNaN(date.getTime())) return UNKNOWN_TIME_LABEL
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// The server only knows whether a PC is connected, so an online PC is shown as having no user.
+export function toRegisteredPc(serverPc: ServerPc): RegisteredPc {
+  return {
+    id: serverPc.id,
+    name: serverPc.name,
+    status: serverPc.isOnline ? 'locked' : 'offline',
+    lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
+    ipAddress: serverPc.ipAddress ?? undefined,
+  }
+}
+
+export function comparePcNames(first: string, second: string): number {
+  return first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+export function toSortedRegisteredPcs(serverPcs: ServerPc[]): RegisteredPc[] {
+  return serverPcs.map(toRegisteredPc).sort((first, second) => comparePcNames(first.name, second.name))
+}
+
+export function formatLastUpdate(updatedAt: Date): string {
+  return updatedAt.toLocaleTimeString(undefined, { timeStyle: 'medium' })
+}
 
 export function isPcOnline(pc: Pc): boolean {
   return pc.status === 'locked' || pc.status === 'in-use'

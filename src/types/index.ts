@@ -14,6 +14,19 @@ export interface Pc {
   restrictions?: PcRestrictions
 }
 
+export interface ServerPc {
+  id: number
+  name: string
+  isOnline: boolean
+  ipAddress: string | null
+  registeredAt: string
+  lastSeenAt: string
+}
+
+export interface RegisteredPc extends Pc {
+  id: number
+}
+
 export type RestrictionPolicyId =
   | 'task-manager'
   | 'registry-editor'
