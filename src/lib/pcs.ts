@@ -4,6 +4,7 @@ import type {
   RegisteredPc,
   SelectionState,
   ServerPc,
+  ServerPcSession,
   TimeUnit,
   ViewMode,
 } from '../types'
@@ -17,14 +18,44 @@ function formatLastSeen(lastSeenAt: string): string {
   return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-// The server only knows whether a PC is connected, so an online PC is shown as having no user.
-export function toRegisteredPc(serverPc: ServerPc): RegisteredPc {
+const SECONDS_PER_MINUTE = 60
+const MILLISECONDS_PER_MINUTE = 60_000
+
+export function formatTimeUsed(startedAt: string, now: Date): string | undefined {
+  const startedTime = new Date(startedAt).getTime()
+  if (Number.isNaN(startedTime)) return undefined
+  const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedTime) / MILLISECONDS_PER_MINUTE))
+  const hours = Math.floor(elapsedMinutes / MINUTES_PER_HOUR)
+  const minutes = elapsedMinutes % MINUTES_PER_HOUR
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
+  const timeUsed = formatTimeUsed(session.startedAt, now)
+  if (session.time.mode === 'open-time') {
+    return { status: 'in-use', user: session.username, timeUsed, isOpenTime: true }
+  }
+  return {
+    status: 'in-use',
+    user: session.username,
+    timeUsed,
+    minutesLeft:
+      session.secondsRemaining === null
+        ? undefined
+        : Math.ceil(Math.max(0, session.secondsRemaining) / SECONDS_PER_MINUTE),
+  }
+}
+
+// An online PC with a live session is in use; online without one is waiting for a user.
+export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
+  const session = serverPc.isOnline && serverPc.session ? serverPc.session : null
   return {
     id: serverPc.id,
     name: serverPc.name,
     status: serverPc.isOnline ? 'locked' : 'offline',
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
+    ...(session && toSessionFields(session, now)),
   }
 }
 
@@ -32,8 +63,10 @@ export function comparePcNames(first: string, second: string): number {
   return first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-export function toSortedRegisteredPcs(serverPcs: ServerPc[]): RegisteredPc[] {
-  return serverPcs.map(toRegisteredPc).sort((first, second) => comparePcNames(first.name, second.name))
+export function toSortedRegisteredPcs(serverPcs: ServerPc[], now: Date): RegisteredPc[] {
+  return serverPcs
+    .map((serverPc) => toRegisteredPc(serverPc, now))
+    .sort((first, second) => comparePcNames(first.name, second.name))
 }
 
 export function formatLastUpdate(updatedAt: Date): string {

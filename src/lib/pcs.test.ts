@@ -5,6 +5,7 @@ import {
   canTimeOutPc,
   comparePcNames,
   formatLastUpdate,
+  formatTimeUsed,
   toRegisteredPc,
   toSortedRegisteredPcs,
   countChangedPcs,
@@ -447,11 +448,113 @@ const serverPc: ServerPc = {
   ipAddress: '192.168.1.19',
   registeredAt: '2026-11-01T08:00:00.000Z',
   lastSeenAt: '2026-11-05T10:00:00.000Z',
+  session: null,
 }
 
+const startedAt = '2026-11-05T10:00:00.000Z'
+const now = new Date(startedAt)
+
+function secondsAfterStart(seconds: number): Date {
+  return new Date(now.getTime() + seconds * 1000)
+}
+
+describe('formatTimeUsed', () => {
+  it('is 00:00 with no time elapsed', () => {
+    expect(formatTimeUsed(startedAt, now)).toBe('00:00')
+  })
+
+  it('rounds partial minutes down', () => {
+    expect(formatTimeUsed(startedAt, secondsAfterStart(59))).toBe('00:00')
+    expect(formatTimeUsed(startedAt, secondsAfterStart(60))).toBe('00:01')
+  })
+
+  it('shows hours and minutes', () => {
+    expect(formatTimeUsed(startedAt, secondsAfterStart(3600 + 5 * 60))).toBe('01:05')
+    expect(formatTimeUsed(startedAt, secondsAfterStart(100 * 3600))).toBe('100:00')
+  })
+
+  it('does not go negative when the clocks disagree', () => {
+    expect(formatTimeUsed(startedAt, secondsAfterStart(-30))).toBe('00:00')
+  })
+
+  it('is undefined when the start is not a date', () => {
+    expect(formatTimeUsed('garbage', now)).toBeUndefined()
+  })
+})
+
 describe('toRegisteredPc', () => {
+  it('shows an in-use PC with the user and time left of a timed session', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        session: {
+          username: 'maria',
+          startedAt,
+          time: { mode: 'time-limit', minutes: 60 },
+          secondsRemaining: 1800,
+        },
+      },
+      secondsAfterStart(90 * 60),
+    )
+    expect(pc).toMatchObject({
+      status: 'in-use',
+      user: 'maria',
+      timeUsed: '01:30',
+      minutesLeft: 30,
+    })
+    expect(pc.isOpenTime).toBeUndefined()
+  })
+
+  it('rounds the time left up to the next minute', () => {
+    const session = {
+      username: 'maria',
+      startedAt,
+      time: { mode: 'time-limit' as const, minutes: 5 },
+    }
+    expect(toRegisteredPc({ ...serverPc, session: { ...session, secondsRemaining: 1 } }, now).minutesLeft).toBe(1)
+    expect(toRegisteredPc({ ...serverPc, session: { ...session, secondsRemaining: 61 } }, now).minutesLeft).toBe(2)
+    expect(toRegisteredPc({ ...serverPc, session: { ...session, secondsRemaining: 0 } }, now).minutesLeft).toBe(0)
+  })
+
+  it('shows open time without minutes left', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        session: {
+          username: 'maria',
+          startedAt,
+          time: { mode: 'open-time' },
+          secondsRemaining: null,
+        },
+      },
+      now,
+    )
+    expect(pc).toMatchObject({ status: 'in-use', user: 'maria', timeUsed: '00:00', isOpenTime: true })
+    expect(pc.minutesLeft).toBeUndefined()
+  })
+
+  it('ignores a session on an offline PC', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        isOnline: false,
+        session: {
+          username: 'maria',
+          startedAt,
+          time: { mode: 'open-time' },
+          secondsRemaining: null,
+        },
+      },
+      now,
+    )
+    expect(pc.status).toBe('offline')
+    expect(pc.user).toBeUndefined()
+    expect(pc.timeUsed).toBeUndefined()
+    expect(pc.isOpenTime).toBeUndefined()
+  })
+
   it('shows an online PC as online with no user, seen now', () => {
-    expect(toRegisteredPc(serverPc)).toEqual({
+    expect(toRegisteredPc(serverPc, now)).toEqual({
       id: 9,
       name: 'PC-09',
       status: 'locked',
@@ -461,7 +564,7 @@ describe('toRegisteredPc', () => {
   })
 
   it('shows an offline PC with its last seen date and time', () => {
-    const pc = toRegisteredPc({ ...serverPc, isOnline: false })
+    const pc = toRegisteredPc({ ...serverPc, isOnline: false }, now)
     expect(pc.status).toBe('offline')
     expect(pc.lastSeen).toBe(
       new Date(serverPc.lastSeenAt).toLocaleString(undefined, {
@@ -472,7 +575,7 @@ describe('toRegisteredPc', () => {
   })
 
   it('does not invent a user, time, or restrictions', () => {
-    const pc = toRegisteredPc(serverPc)
+    const pc = toRegisteredPc(serverPc, now)
     expect(pc.user).toBeUndefined()
     expect(pc.timeUsed).toBeUndefined()
     expect(pc.minutesLeft).toBeUndefined()
@@ -481,11 +584,11 @@ describe('toRegisteredPc', () => {
   })
 
   it('leaves the address out when the server has none', () => {
-    expect(toRegisteredPc({ ...serverPc, ipAddress: null }).ipAddress).toBeUndefined()
+    expect(toRegisteredPc({ ...serverPc, ipAddress: null }, now).ipAddress).toBeUndefined()
   })
 
   it('says Unknown when the last seen time is not a date', () => {
-    expect(toRegisteredPc({ ...serverPc, isOnline: false, lastSeenAt: 'garbage' }).lastSeen).toBe(
+    expect(toRegisteredPc({ ...serverPc, isOnline: false, lastSeenAt: 'garbage' }, now).lastSeen).toBe(
       'Unknown',
     )
   })
@@ -502,12 +605,12 @@ describe('comparePcNames', () => {
 describe('toSortedRegisteredPcs', () => {
   it('converts and sorts by name numerically without changing the input', () => {
     const input = ['PC-10', 'PC-2', 'PC-1'].map((name, index) => ({ ...serverPc, id: index, name }))
-    expect(toSortedRegisteredPcs(input).map((pc) => pc.name)).toEqual(['PC-1', 'PC-2', 'PC-10'])
+    expect(toSortedRegisteredPcs(input, now).map((pc) => pc.name)).toEqual(['PC-1', 'PC-2', 'PC-10'])
     expect(input.map((pc) => pc.name)).toEqual(['PC-10', 'PC-2', 'PC-1'])
   })
 
   it('returns an empty list for no PCs', () => {
-    expect(toSortedRegisteredPcs([])).toEqual([])
+    expect(toSortedRegisteredPcs([], now)).toEqual([])
   })
 })
 

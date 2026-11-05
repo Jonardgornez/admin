@@ -146,12 +146,6 @@ export function PcDetailDialog({
             )}
           </fieldset>
         </div>
-        {pc.user && (
-          <div className="flex min-w-0 flex-col border-t border-border pt-4">
-            <span className="text-xs font-semibold tracking-label text-ink-muted">Current user</span>
-            <span className="truncate font-mono text-sm">{pc.user}</span>
-          </div>
-        )}
       </div>
     </Modal>
   )

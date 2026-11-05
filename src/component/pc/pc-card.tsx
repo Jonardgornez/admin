@@ -39,7 +39,7 @@ const monitorVariants = cva(
   },
 )
 
-const metaValueVariants = cva('m-0', {
+const metaValueVariants = cva('m-0 min-w-0 break-words text-right', {
   variants: {
     isOff: {
       true: 'font-normal text-ink-subtle',
@@ -155,6 +155,9 @@ export function PcCard({
         <PcMetaRow icon="monitor" label="IP address" value={pc.ipAddress} isOff={isOff} />
         <PcMetaRow icon="clock" label="Last seen" value={pc.lastSeen} isOff={isOff} />
         {pc.user && <PcMetaRow icon="user" label="User" value={pc.user} isOff={isOff} />}
+        {pc.timeUsed && (
+          <PcMetaRow icon="clock" label="Time used" value={pc.timeUsed} isOff={isOff} />
+        )}
         {timeLeftLabel && (
           <PcMetaRow icon="hourglass" label="Time left" value={timeLeftLabel} isOff={isOff} />
         )}

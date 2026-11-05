@@ -42,10 +42,11 @@ export function usePcs() {
     if (!result) return
     if (result.success) {
       hasLoaded.current = true
-      setPcs(toSortedRegisteredPcs(result.data))
+      const now = new Date()
+      setPcs(toSortedRegisteredPcs(result.data, now))
       setLoadState({ status: 'loaded' })
       setIsDisconnected(false)
-      setLastUpdatedAt(new Date())
+      setLastUpdatedAt(now)
       return
     }
     // An expired session is handled by the sign-out redirect.

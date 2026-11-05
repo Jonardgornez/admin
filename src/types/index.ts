@@ -14,6 +14,13 @@ export interface Pc {
   restrictions?: PcRestrictions
 }
 
+export interface ServerPcSession {
+  username: string
+  startedAt: string
+  time: ApprovalChoice
+  secondsRemaining: number | null
+}
+
 export interface ServerPc {
   id: number
   name: string
@@ -21,6 +28,7 @@ export interface ServerPc {
   ipAddress: string | null
   registeredAt: string
   lastSeenAt: string
+  session: ServerPcSession | null
 }
 
 export interface RegisteredPc extends Pc {

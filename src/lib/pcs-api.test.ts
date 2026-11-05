@@ -9,6 +9,7 @@ const serverPc = {
   ipAddress: '192.168.1.13',
   registeredAt: '2026-11-01T08:00:00.000Z',
   lastSeenAt: '2026-11-05T10:00:00.000Z',
+  session: null,
 }
 
 function stubFetch(response: Response | Error) {
@@ -49,6 +50,43 @@ describe('pcs api', () => {
     it('drops fields the server sends beyond the contract', async () => {
       stubFetch(Response.json([{ ...serverPc, token: 'secret' }]))
       expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+    })
+
+    it('keeps a timed session', async () => {
+      const session = {
+        username: 'maria',
+        startedAt: '2026-11-05T09:00:00.000Z',
+        time: { mode: 'time-limit', minutes: 60 },
+        secondsRemaining: 1800,
+      }
+      stubFetch(Response.json([{ ...serverPc, session }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, session }] })
+    })
+
+    it('keeps an open time session with no seconds remaining', async () => {
+      const session = {
+        username: 'maria',
+        startedAt: '2026-11-05T09:00:00.000Z',
+        time: { mode: 'open-time' },
+        secondsRemaining: null,
+      }
+      stubFetch(Response.json([{ ...serverPc, session }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, session }] })
+    })
+
+    it.each([
+      ['a missing username', { startedAt: 'x', time: { mode: 'open-time' }, secondsRemaining: null }],
+      ['an unknown time mode', { username: 'a', startedAt: 'x', time: { mode: 'forever' }, secondsRemaining: null }],
+      ['text seconds remaining', { username: 'a', startedAt: 'x', time: { mode: 'open-time' }, secondsRemaining: '5' }],
+    ])('fails on a malformed session with %s', async (_label, session) => {
+      stubFetch(Response.json([{ ...serverPc, session }]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('fails when the session field is missing', async () => {
+      const { session: _session, ...withoutSession } = serverPc
+      stubFetch(Response.json([withoutSession]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
     it('fails with the fallback message on a malformed body', async () => {
