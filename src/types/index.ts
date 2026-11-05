@@ -69,6 +69,8 @@ export type TimeUnit = 'minutes' | 'hours'
 
 export type SelectionState = 'all' | 'some' | 'none'
 
+export type BulkLockKind = 'lock' | 'unlock'
+
 export interface Account {
   id: number
   username: string

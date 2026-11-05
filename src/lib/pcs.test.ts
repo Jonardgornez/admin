@@ -11,6 +11,7 @@ import {
   countOnlinePcs,
   countPcsToLock,
   countPcsToUnlock,
+  describeBulkLockResult,
   describeTimeGrant,
   filterPcs,
   formatMinutes,
@@ -101,6 +102,18 @@ describe('formatPcCount', () => {
     expect(formatPcCount(1)).toBe('1 PC')
     expect(formatPcCount(5)).toBe('5 PCs')
     expect(formatPcCount(0)).toBe('0 PCs')
+  })
+})
+
+describe('describeBulkLockResult', () => {
+  it('reports how many PCs were locked or unlocked', () => {
+    expect(describeBulkLockResult('unlock', 8)).toBe('Unlocked 8 PCs.')
+    expect(describeBulkLockResult('lock', 1)).toBe('Locked 1 PC.')
+  })
+
+  it('says when no PCs needed the change', () => {
+    expect(describeBulkLockResult('lock', 0)).toBe('No PCs needed locking.')
+    expect(describeBulkLockResult('unlock', 0)).toBe('No PCs needed unlocking.')
   })
 })
 

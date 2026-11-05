@@ -1,5 +1,6 @@
 import type {
   ApprovalChoice,
+  BulkLockKind,
   Pc,
   RegisteredPc,
   SelectionState,
@@ -160,6 +161,13 @@ export function countPcsToUnlock(pcs: Pc[]): number {
 
 export function formatPcCount(count: number): string {
   return `${count} ${count === 1 ? 'PC' : 'PCs'}`
+}
+
+export function describeBulkLockResult(kind: BulkLockKind, affected: number): string {
+  if (affected === 0) return kind === 'lock' ? 'No PCs needed locking.' : 'No PCs needed unlocking.'
+  return kind === 'lock'
+    ? `Locked ${formatPcCount(affected)}.`
+    : `Unlocked ${formatPcCount(affected)}.`
 }
 
 export function updateActionablePcs(

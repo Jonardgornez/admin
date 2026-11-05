@@ -3,6 +3,7 @@ import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
 import { isPcOnline, toSortedRegisteredPcs } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
+import type { BulkCommandResult } from '../../lib/pcs-api'
 import type { RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
@@ -29,6 +30,8 @@ export function usePcs() {
   const hasLoaded = useRef(false)
   // Checked synchronously so a double click cannot send the command twice.
   const lockingPcIdsInFlight = useRef(new Set<number>())
+  const [isBulkLockBusy, setIsBulkLockBusy] = useState(false)
+  const isBulkLockInFlight = useRef(false)
   const refreshNow = useRef<((isBackground: boolean) => Promise<void>) | null>(null)
 
   // Resolves with null when a newer load or a removal started since, so the answer is stale.
@@ -155,6 +158,26 @@ export function usePcs() {
     [runPcCommand],
   )
 
+  // Resolves with null when a bulk lock or unlock is already running.
+  const runBulkLockCommand = useCallback(
+    async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
+      if (isBulkLockInFlight.current) return null
+      isBulkLockInFlight.current = true
+      setIsBulkLockBusy(true)
+      try {
+        return await runPcCommand(command())
+      } finally {
+        isBulkLockInFlight.current = false
+        setIsBulkLockBusy(false)
+      }
+    },
+    [runPcCommand],
+  )
+
+  const lockAll = useCallback(() => runBulkLockCommand(pcsApi.lockAllPcs), [runBulkLockCommand])
+
+  const unlockAll = useCallback(() => runBulkLockCommand(pcsApi.unlockAllPcs), [runBulkLockCommand])
+
   return {
     pcs,
     loadState,
@@ -162,8 +185,11 @@ export function usePcs() {
     lastUpdatedAt,
     removingPcIds,
     lockingPcIds,
+    isBulkLockBusy,
     retry,
     removePc,
     togglePcLock,
+    lockAll,
+    unlockAll,
   }
 }

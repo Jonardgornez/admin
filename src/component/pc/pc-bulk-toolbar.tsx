@@ -11,6 +11,9 @@ interface PcBulkToolbarProps {
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
   areCommandsDisabled: boolean
+  pcsToLockCount?: number
+  pcsToUnlockCount?: number
+  isLockAllDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
@@ -33,6 +36,9 @@ export function PcBulkToolbar({
   restrictionTargetCount = 0,
   hasVisiblePcs,
   areCommandsDisabled,
+  pcsToLockCount = 0,
+  pcsToUnlockCount = 0,
+  isLockAllDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
@@ -62,11 +68,19 @@ export function PcBulkToolbar({
           Select all
         </label>
       )}
-      <Button variant="primary" disabled={areCommandsDisabled} onClick={onUnlockAll}>
+      <Button
+        variant="primary"
+        disabled={isLockAllDisabled || pcsToUnlockCount === 0}
+        onClick={onUnlockAll}
+      >
         <Icon name="unlock" />
         Unlock all
       </Button>
-      <Button variant="secondary" disabled={areCommandsDisabled} onClick={onLockAll}>
+      <Button
+        variant="secondary"
+        disabled={isLockAllDisabled || pcsToLockCount === 0}
+        onClick={onLockAll}
+      >
         <Icon name="lock" />
         Lock all
       </Button>

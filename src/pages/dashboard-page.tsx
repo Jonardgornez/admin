@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PageHeader } from '../component/layout/page-header'
+import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
@@ -10,7 +11,14 @@ import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import { isSessionExpired } from '../lib/auth-state'
-import { countOnlinePcs, filterPcs, formatLastUpdate } from '../lib/pcs'
+import {
+  countOnlinePcs,
+  countPcsToLock,
+  countPcsToUnlock,
+  describeBulkLockResult,
+  filterPcs,
+  formatLastUpdate,
+} from '../lib/pcs'
 import type { RegisteredPc } from '../types'
 
 const COMMANDS_NOTE = "Other PC commands aren't connected yet."
@@ -26,13 +34,17 @@ export function DashboardPage() {
     lastUpdatedAt,
     removingPcIds,
     lockingPcIds,
+    isBulkLockBusy,
     retry,
     removePc,
     togglePcLock,
+    lockAll,
+    unlockAll,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
+  const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
 
   const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -60,6 +72,18 @@ export function DashboardPage() {
   function toggleLockOfPcNamed(pcName: string) {
     const pc = pcs.find((candidate) => candidate.name === pcName)
     if (pc) void toggleLockOfPc(pc)
+  }
+
+  async function confirmBulkLock(action: BulkLockAction) {
+    const result = action.kind === 'lock' ? await lockAll() : await unlockAll()
+    // Null means the same command is still running, which closes the dialog when it ends.
+    if (!result) return
+    setBulkLockAction(null)
+    if (result.success) {
+      notify(describeBulkLockResult(action.kind, result.data.affected), action.kind)
+    } else if (!isSessionExpired(result)) {
+      notify(result.error, 'alert')
+    }
   }
 
   async function removeConfirmedPc(pc: RegisteredPc) {
@@ -103,9 +127,14 @@ export function DashboardPage() {
           <PcBulkToolbar
             hasVisiblePcs={visiblePcs.length > 0}
             areCommandsDisabled
+            pcsToLockCount={countPcsToLock(pcs)}
+            pcsToUnlockCount={countPcsToUnlock(pcs)}
+            isLockAllDisabled={isDisconnected || isBulkLockBusy}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             note={COMMANDS_NOTE}
+            onUnlockAll={() => setBulkLockAction({ kind: 'unlock', count: countPcsToUnlock(pcs) })}
+            onLockAll={() => setBulkLockAction({ kind: 'lock', count: countPcsToLock(pcs) })}
           />
         )}
       </div>
@@ -161,6 +190,13 @@ export function DashboardPage() {
           onToggleLock={() => void toggleLockOfPc(detailPc)}
         />
       )}
+
+      <BulkLockDialog
+        action={bulkLockAction}
+        isBusy={isBulkLockBusy}
+        onConfirm={() => bulkLockAction && void confirmBulkLock(bulkLockAction)}
+        onCancel={() => setBulkLockAction(null)}
+      />
 
       <RemovePcDialog
         pc={pcToRemove}
