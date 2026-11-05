@@ -1,5 +1,6 @@
 import { PageHeader } from '../component/layout/page-header'
 import { ChangePasswordForm } from '../component/settings/change-password-form'
+import { PcSetupCodeCard } from '../component/settings/pc-setup-code-card'
 import { SettingsCard } from '../component/settings/settings-card'
 import { SettingsFieldset } from '../component/settings/settings-fieldset'
 import { Banner } from '../component/ui/banner'
@@ -46,6 +47,8 @@ export function SettingsPage() {
             devices.
           </Banner>
         </SettingsCard>
+
+        <PcSetupCodeCard />
 
         <SettingsCard title="Login requests">
           <SettingsFieldset legend="Default approval">
