@@ -11,9 +11,9 @@ import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 interface PcDetailDialogProps {
   pc: Pc
   areCommandsDisabled: boolean
+  isLockDisabled?: boolean
   onClose: () => void
-  onLock?: () => void
-  onUnlock?: () => void
+  onToggleLock?: () => void
   onReboot?: () => void
   onShutdown?: () => void
   onAddTime?: () => void
@@ -41,9 +41,9 @@ function DetailRow({ label, value, isMono = false }: DetailRowProps) {
 export function PcDetailDialog({
   pc,
   areCommandsDisabled,
+  isLockDisabled = false,
   onClose,
-  onLock,
-  onUnlock,
+  onToggleLock,
   onReboot,
   onShutdown,
   onAddTime,
@@ -93,13 +93,21 @@ export function PcDetailDialog({
             <Icon name="clock" />
             Edit time
           </Button>
-          <Button variant="secondary" disabled={isBusy || pc.status === 'in-use'} onClick={onUnlock}>
+          <Button
+            variant="secondary"
+            disabled={isLockDisabled || pc.status !== 'locked'}
+            onClick={onToggleLock}
+          >
             <Icon name="unlock" />
             Unlock
           </Button>
-          <Button variant="secondary" disabled={isBusy || pc.status === 'locked'} onClick={onLock}>
+          <Button
+            variant="secondary"
+            disabled={isLockDisabled || pc.status !== 'in-use'}
+            onClick={onToggleLock}
+          >
             <Icon name="lock" />
-            Lock / Freeze
+            Lock
           </Button>
           <Button variant="secondary" disabled={isBusy} onClick={onReboot}>
             <Icon name="refresh" />

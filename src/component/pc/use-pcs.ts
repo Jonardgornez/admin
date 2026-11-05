@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
-import { toSortedRegisteredPcs } from '../../lib/pcs'
+import { isPcOnline, toSortedRegisteredPcs } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
 import type { RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
@@ -24,8 +24,11 @@ export function usePcs() {
   const [isDisconnected, setIsDisconnected] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [removingPcIds, setRemovingPcIds] = useState<number[]>([])
+  const [lockingPcIds, setLockingPcIds] = useState<number[]>([])
   const latestLoadId = useRef(0)
   const hasLoaded = useRef(false)
+  // Checked synchronously so a double click cannot send the command twice.
+  const lockingPcIdsInFlight = useRef(new Set<number>())
   const refreshNow = useRef<((isBackground: boolean) => Promise<void>) | null>(null)
 
   // Resolves with null when a newer load or a removal started since, so the answer is stale.
@@ -123,5 +126,44 @@ export function usePcs() {
     [request],
   )
 
-  return { pcs, loadState, isDisconnected, lastUpdatedAt, removingPcIds, retry, removePc }
+  // Runs a command, then re-reads the list so the Dashboard shows what the server reports.
+  const runPcCommand = useCallback(
+    async <T,>(pending: Promise<ApiResult<T>>): Promise<ApiResult<T>> => {
+      const result = await request(pending)
+      // A list requested before the command would show the PC's old state.
+      latestLoadId.current++
+      void refreshNow.current?.(false)
+      return result
+    },
+    [request],
+  )
+
+  // Resolves with null when the PC is offline or a lock command for it is already running.
+  const togglePcLock = useCallback(
+    async (pc: RegisteredPc): Promise<ApiResult<undefined> | null> => {
+      if (!isPcOnline(pc) || lockingPcIdsInFlight.current.has(pc.id)) return null
+      lockingPcIdsInFlight.current.add(pc.id)
+      setLockingPcIds((current) => [...current, pc.id])
+      try {
+        const command = pc.status === 'in-use' ? pcsApi.lockPc(pc.id) : pcsApi.unlockPc(pc.id)
+        return await runPcCommand(command)
+      } finally {
+        lockingPcIdsInFlight.current.delete(pc.id)
+        setLockingPcIds((current) => current.filter((id) => id !== pc.id))
+      }
+    },
+    [runPcCommand],
+  )
+
+  return {
+    pcs,
+    loadState,
+    isDisconnected,
+    lastUpdatedAt,
+    removingPcIds,
+    lockingPcIds,
+    retry,
+    removePc,
+    togglePcLock,
+  }
 }

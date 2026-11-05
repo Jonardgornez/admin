@@ -8,6 +8,7 @@ interface PcGridProps {
   areCommandsDisabled: boolean
   viewMode?: ViewMode
   emptyMessage: string
+  isLockDisabled?: (pcName: string) => boolean
   isRemoveDisabled?: (pcName: string) => boolean
   onToggleSelect?: (pcName: string) => void
   onOpenDetail: (pcName: string) => void
@@ -24,6 +25,7 @@ export function PcGrid({
   areCommandsDisabled,
   viewMode = 'notified',
   emptyMessage,
+  isLockDisabled,
   isRemoveDisabled,
   onToggleSelect,
   onOpenDetail,
@@ -50,6 +52,7 @@ export function PcGrid({
               pc={pc}
               isSelected={selectedNames.includes(pc.name)}
               areCommandsDisabled={areCommandsDisabled}
+              isLockDisabled={isLockDisabled?.(pc.name)}
               isRemoveDisabled={isRemoveDisabled?.(pc.name)}
               historyHref={getLogsHref(pc.name)}
               onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.name))}

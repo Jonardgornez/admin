@@ -1,6 +1,6 @@
 import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
-import { getTimeLeftLabel, isPcActionable, isPcOff } from '../../lib/pcs'
+import { getTimeLeftLabel, isPcActionable, isPcOff, isPcOnline } from '../../lib/pcs'
 import type { Pc } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
@@ -55,6 +55,7 @@ interface PcCardProps {
   pc: Pc
   isSelected: boolean
   areCommandsDisabled: boolean
+  isLockDisabled?: boolean
   isRemoveDisabled?: boolean
   historyHref: string
   onToggleSelect?: () => void
@@ -89,6 +90,7 @@ export function PcCard({
   pc,
   isSelected,
   areCommandsDisabled,
+  isLockDisabled = false,
   isRemoveDisabled = false,
   historyHref,
   onToggleSelect,
@@ -168,7 +170,7 @@ export function PcCard({
           isIconOnly
           title={lockLabel}
           aria-label={lockLabel}
-          disabled={areActionsDisabled || pc.status === 'rebooting'}
+          disabled={!isPcOnline(pc) || isLockDisabled}
           onClick={onToggleLock}
         >
           <Icon name={isInUse ? 'lock' : 'unlock'} />

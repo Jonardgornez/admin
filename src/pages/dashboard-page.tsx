@@ -13,14 +13,23 @@ import { isSessionExpired } from '../lib/auth-state'
 import { countOnlinePcs, filterPcs, formatLastUpdate } from '../lib/pcs'
 import type { RegisteredPc } from '../types'
 
-const COMMANDS_NOTE = "PC commands aren't connected yet."
+const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
   'No PCs registered yet. Install the client on a PC and register it to see it here.'
 
 export function DashboardPage() {
   const notify = useNotify()
-  const { pcs, loadState, isDisconnected, lastUpdatedAt, removingPcIds, retry, removePc } =
-    usePcs()
+  const {
+    pcs,
+    loadState,
+    isDisconnected,
+    lastUpdatedAt,
+    removingPcIds,
+    lockingPcIds,
+    retry,
+    removePc,
+    togglePcLock,
+  } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
@@ -32,6 +41,25 @@ export function DashboardPage() {
   function isRemoveDisabled(pcName: string): boolean {
     const pc = pcs.find((candidate) => candidate.name === pcName)
     return isDisconnected || (pc !== undefined && removingPcIds.includes(pc.id))
+  }
+
+  function isLockDisabled(pcName: string): boolean {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    return isDisconnected || (pc !== undefined && lockingPcIds.includes(pc.id))
+  }
+
+  async function toggleLockOfPc(pc: RegisteredPc) {
+    const result = await togglePcLock(pc)
+    if (!result) return
+    const isLocking = pc.status === 'in-use'
+    const outcome = isLocking ? 'locked' : 'unlocked'
+    if (result.success) notify(`${pc.name} ${outcome}.`, isLocking ? 'lock' : 'unlock')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  function toggleLockOfPcNamed(pcName: string) {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    if (pc) void toggleLockOfPc(pc)
   }
 
   async function removeConfirmedPc(pc: RegisteredPc) {
@@ -116,14 +144,22 @@ export function DashboardPage() {
           pcs={visiblePcs}
           areCommandsDisabled
           emptyMessage={`No PCs match "${searchQuery}".`}
+          isLockDisabled={isLockDisabled}
           isRemoveDisabled={isRemoveDisabled}
           onOpenDetail={setDetailPcName}
+          onToggleLock={toggleLockOfPcNamed}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
         />
       )}
 
       {detailPc && (
-        <PcDetailDialog pc={detailPc} areCommandsDisabled onClose={() => setDetailPcName(null)} />
+        <PcDetailDialog
+          pc={detailPc}
+          areCommandsDisabled
+          isLockDisabled={isLockDisabled(detailPc.name)}
+          onClose={() => setDetailPcName(null)}
+          onToggleLock={() => void toggleLockOfPc(detailPc)}
+        />
       )}
 
       <RemovePcDialog
