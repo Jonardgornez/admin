@@ -54,14 +54,16 @@ const metaValueVariants = cva('m-0', {
 interface PcCardProps {
   pc: Pc
   isSelected: boolean
-  isDisabled: boolean
+  areCommandsDisabled: boolean
+  isRemoveDisabled?: boolean
   historyHref: string
-  onToggleSelect: () => void
+  onToggleSelect?: () => void
   onOpenDetail: () => void
-  onToggleLock: () => void
-  onViewScreen: () => void
-  onAddTime: () => void
-  onShutdown: () => void
+  onToggleLock?: () => void
+  onViewScreen?: () => void
+  onAddTime?: () => void
+  onShutdown?: () => void
+  onRemove?: () => void
 }
 
 interface PcMetaRowProps {
@@ -86,7 +88,8 @@ function PcMetaRow({ icon, label, value, isOff }: PcMetaRowProps) {
 export function PcCard({
   pc,
   isSelected,
-  isDisabled,
+  areCommandsDisabled,
+  isRemoveDisabled = false,
   historyHref,
   onToggleSelect,
   onOpenDetail,
@@ -94,15 +97,19 @@ export function PcCard({
   onViewScreen,
   onAddTime,
   onShutdown,
+  onRemove,
 }: PcCardProps) {
   const isOff = isPcOff(pc)
   const isInUse = pc.status === 'in-use'
-  const areActionsDisabled = isDisabled || isOff
+  const timeLeftLabel = getTimeLeftLabel(pc)
+  const areActionsDisabled = areCommandsDisabled || isOff
   const lockLabel = `${isInUse ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
   const historyLabel = `View history of ${pc.name}`
   const editTimeLabel = `Edit time for ${pc.name}`
   const shutdownLabel = `Shut down ${pc.name}`
+  const removeLabel = `Remove ${pc.name}`
+  const canRemove = onRemove !== undefined && pc.status === 'offline'
 
   return (
     <article className={cardVariants({ isSelected, isOff })}>
@@ -113,7 +120,7 @@ export function PcCard({
             <h3 className="m-0">
               <button
                 type="button"
-                disabled={isDisabled || !isPcActionable(pc)}
+                disabled={!isPcActionable(pc)}
                 onClick={onOpenDetail}
                 className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink enabled:hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed"
               >
@@ -135,19 +142,24 @@ export function PcCard({
             loading="lazy"
             className={monitorVariants({ isOff })}
           />
-          <Checkbox
-            aria-label={`Select ${pc.name}`}
-            checked={isSelected}
-            disabled={isDisabled}
-            onChange={onToggleSelect}
-          />
+          {!areCommandsDisabled && (
+            <Checkbox
+              aria-label={`Select ${pc.name}`}
+              checked={isSelected}
+              onChange={onToggleSelect}
+            />
+          )}
         </div>
       </header>
       <dl className="m-0 flex flex-col gap-1.5 border-t border-border pt-3">
-        <PcMetaRow icon="user" label="User" value={pc.user} isOff={isOff} />
-        <PcMetaRow icon="hourglass" label="Time left" value={getTimeLeftLabel(pc)} isOff={isOff} />
+        <PcMetaRow icon="monitor" label="IP address" value={pc.ipAddress} isOff={isOff} />
+        <PcMetaRow icon="clock" label="Last seen" value={pc.lastSeen} isOff={isOff} />
+        {pc.user && <PcMetaRow icon="user" label="User" value={pc.user} isOff={isOff} />}
+        {timeLeftLabel && (
+          <PcMetaRow icon="hourglass" label="Time left" value={timeLeftLabel} isOff={isOff} />
+        )}
       </dl>
-      <footer className="flex flex-wrap gap-2 border-t border-border pt-3">
+      <footer className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <Button
           variant="secondary"
           isIconOnly
@@ -197,6 +209,19 @@ export function PcCard({
         >
           <Icon name="power" />
         </Button>
+        {canRemove && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
+            aria-label={removeLabel}
+            disabled={isRemoveDisabled}
+            onClick={onRemove}
+          >
+            <Icon name="x" />
+            Remove
+          </Button>
+        )}
       </footer>
     </article>
   )

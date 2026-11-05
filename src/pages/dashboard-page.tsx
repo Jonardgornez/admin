@@ -1,169 +1,44 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
-import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
-import { PcConfirmDialog } from '../component/pc/pc-confirm-dialog'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
-import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
-import { SendMessageDialog } from '../component/pc/send-message-dialog'
+import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
+import { usePcs } from '../component/pc/use-pcs'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
-import { pcs as initialPcs } from '../data/pcs'
-import {
-  countChangedPcs,
-  countOnlinePcs,
-  describeTimeGrant,
-  filterPcs,
-  formatPcCount,
-  getMessageRecipients,
-  getScreenHref,
-  getSelectionState,
-  grantPcTime,
-  isPcActionable,
-  lockAllPcs,
-  lockPc,
-  rebootPc,
-  shutDownPc,
-  togglePcLock,
-  toggleSelectAll,
-  unlockAllPcs,
-  unlockPc,
-  updateActionablePcs,
-} from '../lib/pcs'
-import { applyRestrictions, describeRestrictionsApplied } from '../lib/restrictions'
-import type { ApprovalChoice, Pc, PcRestrictions, PendingPcAction, ViewMode } from '../types'
+import { isSessionExpired } from '../lib/auth-state'
+import { countOnlinePcs, filterPcs, formatLastUpdate } from '../lib/pcs'
+import type { RegisteredPc } from '../types'
 
-const DISCONNECTED_STATE = 'disconnected'
+const COMMANDS_NOTE = "PC commands aren't connected yet."
+const NO_PCS_MESSAGE =
+  'No PCs registered yet. Install the client on a PC and register it to see it here.'
 
 export function DashboardPage() {
-  const navigate = useNavigate()
   const notify = useNotify()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [pcs, setPcs] = useState<Pc[]>(initialPcs)
-  const [selectedNames, setSelectedNames] = useState<string[]>([])
+  const { pcs, loadState, isDisconnected, lastUpdatedAt, removingPcIds, retry, removePc } =
+    usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('notified')
-  const [pendingAction, setPendingAction] = useState<PendingPcAction | null>(null)
-  const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [addTimePcName, setAddTimePcName] = useState<string | null>(null)
-  const [isEditingRestrictions, setIsEditingRestrictions] = useState(false)
+  const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
 
-  const isDisconnected = searchParams.get('state') === DISCONNECTED_STATE
+  const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
-  const addTimePc = pcs.find((pc) => pc.name === addTimePcName)
-  const actionableSelectedNames = pcs
-    .filter((pc) => selectedNames.includes(pc.name) && isPcActionable(pc))
-    .map((pc) => pc.name)
-  const messageRecipientNames = getMessageRecipients(pcs, selectedNames)
-  const visiblePcs = isDisconnected ? pcs : filterPcs(pcs, searchQuery)
-  const visibleNames = visiblePcs.map((pc) => pc.name)
+  const visiblePcs = filterPcs(pcs, searchQuery)
 
-  function retryConnection() {
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      next.delete('state')
-      return next
-    })
-  }
-
-  function toggleSelected(pcName: string) {
-    setSelectedNames((current) =>
-      current.includes(pcName) ? current.filter((name) => name !== pcName) : [...current, pcName],
-    )
-  }
-
-  function toggleLock(pcName: string) {
+  function isRemoveDisabled(pcName: string): boolean {
     const pc = pcs.find((candidate) => candidate.name === pcName)
-    if (!pc) return
-    const updatedPc = togglePcLock(pc)
-    if (updatedPc.status === pc.status) return
-    setPcs((current) => current.map((item) => (item.name === pcName ? updatedPc : item)))
-    if (updatedPc.status === 'locked') {
-      notify(`${pcName} locked.`, 'lock')
-    } else {
-      notify(`${pcName} unlocked.`, 'unlock')
-    }
+    return isDisconnected || (pc !== undefined && removingPcIds.includes(pc.id))
   }
 
-  function lockDetailPc(pcName: string) {
-    setPcs((current) => updateActionablePcs(current, [pcName], lockPc))
-    notify(`${pcName} locked.`, 'lock')
-  }
-
-  function unlockDetailPc(pcName: string) {
-    setPcs((current) => updateActionablePcs(current, [pcName], unlockPc))
-    notify(`${pcName} unlocked.`, 'unlock')
-  }
-
-  function lockAll() {
-    const updatedPcs = lockAllPcs(pcs)
-    const changedCount = countChangedPcs(pcs, updatedPcs)
-    setPcs(updatedPcs)
-    if (changedCount > 0) notify(`Locked ${formatPcCount(changedCount)}.`, 'lock')
-  }
-
-  function unlockAll() {
-    const updatedPcs = unlockAllPcs(pcs)
-    const changedCount = countChangedPcs(pcs, updatedPcs)
-    setPcs(updatedPcs)
-    if (changedCount > 0) notify(`Unlocked ${formatPcCount(changedCount)}.`, 'unlock')
-  }
-
-  function requestShutdown(pcName: string) {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
-    if (pc && isPcActionable(pc)) setPendingAction({ kind: 'shutdown', pcName })
-  }
-
-  function requestShutdownSelected() {
-    setPendingAction({ kind: 'shutdown-selected', pcNames: actionableSelectedNames })
-  }
-
-  function sendMessage() {
-    notify(`Message sent to ${formatPcCount(messageRecipientNames.length)}.`, 'message')
-    setIsSendingMessage(false)
-  }
-
-  function applyPcRestrictions(restrictions: PcRestrictions, appliesWithoutRestart: boolean) {
-    setPcs((current) => applyRestrictions(current, selectedNames, restrictions))
-    notify(
-      describeRestrictionsApplied(selectedNames.length, restrictions, appliesWithoutRestart),
-      'shield',
-    )
-    setIsEditingRestrictions(false)
-  }
-
-  function grantTime(pcName: string, choice: ApprovalChoice) {
-    setPcs((current) => updateActionablePcs(current, [pcName], (pc) => grantPcTime(pc, choice)))
-    notify(describeTimeGrant(pcName, choice), 'clock')
-    setAddTimePcName(null)
-  }
-
-  function timeOut(pcName: string) {
-    setPcs((current) => updateActionablePcs(current, [pcName], lockPc))
-    notify(`${pcName} timed out. Its session has ended.`, 'hourglass')
-    setAddTimePcName(null)
-  }
-
-  function confirmPendingAction() {
-    if (!pendingAction) return
-    if (pendingAction.kind === 'reboot') {
-      setPcs((current) => updateActionablePcs(current, [pendingAction.pcName], rebootPc))
-      notify(`${pendingAction.pcName} is rebooting.`, 'refresh')
-    } else if (pendingAction.kind === 'shutdown') {
-      setPcs((current) => updateActionablePcs(current, [pendingAction.pcName], shutDownPc))
-      notify(`${pendingAction.pcName} is shutting down.`, 'power')
-    } else {
-      setPcs((current) => updateActionablePcs(current, pendingAction.pcNames, shutDownPc))
-      setSelectedNames([])
-      notify(`Shutting down ${formatPcCount(pendingAction.pcNames.length)}.`, 'power')
-    }
-    setPendingAction(null)
-    setDetailPcName(null)
+  async function removeConfirmedPc(pc: RegisteredPc) {
+    setPcToRemove(null)
+    const result = await removePc(pc)
+    if (result.success) notify(`${pc.name} removed.`, 'x')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
   }
 
   return (
@@ -172,15 +47,17 @@ export function DashboardPage() {
         <PageHeader
           title="Dashboard"
           meta={
-            <span className="text-ink-muted">
-              {isDisconnected
-                ? 'Last update 10:44:12'
-                : `${countOnlinePcs(pcs)} of ${pcs.length} PCs online`}
-            </span>
+            isLoaded && (
+              <span className="text-ink-muted">
+                {isDisconnected && lastUpdatedAt
+                  ? `Last update ${formatLastUpdate(lastUpdatedAt)}`
+                  : `${countOnlinePcs(pcs)} of ${pcs.length} PCs online`}
+              </span>
+            )
           }
         >
           {isDisconnected && (
-            <Button variant="secondary" onClick={retryConnection}>
+            <Button variant="secondary" onClick={retry}>
               <Icon name="refresh" />
               Retry now
             </Button>
@@ -189,90 +66,71 @@ export function DashboardPage() {
 
         {isDisconnected && (
           <Banner variant="danger" icon="alert" role="alert" title="Disconnected">
-            The console lost its connection to the server program. Controls are turned off so no
-            command is sent blindly. Reconnecting automatically…
+            The console lost its connection to the server. The statuses below are the last known
+            values. Reconnecting automatically…
           </Banner>
         )}
 
-        <PcBulkToolbar
-          selectionState={isDisconnected ? 'none' : getSelectionState(visibleNames, selectedNames)}
-          selectedCount={isDisconnected ? 0 : actionableSelectedNames.length}
-          messageRecipientCount={isDisconnected ? 0 : messageRecipientNames.length}
-          restrictionTargetCount={isDisconnected ? 0 : selectedNames.length}
-          hasVisiblePcs={visiblePcs.length > 0}
-          isDisabled={isDisconnected}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onToggleSelectAll={() => setSelectedNames(toggleSelectAll(visibleNames, selectedNames))}
-          onUnlockAll={unlockAll}
-          onLockAll={lockAll}
-          onShutdownSelected={requestShutdownSelected}
-          onSendMessage={() => setIsSendingMessage(true)}
-          onOpenRestrictions={() => setIsEditingRestrictions(true)}
-          note="Statuses below are the last known values."
-        />
+        {isLoaded && pcs.length > 0 && (
+          <PcBulkToolbar
+            hasVisiblePcs={visiblePcs.length > 0}
+            areCommandsDisabled
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            note={COMMANDS_NOTE}
+          />
+        )}
       </div>
 
-      <PcGrid
-        pcs={visiblePcs}
-        selectedNames={isDisconnected ? [] : selectedNames}
-        isDisabled={isDisconnected}
-        viewMode={viewMode}
-        emptyMessage={`No PCs match "${searchQuery}".`}
-        onToggleSelect={toggleSelected}
-        onOpenDetail={setDetailPcName}
-        onToggleLock={toggleLock}
-        onViewScreen={(href) => navigate(href)}
-        onAddTime={setAddTimePcName}
-        onShutdown={requestShutdown}
+      {loadState.status === 'loading' && (
+        <p role="status" className="m-0 text-base text-ink-muted">
+          Loading PCs...
+        </p>
+      )}
+
+      {loadState.status === 'error' && (
+        <div className="flex flex-col items-start gap-3">
+          <Banner
+            variant="danger"
+            icon="alert"
+            title="Can't load PCs"
+            role="alert"
+            className="w-full"
+          >
+            {loadState.error}
+          </Banner>
+          <Button variant="secondary" onClick={retry}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {isLoaded && pcs.length === 0 && (
+        <p className="m-0 rounded-lg border border-border bg-surface-200 p-6 text-center text-ink-muted">
+          {NO_PCS_MESSAGE}
+        </p>
+      )}
+
+      {isLoaded && pcs.length > 0 && (
+        <PcGrid
+          pcs={visiblePcs}
+          areCommandsDisabled
+          emptyMessage={`No PCs match "${searchQuery}".`}
+          isRemoveDisabled={isRemoveDisabled}
+          onOpenDetail={setDetailPcName}
+          onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
+        />
+      )}
+
+      {detailPc && (
+        <PcDetailDialog pc={detailPc} areCommandsDisabled onClose={() => setDetailPcName(null)} />
+      )}
+
+      <RemovePcDialog
+        pc={pcToRemove}
+        onConfirm={() => pcToRemove && void removeConfirmedPc(pcToRemove)}
+        onCancel={() => setPcToRemove(null)}
       />
-
-      {!isDisconnected && detailPc && (
-        <PcDetailDialog
-          pc={detailPc}
-          viewMode={viewMode}
-          screenHref={getScreenHref(detailPc.name, viewMode)}
-          onViewModeChange={setViewMode}
-          onClose={() => setDetailPcName(null)}
-          onLock={() => lockDetailPc(detailPc.name)}
-          onUnlock={() => unlockDetailPc(detailPc.name)}
-          onReboot={() => setPendingAction({ kind: 'reboot', pcName: detailPc.name })}
-          onShutdown={() => requestShutdown(detailPc.name)}
-          onAddTime={() => setAddTimePcName(detailPc.name)}
-        />
-      )}
-
-      <PcConfirmDialog
-        action={pendingAction}
-        pcs={pcs}
-        onConfirm={confirmPendingAction}
-        onCancel={() => setPendingAction(null)}
-      />
-
-      {addTimePc && (
-        <AddTimeDialog
-          pc={addTimePc}
-          onConfirm={(choice) => grantTime(addTimePc.name, choice)}
-          onTimeOut={() => timeOut(addTimePc.name)}
-          onCancel={() => setAddTimePcName(null)}
-        />
-      )}
-
-      {!isDisconnected && isEditingRestrictions && (
-        <RestrictionsDialog
-          targetPcs={pcs.filter((pc) => selectedNames.includes(pc.name))}
-          onApply={applyPcRestrictions}
-          onCancel={() => setIsEditingRestrictions(false)}
-        />
-      )}
-
-      {isSendingMessage && (
-        <SendMessageDialog
-          recipientNames={messageRecipientNames}
-          onSend={sendMessage}
-          onCancel={() => setIsSendingMessage(false)}
-        />
-      )}
     </>
   )
 }

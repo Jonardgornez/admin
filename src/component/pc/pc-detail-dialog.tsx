@@ -10,15 +10,16 @@ import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 
 interface PcDetailDialogProps {
   pc: Pc
+  areCommandsDisabled: boolean
   onClose: () => void
-  onLock: () => void
-  onUnlock: () => void
-  onReboot: () => void
-  onShutdown: () => void
-  onAddTime: () => void
-  viewMode: ViewMode
-  onViewModeChange: (viewMode: ViewMode) => void
-  screenHref: string
+  onLock?: () => void
+  onUnlock?: () => void
+  onReboot?: () => void
+  onShutdown?: () => void
+  onAddTime?: () => void
+  viewMode?: ViewMode
+  onViewModeChange?: (viewMode: ViewMode) => void
+  screenHref?: string
 }
 
 interface DetailRowProps {
@@ -28,28 +29,30 @@ interface DetailRowProps {
 }
 
 function DetailRow({ label, value, isMono = false }: DetailRowProps) {
+  if (value === undefined) return null
   return (
     <>
       <dt className="text-ink-muted">{label}</dt>
-      <dd className={isMono ? 'm-0 font-mono' : 'm-0 font-semibold'}>{value ?? '—'}</dd>
+      <dd className={isMono ? 'm-0 font-mono' : 'm-0 font-semibold'}>{value}</dd>
     </>
   )
 }
 
 export function PcDetailDialog({
   pc,
+  areCommandsDisabled,
   onClose,
   onLock,
   onUnlock,
   onReboot,
   onShutdown,
   onAddTime,
-  viewMode,
+  viewMode = 'notified',
   onViewModeChange,
   screenHref,
 }: PcDetailDialogProps) {
   const titleId = useId()
-  const isBusy = isPcOff(pc) || pc.status === 'rebooting'
+  const isBusy = areCommandsDisabled || isPcOff(pc) || pc.status === 'rebooting'
   const viewModeName = `view-mode-${pc.name}`
 
   return (
@@ -80,7 +83,10 @@ export function PcDetailDialog({
           <DetailRow label="Time left" value={getTimeLeftLabel(pc)} />
           <DetailRow label="Last seen" value={pc.lastSeen} />
           <DetailRow label="IP address" value={pc.ipAddress} isMono />
-          <DetailRow label="Restrictions" value={getRestrictionSummary(pc.restrictions)} />
+          <DetailRow
+            label="Restrictions"
+            value={pc.restrictions && getRestrictionSummary(pc.restrictions)}
+          />
         </dl>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" disabled={isBusy} className="col-span-2" onClick={onAddTime}>
@@ -113,7 +119,8 @@ export function PcDetailDialog({
               name={viewModeName}
               value="notified"
               checked={viewMode === 'notified'}
-              onChange={() => onViewModeChange('notified')}
+              disabled={areCommandsDisabled}
+              onChange={() => onViewModeChange?.('notified')}
             >
               Notified – the user sees a notice
             </RadioOption>
@@ -121,20 +128,30 @@ export function PcDetailDialog({
               name={viewModeName}
               value="anonymous"
               checked={viewMode === 'anonymous'}
-              onChange={() => onViewModeChange('anonymous')}
+              disabled={areCommandsDisabled}
+              onChange={() => onViewModeChange?.('anonymous')}
             >
               Anonymous – no sign on the PC
             </RadioOption>
-            <ButtonLink to={screenHref} variant="secondary">
-              <Icon name="eye" />
-              View screen
-            </ButtonLink>
+            {screenHref && !areCommandsDisabled ? (
+              <ButtonLink to={screenHref} variant="secondary">
+                <Icon name="eye" />
+                View screen
+              </ButtonLink>
+            ) : (
+              <Button variant="secondary" disabled>
+                <Icon name="eye" />
+                View screen
+              </Button>
+            )}
           </fieldset>
         </div>
-        <div className="flex min-w-0 flex-col border-t border-border pt-4">
-          <span className="text-xs font-semibold tracking-label text-ink-muted">Current user</span>
-          <span className="truncate font-mono text-sm">{pc.user ?? '—'}</span>
-        </div>
+        {pc.user && (
+          <div className="flex min-w-0 flex-col border-t border-border pt-4">
+            <span className="text-xs font-semibold tracking-label text-ink-muted">Current user</span>
+            <span className="truncate font-mono text-sm">{pc.user}</span>
+          </div>
+        )}
       </div>
     </Modal>
   )

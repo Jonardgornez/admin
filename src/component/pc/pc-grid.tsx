@@ -4,30 +4,34 @@ import { PcCard } from './pc-card'
 
 interface PcGridProps {
   pcs: Pc[]
-  selectedNames: string[]
-  isDisabled: boolean
-  viewMode: ViewMode
+  selectedNames?: string[]
+  areCommandsDisabled: boolean
+  viewMode?: ViewMode
   emptyMessage: string
-  onToggleSelect: (pcName: string) => void
+  isRemoveDisabled?: (pcName: string) => boolean
+  onToggleSelect?: (pcName: string) => void
   onOpenDetail: (pcName: string) => void
-  onToggleLock: (pcName: string) => void
-  onViewScreen: (href: string) => void
-  onAddTime: (pcName: string) => void
-  onShutdown: (pcName: string) => void
+  onToggleLock?: (pcName: string) => void
+  onViewScreen?: (href: string) => void
+  onAddTime?: (pcName: string) => void
+  onShutdown?: (pcName: string) => void
+  onRemove?: (pcName: string) => void
 }
 
 export function PcGrid({
   pcs,
-  selectedNames,
-  isDisabled,
-  viewMode,
+  selectedNames = [],
+  areCommandsDisabled,
+  viewMode = 'notified',
   emptyMessage,
+  isRemoveDisabled,
   onToggleSelect,
   onOpenDetail,
   onToggleLock,
   onViewScreen,
   onAddTime,
   onShutdown,
+  onRemove,
 }: PcGridProps) {
   return (
     <section aria-labelledby="pc-grid-title" className="min-w-0">
@@ -45,14 +49,16 @@ export function PcGrid({
               key={pc.name}
               pc={pc}
               isSelected={selectedNames.includes(pc.name)}
-              isDisabled={isDisabled}
+              areCommandsDisabled={areCommandsDisabled}
+              isRemoveDisabled={isRemoveDisabled?.(pc.name)}
               historyHref={getLogsHref(pc.name)}
-              onToggleSelect={() => onToggleSelect(pc.name)}
+              onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.name))}
               onOpenDetail={() => onOpenDetail(pc.name)}
-              onToggleLock={() => onToggleLock(pc.name)}
-              onViewScreen={() => onViewScreen(getScreenHref(pc.name, viewMode))}
-              onAddTime={() => onAddTime(pc.name)}
-              onShutdown={() => onShutdown(pc.name)}
+              onToggleLock={onToggleLock && (() => onToggleLock(pc.name))}
+              onViewScreen={onViewScreen && (() => onViewScreen(getScreenHref(pc.name, viewMode)))}
+              onAddTime={onAddTime && (() => onAddTime(pc.name))}
+              onShutdown={onShutdown && (() => onShutdown(pc.name))}
+              onRemove={onRemove && (() => onRemove(pc.name))}
             />
           ))}
         </div>
