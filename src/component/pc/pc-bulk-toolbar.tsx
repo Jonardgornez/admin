@@ -55,19 +55,17 @@ export function PcBulkToolbar({
       aria-label="All PCs"
       className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-surface-200 p-3"
     >
-      {!areCommandsDisabled && (
-        <label className="flex h-control-md items-center gap-2 pr-2 text-ink">
-          <Checkbox
-            ref={(checkbox) => {
-              if (checkbox) checkbox.indeterminate = selectionState === 'some'
-            }}
-            checked={selectionState === 'all'}
-            disabled={!hasVisiblePcs}
-            onChange={onToggleSelectAll}
-          />
-          Select all
-        </label>
-      )}
+      <label className="flex h-control-md items-center gap-2 pr-2 text-ink">
+        <Checkbox
+          ref={(checkbox) => {
+            if (checkbox) checkbox.indeterminate = selectionState === 'some'
+          }}
+          checked={selectionState === 'all'}
+          disabled={!hasVisiblePcs}
+          onChange={onToggleSelectAll}
+        />
+        Select all
+      </label>
       <Button
         variant="primary"
         disabled={isLockAllDisabled || pcsToUnlockCount === 0}

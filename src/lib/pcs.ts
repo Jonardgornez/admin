@@ -110,6 +110,12 @@ export function toggleSelectAll(visibleNames: string[], selectedNames: string[])
   return [...new Set([...selectedNames, ...visibleNames])]
 }
 
+export function toggleSelectedName(selectedNames: string[], pcName: string): string[] {
+  return selectedNames.includes(pcName)
+    ? selectedNames.filter((name) => name !== pcName)
+    : [...selectedNames, pcName]
+}
+
 export function filterPcs(pcs: Pc[], query: string): Pc[] {
   const needle = query.trim().toLowerCase()
   if (needle === '') return pcs

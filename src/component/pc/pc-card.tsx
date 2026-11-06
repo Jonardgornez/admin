@@ -144,7 +144,7 @@ export function PcCard({
             loading="lazy"
             className={monitorVariants({ isOff })}
           />
-          {!areCommandsDisabled && (
+          {onToggleSelect && (
             <Checkbox
               aria-label={`Select ${pc.name}`}
               checked={isSelected}

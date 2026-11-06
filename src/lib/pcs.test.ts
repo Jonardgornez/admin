@@ -30,6 +30,7 @@ import {
   rebootPc,
   shutDownPc,
   toggleSelectAll,
+  toggleSelectedName,
   unlockPc,
   updateActionablePcs,
 } from './pcs'
@@ -191,6 +192,22 @@ describe('toggleSelectAll', () => {
   it('keeps selected PCs that are not visible', () => {
     expect(toggleSelectAll(['A'], ['C'])).toEqual(['C', 'A'])
     expect(toggleSelectAll(['A'], ['A', 'C'])).toEqual(['C'])
+  })
+})
+
+describe('toggleSelectedName', () => {
+  it('adds a PC that is not selected', () => {
+    expect(toggleSelectedName(['A'], 'B')).toEqual(['A', 'B'])
+  })
+
+  it('removes a PC that is selected', () => {
+    expect(toggleSelectedName(['A', 'B'], 'A')).toEqual(['B'])
+  })
+
+  it('does not change the input', () => {
+    const selected = ['A']
+    toggleSelectedName(selected, 'B')
+    expect(selected).toEqual(['A'])
   })
 })
 

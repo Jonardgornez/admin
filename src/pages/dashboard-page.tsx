@@ -18,6 +18,9 @@ import {
   describeBulkLockResult,
   filterPcs,
   formatLastUpdate,
+  getSelectionState,
+  toggleSelectAll,
+  toggleSelectedName,
 } from '../lib/pcs'
 import type { RegisteredPc } from '../types'
 
@@ -45,10 +48,22 @@ export function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
+  const [selectedNames, setSelectedNames] = useState<string[]>([])
 
   const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
   const visiblePcs = filterPcs(pcs, searchQuery)
+  const visiblePcNames = visiblePcs.map((pc) => pc.name)
+  // Names of PCs that were removed drop out here, so the selection never points at a missing PC.
+  const selectedPcNames = selectedNames.filter((name) => pcs.some((pc) => pc.name === name))
+
+  function toggleSelectedPc(pcName: string) {
+    setSelectedNames((current) => toggleSelectedName(current, pcName))
+  }
+
+  function toggleSelectAllVisiblePcs() {
+    setSelectedNames(toggleSelectAll(visiblePcNames, selectedPcNames))
+  }
 
   function isRemoveDisabled(pcName: string): boolean {
     const pc = pcs.find((candidate) => candidate.name === pcName)
@@ -130,8 +145,10 @@ export function DashboardPage() {
             pcsToLockCount={countPcsToLock(pcs)}
             pcsToUnlockCount={countPcsToUnlock(pcs)}
             isLockAllDisabled={isDisconnected || isBulkLockBusy}
+            selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            onToggleSelectAll={toggleSelectAllVisiblePcs}
             note={COMMANDS_NOTE}
             onUnlockAll={() => setBulkLockAction({ kind: 'unlock', count: countPcsToUnlock(pcs) })}
             onLockAll={() => setBulkLockAction({ kind: 'lock', count: countPcsToLock(pcs) })}
@@ -171,10 +188,12 @@ export function DashboardPage() {
       {isLoaded && pcs.length > 0 && (
         <PcGrid
           pcs={visiblePcs}
+          selectedNames={selectedPcNames}
           areCommandsDisabled
           emptyMessage={`No PCs match "${searchQuery}".`}
           isLockDisabled={isLockDisabled}
           isRemoveDisabled={isRemoveDisabled}
+          onToggleSelect={toggleSelectedPc}
           onOpenDetail={setDetailPcName}
           onToggleLock={toggleLockOfPcNamed}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
