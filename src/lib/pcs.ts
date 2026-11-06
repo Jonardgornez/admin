@@ -173,7 +173,6 @@ export function canUnlockPc(pc: Pc): boolean {
   return pc.status === 'frozen' || pc.status === 'locked'
 }
 
-// Offline PCs that are not locked yet are included; they lock when they come back online.
 export function countPcsHiddenFromView(
   pcIds: number[],
   pcs: RegisteredPc[],
@@ -183,13 +182,7 @@ export function countPcsHiddenFromView(
 }
 
 export function getPcIdsToLock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs
-    .filter(
-      (pc) =>
-        selectedNames.includes(pc.name) &&
-        (canLockPc(pc) || (pc.status === 'offline' && !pc.isLocked)),
-    )
-    .map((pc) => pc.id)
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && canLockPc(pc)).map((pc) => pc.id)
 }
 
 export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): number[] {

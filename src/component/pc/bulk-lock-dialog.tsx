@@ -17,7 +17,7 @@ interface BulkLockDialogProps {
 }
 
 const LOCK_DESCRIPTION =
-  "They show the locked screen until you unlock them. Students' sessions are kept and their time is paused. Offline PCs lock when they come back."
+  "They show the locked screen until you unlock them. Students' sessions are kept and their time is paused. Offline PCs are skipped."
 const UNLOCK_DESCRIPTION =
   'Locked PCs go back to their session, and PCs with no session open without a login. Offline PCs are skipped.'
 

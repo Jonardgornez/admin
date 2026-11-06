@@ -123,11 +123,11 @@ describe('countPcsHiddenFromView', () => {
 
 describe('getPcIdsToLock', () => {
   it('returns the selected PCs that are not locked yet', () => {
-    expect(getPcIdsToLock(bulkPcList, allBulkNames)).toEqual([1, 2, 4])
+    expect(getPcIdsToLock(bulkPcList, allBulkNames)).toEqual([1, 2])
   })
 
-  it('includes offline PCs that are not locked', () => {
-    expect(getPcIdsToLock(bulkPcList, ['PC-04', 'PC-05'])).toEqual([4])
+  it('leaves out offline PCs, locked or not', () => {
+    expect(getPcIdsToLock(bulkPcList, ['PC-04', 'PC-05'])).toEqual([])
   })
 
   it('leaves out PCs that are not selected', () => {
