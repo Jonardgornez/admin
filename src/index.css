@@ -60,6 +60,8 @@
   --text-xl--line-height: 26px;
   --text-2xl: 24px;
   --text-2xl--line-height: 32px;
+  --text-display: 40px;
+  --text-display--line-height: 48px;
 
   --tracking-label: 0.02em;
 

@@ -1,24 +1,33 @@
+import { FormProvider } from 'react-hook-form'
 import { PageHeader } from '../component/layout/page-header'
 import { ChangePasswordForm } from '../component/settings/change-password-form'
-import { PcSetupCodeCard } from '../component/settings/pc-setup-code-card'
+import { ConsoleSessionCard } from '../component/settings/console-session-card'
+import { LoginRequestsCard } from '../component/settings/login-requests-card'
+import { MonitoringNoticeCard } from '../component/settings/monitoring-notice-card'
+import { ServerCard } from '../component/settings/server-card'
 import { SettingsCard } from '../component/settings/settings-card'
-import { SettingsFieldset } from '../component/settings/settings-fieldset'
+import { useSettingsEditor } from '../component/settings/use-settings-editor'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
-import { Checkbox, RadioOption } from '../component/ui/choice'
-import { Field, TextArea, TextInput } from '../component/ui/field'
 import { Icon } from '../component/ui/icon'
-import { useNotify } from '../component/ui/notification-context'
+
+const SETTINGS_FORM_ID = 'settings-form'
 
 export function SettingsPage() {
-  const notify = useNotify()
+  const { form, loadState, isLoaded, isSaving, retry, saveSettingsForm } = useSettingsEditor()
+  const rootError = form.formState.errors.root
 
   return (
     <>
       <PageHeader title="Settings">
-        <Button variant="primary" onClick={() => notify('Settings saved.')}>
+        <Button
+          variant="primary"
+          type="submit"
+          form={SETTINGS_FORM_ID}
+          disabled={!isLoaded || isSaving}
+        >
           <Icon name="check" />
-          Save changes
+          {isSaving ? 'Saving...' : 'Save changes'}
         </Button>
       </PageHeader>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(var(--spacing-settings-card),100%),1fr))] items-start gap-5">
@@ -26,77 +35,50 @@ export function SettingsPage() {
           <ChangePasswordForm />
         </SettingsCard>
 
-        <SettingsCard title="Server">
-          <Field
-            label="Server IP address (fixed)"
-            htmlFor="settings-server-ip"
-            message="Set in Windows network settings. Clients connect to this address."
-          >
-            <TextInput id="settings-server-ip" isMono value="192.168.1.10" disabled readOnly />
-          </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Client port (LAN)" htmlFor="settings-client-port">
-              <TextInput id="settings-client-port" isMono placeholder="[PORT]" />
-            </Field>
-            <Field label="Console port (localhost)" htmlFor="settings-console-port">
-              <TextInput id="settings-console-port" isMono placeholder="[PORT]" />
-            </Field>
+        <ServerCard />
+
+        {loadState.status === 'loading' && (
+          <p role="status" className="col-span-full m-0 text-base text-ink-muted">
+            Loading settings...
+          </p>
+        )}
+        {loadState.status === 'error' && (
+          <div className="col-span-full flex flex-col items-start gap-3">
+            <Banner
+              variant="danger"
+              icon="alert"
+              title="Can't load settings"
+              role="alert"
+              className="w-full"
+            >
+              {loadState.error}
+            </Banner>
+            <Button variant="secondary" onClick={retry}>
+              <Icon name="refresh" />
+              Retry
+            </Button>
           </div>
-          <Banner variant="neutral" icon="lock">
-            The Admin Console and TV Wall listen only on localhost. They cannot be opened from other
-            devices.
-          </Banner>
-        </SettingsCard>
+        )}
 
-        <PcSetupCodeCard />
-
-        <SettingsCard title="Login requests">
-          <SettingsFieldset legend="Default approval">
-            <RadioOption name="settings-approval" defaultChecked>
-              Time limit
-            </RadioOption>
-            <RadioOption name="settings-approval">Open time (no limit)</RadioOption>
-          </SettingsFieldset>
-          <Field
-            label="Default time limit (minutes)"
-            htmlFor="settings-time-limit"
-            className="max-w-60"
-          >
-            <TextInput id="settings-time-limit" type="number" defaultValue={60} />
-          </Field>
-          <p className="m-0 text-xs text-ink-muted">You can change this for each approval.</p>
-        </SettingsCard>
-
-        <SettingsCard title="Monitoring notice">
-          <label className="flex items-center gap-2 font-semibold">
-            <Checkbox defaultChecked />
-            Show the notice on the client login screen
-          </label>
-          <Field label="Notice text" htmlFor="settings-notice-text">
-            <TextArea
-              id="settings-notice-text"
-              rows={3}
-              className="resize-y"
-              defaultValue="This computer may be monitored by the administrator."
-            />
-          </Field>
-        </SettingsCard>
-
-        <SettingsCard title="Console session">
-          <Field
-            label="Sign out after inactivity (minutes)"
-            htmlFor="settings-idle-timeout"
-            className="max-w-60"
-          >
-            <TextInput id="settings-idle-timeout" type="number" defaultValue={30} />
-          </Field>
-          <SettingsFieldset legend="Default screen view mode">
-            <RadioOption name="settings-view-mode" defaultChecked>
-              Notified
-            </RadioOption>
-            <RadioOption name="settings-view-mode">Anonymous</RadioOption>
-          </SettingsFieldset>
-        </SettingsCard>
+        {isLoaded && (
+          <FormProvider {...form}>
+            <form
+              id={SETTINGS_FORM_ID}
+              noValidate
+              className="contents"
+              onSubmit={(event) => form.handleSubmit(saveSettingsForm)(event)}
+            >
+              {rootError && (
+                <Banner variant="danger" icon="alert" role="alert" className="col-span-full">
+                  {rootError.message}
+                </Banner>
+              )}
+              <LoginRequestsCard />
+              <MonitoringNoticeCard />
+              <ConsoleSessionCard />
+            </form>
+          </FormProvider>
+        )}
       </div>
     </>
   )

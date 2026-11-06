@@ -4,9 +4,11 @@ import { useForm, useWatch } from 'react-hook-form'
 import {
   approvalFormSchema,
   buildApprovalChoice,
+  getApprovalFormDefaults,
   type ApprovalFormValues,
 } from '../../lib/request-schemas'
 import { formatRequestedAgo, formatRequestTime } from '../../lib/requests'
+import type { DefaultApproval } from '../../lib/settings-api'
 import type { ApprovalChoice, LoginRequest } from '../../types'
 import { Button } from '../ui/button'
 import { RadioOption } from '../ui/choice'
@@ -17,13 +19,20 @@ interface RequestCardProps {
   request: LoginRequest
   now: Date
   isBusy: boolean
+  defaultApproval: DefaultApproval
   onApprove: (approval: ApprovalChoice) => Promise<void>
   onDeny: () => void
 }
 
-const DEFAULT_MINUTES = '60'
-
-export function RequestCard({ request, now, isBusy, onApprove, onDeny }: RequestCardProps) {
+// Pre-fills from the saved default once, on mount. The page renders cards only after it loads.
+export function RequestCard({
+  request,
+  now,
+  isBusy,
+  defaultApproval,
+  onApprove,
+  onDeny,
+}: RequestCardProps) {
   const minutesId = useId()
   const isSubmittingRef = useRef(false)
   const {
@@ -33,7 +42,7 @@ export function RequestCard({ request, now, isBusy, onApprove, onDeny }: Request
     formState: { errors, isSubmitting },
   } = useForm<ApprovalFormValues>({
     resolver: zodResolver(approvalFormSchema),
-    defaultValues: { approvalMode: 'time-limit', minutes: DEFAULT_MINUTES },
+    defaultValues: getApprovalFormDefaults(defaultApproval),
   })
   const approvalMode = useWatch({ control, name: 'approvalMode' })
   const isDisabled = isBusy || isSubmitting

@@ -21,7 +21,8 @@ interface ModalProps extends VariantProps<typeof modalVariants> {
   isOpen: boolean
   labelledBy: string
   closesOnBackdropClick?: boolean
-  onClose: () => void
+  // Without onClose, Escape and backdrop clicks do nothing. The dialog's own buttons must answer.
+  onClose?: () => void
   children: ReactNode
 }
 
@@ -44,11 +45,11 @@ export function Modal({
 
   function handleEscape(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault()
-    onClose()
+    onClose?.()
   }
 
   function handleClick(event: MouseEvent<HTMLDialogElement>) {
-    if (closesOnBackdropClick && event.target === event.currentTarget) onClose()
+    if (closesOnBackdropClick && event.target === event.currentTarget) onClose?.()
   }
 
   return (

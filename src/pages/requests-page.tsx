@@ -1,6 +1,7 @@
 import { PageHeader } from '../component/layout/page-header'
 import { RequestCard } from '../component/request/request-card'
 import { useLoginRequests } from '../component/request/use-login-requests'
+import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { DataTable, type DataTableColumn } from '../component/ui/data-table'
@@ -48,7 +49,10 @@ export function RequestsPage() {
     deny,
     denyAll,
   } = useLoginRequests()
-  const isLoaded = loadState.status === 'loaded'
+  const { isLoaded: areDefaultsLoaded, defaults } = useConsoleDefaults()
+  // Cards pre-fill from the saved default on mount, so they wait for it.
+  const isLoaded = loadState.status === 'loaded' && areDefaultsLoaded
+  const isLoading = loadState.status === 'loading' || !areDefaultsLoaded
 
   // An expired session is handled by the sign-out redirect, so say nothing here.
   function notifyFailure(result: ApiResult<unknown>) {
@@ -100,7 +104,7 @@ export function RequestsPage() {
           {isDenyingAll ? 'Denying...' : 'Deny all'}
         </Button>
       </PageHeader>
-      {loadState.status === 'loading' && (
+      {isLoading && (
         <p role="status" className="m-0 text-base text-ink-muted">
           Loading login requests...
         </p>
@@ -135,6 +139,7 @@ export function RequestsPage() {
                   request={request}
                   now={now}
                   isBusy={busyRequestIds.includes(request.id)}
+                  defaultApproval={defaults.defaultApproval}
                   onApprove={(choice) => approveRequest(request, choice)}
                   onDeny={() => void denyRequest(request)}
                 />

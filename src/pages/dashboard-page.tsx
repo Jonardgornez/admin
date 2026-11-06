@@ -6,6 +6,7 @@ import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
 import { usePcs } from '../component/pc/use-pcs'
+import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
@@ -54,6 +55,7 @@ export function DashboardPage() {
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
+  const { defaults: consoleDefaults } = useConsoleDefaults()
 
   const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -226,6 +228,7 @@ export function DashboardPage() {
         <PcDetailDialog
           pc={detailPc}
           areCommandsDisabled
+          viewMode={consoleDefaults.defaultViewMode}
           isLockDisabled={isLockDisabled(detailPc.name)}
           onClose={() => setDetailPcName(null)}
           onLock={() => void lockOnePc(detailPc)}

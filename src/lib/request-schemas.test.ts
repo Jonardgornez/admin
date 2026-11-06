@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { approvalFormSchema, buildApprovalChoice } from './request-schemas'
+import {
+  approvalFormSchema,
+  buildApprovalChoice,
+  getApprovalFormDefaults,
+} from './request-schemas'
 
 function minutesError(minutes: string, approvalMode = 'time-limit'): string | undefined {
   const result = approvalFormSchema.safeParse({ approvalMode, minutes })
@@ -50,5 +54,21 @@ describe('buildApprovalChoice', () => {
 
   it('returns null for an invalid time limit', () => {
     expect(buildApprovalChoice({ approvalMode: 'time-limit', minutes: '1.5' })).toBeNull()
+  })
+})
+
+describe('getApprovalFormDefaults', () => {
+  it('pre-fills a time limit from the saved default', () => {
+    expect(getApprovalFormDefaults({ mode: 'time-limit', minutes: 90 })).toEqual({
+      approvalMode: 'time-limit',
+      minutes: '90',
+    })
+  })
+
+  it('pre-fills open time and keeps the saved minutes for when the admin switches back', () => {
+    expect(getApprovalFormDefaults({ mode: 'open-time', minutes: 45 })).toEqual({
+      approvalMode: 'open-time',
+      minutes: '45',
+    })
   })
 })

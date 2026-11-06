@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Outlet } from 'react-router'
+import { RegistrationRequestDialog } from '../registration/registration-request-dialog'
 import { NotificationProvider } from '../ui/notification-provider'
 import { NavigationLockContext } from './navigation-lock-context'
 import { Sidebar } from './sidebar'
@@ -20,6 +21,7 @@ export function AppShell() {
             <Outlet />
           </main>
         </div>
+        <RegistrationRequestDialog />
       </NavigationLockContext.Provider>
     </NotificationProvider>
   )

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { ApprovalChoice } from '../types'
 import { MAX_TIME_LIMIT_MINUTES } from './account-schemas'
 import { getFormDefaultTime } from './accounts'
+import type { DefaultApproval } from './settings-api'
 
 export const approvalFormSchema = z
   .object({
@@ -27,6 +28,10 @@ export const approvalFormSchema = z
   })
 
 export type ApprovalFormValues = z.infer<typeof approvalFormSchema>
+
+export function getApprovalFormDefaults(defaultApproval: DefaultApproval): ApprovalFormValues {
+  return { approvalMode: defaultApproval.mode, minutes: String(defaultApproval.minutes) }
+}
 
 export function buildApprovalChoice(values: ApprovalFormValues): ApprovalChoice | null {
   return getFormDefaultTime({
