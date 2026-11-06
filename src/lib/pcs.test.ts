@@ -426,6 +426,12 @@ describe('canShutDownPc', () => {
       false,
     )
   })
+
+  it('refuses a PC that is cancelling a power command', () => {
+    expect(canShutDownPc({ name: 'A', status: 'locked', isCancelling: true, lastSeen: 'Now' })).toBe(
+      false,
+    )
+  })
 })
 
 describe('canRebootPc', () => {
@@ -452,6 +458,12 @@ describe('canRebootPc', () => {
       false,
     )
     expect(canRebootPc({ name: 'A', status: 'locked', isRestarting: true, lastSeen: 'Now' })).toBe(
+      false,
+    )
+  })
+
+  it('refuses a PC that is cancelling a power command', () => {
+    expect(canRebootPc({ name: 'A', status: 'locked', isCancelling: true, lastSeen: 'Now' })).toBe(
       false,
     )
   })
@@ -800,10 +812,19 @@ describe('toRegisteredPc', () => {
       isLocked: false,
       isShuttingDown: false,
       isRestarting: false,
+      isCancelling: false,
       isServerPc: false,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
+  })
+
+  it('keeps the online status of a PC that is cancelling a power command and flags it', () => {
+    const pc = toRegisteredPc({ ...serverPc, isLocked: true, shutdownState: 'cancelling' }, now)
+    expect(pc).toMatchObject({ status: 'frozen', isCancelling: true })
+    expect(pc.isShuttingDown).toBe(false)
+    expect(pc.isRestarting).toBe(false)
+    expect(isPcOnline(pc)).toBe(true)
   })
 
   it('shows a PC the server reports as shut down with the shutdown status', () => {

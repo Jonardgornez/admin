@@ -23,7 +23,9 @@ const serverPcSchema = z.object({
   registeredAt: z.string(),
   lastSeenAt: z.string(),
   session: serverPcSessionSchema.nullable(),
-  shutdownState: z.enum(['shutting-down', 'shutdown', 'restarting', 'rebooting']).nullable(),
+  shutdownState: z
+    .enum(['shutting-down', 'shutdown', 'restarting', 'rebooting', 'cancelling'])
+    .nullable(),
   isServerPc: z.boolean(),
 })
 

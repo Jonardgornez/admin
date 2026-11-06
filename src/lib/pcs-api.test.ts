@@ -131,6 +131,7 @@ describe('pcs api', () => {
       ['shutdown', 'shutdown'],
       ['restarting', 'restarting'],
       ['rebooting', 'rebooting'],
+      ['cancelling', 'cancelling'],
       [null, null],
     ])('keeps a shutdown state of %s', async (_label, shutdownState) => {
       stubFetch(Response.json([{ ...serverPc, shutdownState }]))

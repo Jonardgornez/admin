@@ -9,6 +9,7 @@ export interface Pc {
   isLocked?: boolean
   isShuttingDown?: boolean
   isRestarting?: boolean
+  isCancelling?: boolean
   isServerPc?: boolean
   user?: string
   timeUsed?: string
@@ -27,7 +28,12 @@ export interface ServerPcSession {
   secondsRemaining: number | null
 }
 
-export type ServerPcShutdownState = 'shutting-down' | 'shutdown' | 'restarting' | 'rebooting'
+export type ServerPcShutdownState =
+  | 'shutting-down'
+  | 'shutdown'
+  | 'restarting'
+  | 'rebooting'
+  | 'cancelling'
 
 export interface ServerPc {
   id: number

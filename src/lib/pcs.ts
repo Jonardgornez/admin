@@ -71,6 +71,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     isLocked: serverPc.isLocked,
     isShuttingDown: serverPc.shutdownState === 'shutting-down',
     isRestarting: serverPc.shutdownState === 'restarting',
+    isCancelling: serverPc.shutdownState === 'cancelling',
     isServerPc: serverPc.isServerPc,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
@@ -184,9 +185,11 @@ export const SERVER_PC_SHUT_DOWN_TITLE = 'This PC runs the server. Shut it down 
 export const SERVER_PC_REBOOT_TITLE = 'This PC runs the server. Restart it by hand.'
 
 // The server PC is left out, because a shutdown or restart would stop the server itself.
-// A PC in either countdown takes neither command until the countdown ends.
+// A PC in either countdown takes neither command until the countdown ends or is cancelled.
 function canTakePowerCommand(pc: Pc): boolean {
-  return isPcOnline(pc) && !pc.isServerPc && !pc.isShuttingDown && !pc.isRestarting
+  return (
+    isPcOnline(pc) && !pc.isServerPc && !pc.isShuttingDown && !pc.isRestarting && !pc.isCancelling
+  )
 }
 
 export function canShutDownPc(pc: Pc): boolean {
