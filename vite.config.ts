@@ -6,6 +6,7 @@ const apiProxy = {
   '/api': {
     target: 'http://localhost:5000',
     changeOrigin: false,
+    ws: true,
   },
 }
 

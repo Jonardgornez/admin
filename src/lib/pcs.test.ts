@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
-import type { Pc, RegisteredPc, ServerPc } from '../types'
+import type { Pc, PcStatus, RegisteredPc, ServerPc } from '../types'
 import {
   canEditPcTime,
   canTimeOutPc,
@@ -25,6 +25,7 @@ import {
   getPcIdsToUnlock,
   getTimeAmountError,
   countPcsHiddenFromView,
+  canViewPcScreen,
   getScreenHref,
   getSelectionState,
   getTimeLeftLabel,
@@ -634,6 +635,22 @@ describe('describeTimeEdit', () => {
     )
     expect(describeTimeEdit('PC-05', { action: 'open-time' })).toBe('PC-05 is now on open time.')
     expect(describeTimeEdit('PC-05', { action: 'time-out' })).toBe('PC-05 timed out.')
+  })
+})
+
+describe('canViewPcScreen', () => {
+  const pcWith = (status: PcStatus): Pc => ({ name: 'PC-05', status, lastSeen: 'Now' })
+
+  it('allows viewing an online PC, including one that is locked or rebooting', () => {
+    expect(canViewPcScreen(pcWith('locked'))).toBe(true)
+    expect(canViewPcScreen(pcWith('frozen'))).toBe(true)
+    expect(canViewPcScreen(pcWith('in-use'))).toBe(true)
+    expect(canViewPcScreen(pcWith('rebooting'))).toBe(true)
+  })
+
+  it('blocks viewing an offline or shut down PC', () => {
+    expect(canViewPcScreen(pcWith('offline'))).toBe(false)
+    expect(canViewPcScreen(pcWith('shutdown'))).toBe(false)
   })
 })
 

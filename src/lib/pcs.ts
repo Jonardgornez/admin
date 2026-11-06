@@ -303,6 +303,11 @@ export function describeTimeEdit(pcName: string, command: PcTimeCommand): string
   return describeTimeGrant(pcName, { mode: 'time-limit', minutes: command.minutes })
 }
 
+// Off PCs have no screen to show, so their View screen actions stay disabled.
+export function canViewPcScreen(pc: Pc): boolean {
+  return !isPcOff(pc)
+}
+
 export function getScreenHref(pcName: string, viewMode: ViewMode): string {
   return `/pc/${encodeURIComponent(pcName)}/screen?mode=${viewMode}`
 }
