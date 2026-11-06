@@ -1,12 +1,15 @@
 import { useId } from 'react'
 import {
+  canCancelPcPower,
   canEditPcTime,
   canLockPc,
   canRebootPc,
   canShutDownPc,
   canUnlockPc,
   canViewPcScreen,
+  getCancelPowerLabel,
   getTimeLeftLabel,
+  isPowerCancelButtonShown,
   SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
@@ -28,6 +31,7 @@ interface PcDetailDialogProps {
   onUnlock?: () => void
   onReboot?: () => void
   onShutdown?: () => void
+  onCancelPower?: () => void
   onAddTime?: () => void
   viewMode?: ViewMode
   onViewModeChange?: (viewMode: ViewMode) => void
@@ -60,6 +64,7 @@ export function PcDetailDialog({
   onUnlock,
   onReboot,
   onShutdown,
+  onCancelPower,
   onAddTime,
   viewMode = 'notified',
   onViewModeChange,
@@ -146,6 +151,17 @@ export function PcDetailDialog({
             <Icon name="power" />
             Shut down
           </Button>
+          {isPowerCancelButtonShown(pc) && (
+            <Button
+              variant="secondary"
+              className="col-span-2"
+              disabled={!canCancelPcPower(pc) || isPowerDisabled}
+              onClick={onCancelPower}
+            >
+              <Icon name="x" />
+              {getCancelPowerLabel(pc)}
+            </Button>
+          )}
         </div>
         <div className="border-t border-border pt-4">
           <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0">

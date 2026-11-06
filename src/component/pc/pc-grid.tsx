@@ -18,6 +18,7 @@ interface PcGridProps {
   onAddTime?: (pcName: string) => void
   onReboot?: (pcName: string) => void
   onShutdown?: (pcName: string) => void
+  onCancelPower?: (pcName: string) => void
   onRemove?: (pcName: string) => void
 }
 
@@ -37,6 +38,7 @@ export function PcGrid({
   onAddTime,
   onReboot,
   onShutdown,
+  onCancelPower,
   onRemove,
 }: PcGridProps) {
   return (
@@ -67,6 +69,7 @@ export function PcGrid({
               onAddTime={onAddTime && (() => onAddTime(pc.name))}
               onReboot={onReboot && (() => onReboot(pc.name))}
               onShutdown={onShutdown && (() => onShutdown(pc.name))}
+              onCancelPower={onCancelPower && (() => onCancelPower(pc.name))}
               onRemove={onRemove && (() => onRemove(pc.name))}
             />
           ))}

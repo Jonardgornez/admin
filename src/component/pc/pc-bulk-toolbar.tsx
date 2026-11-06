@@ -8,6 +8,7 @@ interface PcBulkToolbarProps {
   selectionState?: SelectionState
   shutdownSelectedCount?: number
   rebootSelectedCount?: number
+  cancelSelectedCount?: number
   messageRecipientCount?: number
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
@@ -23,6 +24,7 @@ interface PcBulkToolbarProps {
   onLockSelected?: () => void
   onRebootSelected?: () => void
   onShutdownSelected?: () => void
+  onCancelSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
   note?: string
@@ -37,6 +39,7 @@ export function PcBulkToolbar({
   selectionState = 'none',
   shutdownSelectedCount = 0,
   rebootSelectedCount = 0,
+  cancelSelectedCount = 0,
   messageRecipientCount = 0,
   restrictionTargetCount = 0,
   hasVisiblePcs,
@@ -52,6 +55,7 @@ export function PcBulkToolbar({
   onLockSelected,
   onRebootSelected,
   onShutdownSelected,
+  onCancelSelected,
   onSendMessage,
   onOpenRestrictions,
   note,
@@ -105,6 +109,14 @@ export function PcBulkToolbar({
       >
         <Icon name="power" />
         {`Shut down selected (${shutdownSelectedCount})`}
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={isBulkPowerDisabled || cancelSelectedCount === 0}
+        onClick={onCancelSelected}
+      >
+        <Icon name="x" />
+        {`Cancel selected (${cancelSelectedCount})`}
       </Button>
       {serverPcNote && (
         <span className="self-center px-2 text-xs text-ink-muted">{serverPcNote}</span>

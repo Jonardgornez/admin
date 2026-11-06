@@ -20,13 +20,16 @@ import {
   canEditPcTime,
   countOnlinePcs,
   countPcsHiddenFromView,
+  describeBulkCancelResult,
   describeBulkLockResult,
   describeBulkPowerResult,
+  describeCancelPowerRequest,
   describeSinglePowerResult,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
   getLockToggleTarget,
+  getPcIdsToCancelPower,
   getPcIdsToLock,
   getPcIdsToReboot,
   getPcIdsToShutDown,
@@ -76,6 +79,8 @@ export function DashboardPage() {
     shutDownPcs,
     rebootPc,
     rebootPcs,
+    cancelPcPower,
+    cancelPcsPower,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   // Null follows the saved default until the admin picks a mode in the detail dialog.
@@ -106,6 +111,7 @@ export function DashboardPage() {
   const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcNames)
   const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
   const rebootPcNames = getPcNamesToReboot(pcs, selectedPcNames)
+  const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcNames)
   const selectedServerPc = pcs.find((pc) => pc.isServerPc && selectedPcNames.includes(pc.name))
   const isPowerBusy =
     powerAction && 'pc' in powerAction
@@ -212,6 +218,27 @@ export function DashboardPage() {
     }
   }
 
+  // Cancels act at once, with no dialog. Null means the PC is no longer in a countdown or the same cancel is running.
+  async function cancelOnePcPower(pc: RegisteredPc) {
+    const result = await cancelPcPower(pc)
+    if (!result) return
+    if (result.success) notify(describeCancelPowerRequest(pc.name), 'x')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  // Null means the same bulk command is still running.
+  async function cancelSelectedPcsPower(pcIds: number[]) {
+    const result = await cancelPcsPower(pcIds)
+    if (!result) return
+    if (result.success) notify(describeBulkCancelResult(result.data.affected), 'x')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  function cancelPowerOfPcNamed(pcName: string) {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    if (pc) void cancelOnePcPower(pc)
+  }
+
   async function confirmPowerAction(action: PowerAction) {
     if ('pc' in action) {
       await runOnePcPower(action.kind, action.pc)
@@ -279,6 +306,7 @@ export function DashboardPage() {
             isBulkLockDisabled={isDisconnected || isBulkCommandBusy}
             shutdownSelectedCount={shutDownPcIds.length}
             rebootSelectedCount={rebootPcIds.length}
+            cancelSelectedCount={cancelPowerPcIds.length}
             isBulkPowerDisabled={isDisconnected || isBulkCommandBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
@@ -302,6 +330,7 @@ export function DashboardPage() {
                 pcNames: shutDownPcNames,
               })
             }
+            onCancelSelected={() => void cancelSelectedPcsPower(cancelPowerPcIds)}
           />
         )}
       </div>
@@ -352,6 +381,7 @@ export function DashboardPage() {
           onAddTime={setTimeEditPcName}
           onReboot={(pcName) => openPowerOfPcNamed('reboot', pcName)}
           onShutdown={(pcName) => openPowerOfPcNamed('shutdown', pcName)}
+          onCancelPower={cancelPowerOfPcNamed}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
         />
       )}
@@ -370,6 +400,7 @@ export function DashboardPage() {
           onUnlock={() => void unlockOnePc(detailPc)}
           onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}
           onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
+          onCancelPower={() => void cancelOnePcPower(detailPc)}
           onAddTime={() => setTimeEditPcName(detailPc.name)}
         />
       )}

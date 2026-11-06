@@ -1,15 +1,18 @@
 import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
 import {
+  canCancelPcPower,
   canEditPcTime,
   canRebootPc,
   canShutDownPc,
   canViewPcScreen,
+  getCancelPowerLabel,
   getLockToggleTarget,
   getTimeLeftLabel,
   isPcActionable,
   isPcOff,
   isPcOnline,
+  isPowerCancelButtonShown,
   SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
@@ -79,6 +82,7 @@ interface PcCardProps {
   onAddTime?: () => void
   onReboot?: () => void
   onShutdown?: () => void
+  onCancelPower?: () => void
   onRemove?: () => void
 }
 
@@ -116,6 +120,7 @@ export function PcCard({
   onAddTime,
   onReboot,
   onShutdown,
+  onCancelPower,
   onRemove,
 }: PcCardProps) {
   const isOff = isPcOff(pc)
@@ -130,6 +135,7 @@ export function PcCard({
   const rebootTitle = pc.isServerPc ? SERVER_PC_REBOOT_TITLE : rebootLabel
   const shutdownLabel = `Shut down ${pc.name}`
   const shutdownTitle = pc.isServerPc ? SERVER_PC_SHUT_DOWN_TITLE : shutdownLabel
+  const cancelLabel = getCancelPowerLabel(pc)
   const removeLabel = `Remove ${pc.name}`
   const canRemove = onRemove !== undefined && pc.status === 'offline'
 
@@ -249,6 +255,18 @@ export function PcCard({
         >
           <Icon name="power" />
         </Button>
+        {isPowerCancelButtonShown(pc) && (
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={`${cancelLabel} ${pc.name}`}
+            disabled={!canCancelPcPower(pc) || isPowerDisabled}
+            onClick={onCancelPower}
+          >
+            <Icon name="x" />
+            {cancelLabel}
+          </Button>
+        )}
         {canRemove && (
           <Button
             variant="secondary"
