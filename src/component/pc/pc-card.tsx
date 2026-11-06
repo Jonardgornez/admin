@@ -2,11 +2,13 @@ import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
 import {
   canEditPcTime,
+  canShutDownPc,
   getLockToggleTarget,
   getTimeLeftLabel,
   isPcActionable,
   isPcOff,
   isPcOnline,
+  SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
 import type { Pc } from '../../types'
 import { Badge } from '../ui/badge'
@@ -66,6 +68,7 @@ interface PcCardProps {
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isRemoveDisabled?: boolean
+  isShutdownDisabled?: boolean
   historyHref: string
   onToggleSelect?: () => void
   onOpenDetail: () => void
@@ -102,6 +105,7 @@ export function PcCard({
   isLockDisabled = false,
   isTimeEditDisabled = false,
   isRemoveDisabled = false,
+  isShutdownDisabled = false,
   historyHref,
   onToggleSelect,
   onOpenDetail,
@@ -121,6 +125,7 @@ export function PcCard({
   const historyLabel = `View history of ${pc.name}`
   const editTimeLabel = `Edit time for ${pc.name}`
   const shutdownLabel = `Shut down ${pc.name}`
+  const shutdownTitle = pc.isServerPc ? SERVER_PC_SHUT_DOWN_TITLE : shutdownLabel
   const removeLabel = `Remove ${pc.name}`
   const canRemove = onRemove !== undefined && pc.status === 'offline'
 
@@ -223,9 +228,9 @@ export function PcCard({
         <Button
           variant="danger"
           isIconOnly
-          title={shutdownLabel}
+          title={shutdownTitle}
           aria-label={shutdownLabel}
-          disabled={areActionsDisabled}
+          disabled={!canShutDownPc(pc) || isShutdownDisabled}
           onClick={onShutdown}
         >
           <Icon name="power" />

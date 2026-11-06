@@ -33,8 +33,12 @@ import {
   isPcOnline,
   isPcUnlockedWithoutUser,
   parseTimeAmount,
+  canShutDownPc,
+  describeBulkShutdownResult,
+  getPcIdsToShutDown,
+  getPcNamesToShutDown,
+  getServerPcShutDownNote,
   rebootPc,
-  shutDownPc,
   toggleSelectAll,
   toggleSelectedName,
   toPcTimeCommand,
@@ -389,13 +393,76 @@ describe('isPcActionable', () => {
   })
 })
 
-describe('shutDownPc', () => {
-  it('sets shutdown, clears the session and marks last seen as Now', () => {
-    const result = shutDownPc({ ...inUsePc, lastSeen: '10:00' })
-    expect(result).toMatchObject({ status: 'shutdown', lastSeen: 'Now' })
-    expect(result.user).toBeUndefined()
-    expect(result.timeUsed).toBeUndefined()
-    expect(result.isOpenTime).toBeUndefined()
+describe('canShutDownPc', () => {
+  it('allows online PCs that are not the server PC and not already shutting down', () => {
+    expect(canShutDownPc({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(true)
+    expect(canShutDownPc({ name: 'A', status: 'frozen', lastSeen: 'Now' })).toBe(true)
+    expect(canShutDownPc(inUsePc)).toBe(true)
+  })
+
+  it('refuses offline and shut down PCs', () => {
+    for (const status of ['offline', 'shutdown', 'rebooting'] as const) {
+      expect(canShutDownPc({ name: 'A', status, lastSeen: 'Now' })).toBe(false)
+    }
+  })
+
+  it('refuses the server PC even when it is online', () => {
+    expect(canShutDownPc({ name: 'SRV', status: 'in-use', isServerPc: true, lastSeen: 'Now' })).toBe(
+      false,
+    )
+  })
+
+  it('refuses a PC that is already shutting down', () => {
+    expect(
+      canShutDownPc({ name: 'A', status: 'in-use', isShuttingDown: true, lastSeen: 'Now' }),
+    ).toBe(false)
+  })
+})
+
+describe('getPcIdsToShutDown and getPcNamesToShutDown', () => {
+  const shutDownList: RegisteredPc[] = [
+    { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
+    { id: 2, name: 'SRV', status: 'locked', isServerPc: true, lastSeen: 'Now' },
+    { id: 3, name: 'PC-03', status: 'frozen', isShuttingDown: true, lastSeen: 'Now' },
+    { id: 4, name: 'PC-04', status: 'offline', lastSeen: '09:00' },
+    { id: 5, name: 'PC-05', status: 'locked', lastSeen: 'Now' },
+  ]
+
+  it('returns the selected PCs that can be shut down', () => {
+    expect(getPcIdsToShutDown(shutDownList, ['PC-01', 'PC-05'])).toEqual([1, 5])
+    expect(getPcNamesToShutDown(shutDownList, ['PC-01', 'PC-05'])).toEqual(['PC-01', 'PC-05'])
+  })
+
+  it('leaves out the server PC even when it is selected', () => {
+    const allNames = shutDownList.map((pc) => pc.name)
+    expect(getPcIdsToShutDown(shutDownList, allNames)).toEqual([1, 5])
+    expect(getPcNamesToShutDown(shutDownList, allNames)).toEqual(['PC-01', 'PC-05'])
+  })
+
+  it('leaves out PCs that are offline or already shutting down', () => {
+    expect(getPcIdsToShutDown(shutDownList, ['PC-03', 'PC-04'])).toEqual([])
+  })
+
+  it('returns nothing when nothing is selected', () => {
+    expect(getPcIdsToShutDown(shutDownList, [])).toEqual([])
+    expect(getPcNamesToShutDown(shutDownList, [])).toEqual([])
+  })
+})
+
+describe('describeBulkShutdownResult', () => {
+  it('reports how many PCs are shutting down', () => {
+    expect(describeBulkShutdownResult(3)).toBe('Shutting down 3 PCs.')
+    expect(describeBulkShutdownResult(1)).toBe('Shutting down 1 PC.')
+  })
+
+  it('says when no PCs could be shut down', () => {
+    expect(describeBulkShutdownResult(0)).toBe('No PCs could be shut down.')
+  })
+})
+
+describe('getServerPcShutDownNote', () => {
+  it('names the server PC and says it is left alone', () => {
+    expect(getServerPcShutDownNote('SRV-01')).toBe("SRV-01 runs the server and won't be shut down.")
   })
 })
 
@@ -411,8 +478,8 @@ describe('rebootPc', () => {
 
 describe('updateActionablePcs', () => {
   it('transforms only named PCs that are actionable', () => {
-    const result = updateActionablePcs(pcs, ['PC-01', 'PC-04', 'PC-08'], shutDownPc)
-    expect(result.find((pc) => pc.name === 'PC-01')?.status).toBe('shutdown')
+    const result = updateActionablePcs(pcs, ['PC-01', 'PC-04', 'PC-08'], rebootPc)
+    expect(result.find((pc) => pc.name === 'PC-01')?.status).toBe('rebooting')
     expect(result.find((pc) => pc.name === 'PC-04')?.status).toBe('offline')
     expect(result.find((pc) => pc.name === 'PC-08')?.status).toBe('rebooting')
     expect(result.find((pc) => pc.name === 'PC-02')?.status).toBe('locked')
@@ -493,7 +560,6 @@ describe('getTimeLeftLabel', () => {
 describe('session end', () => {
   it('clears the time left', () => {
     const limitedPc: Pc = { ...inUsePc, isOpenTime: undefined, minutesLeft: 30 }
-    expect(shutDownPc(limitedPc).minutesLeft).toBeUndefined()
     expect(rebootPc(limitedPc).minutesLeft).toBeUndefined()
   })
 })
@@ -545,6 +611,8 @@ const serverPc: ServerPc = {
   lastSeenAt: '2026-11-05T10:00:00.000Z',
   session: null,
   isLocked: false,
+  shutdownState: null,
+  isServerPc: false,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -672,9 +740,43 @@ describe('toRegisteredPc', () => {
       name: 'PC-09',
       status: 'locked',
       isLocked: false,
+      isShuttingDown: false,
+      isServerPc: false,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
+  })
+
+  it('shows a PC the server reports as shut down with the shutdown status', () => {
+    const pc = toRegisteredPc({ ...serverPc, isOnline: false, shutdownState: 'shutdown' }, now)
+    expect(pc).toMatchObject({ status: 'shutdown', isShuttingDown: false })
+  })
+
+  it('shows a shutdown PC as shutdown even when it still answers', () => {
+    const pc = toRegisteredPc({ ...serverPc, shutdownState: 'shutdown' }, now)
+    expect(pc.status).toBe('shutdown')
+  })
+
+  it('keeps the online status of a PC that is shutting down and flags it', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        isLocked: true,
+        shutdownState: 'shutting-down',
+        session: {
+          username: 'maria',
+          startedAt,
+          time: { mode: 'open-time' },
+          secondsRemaining: null,
+        },
+      },
+      now,
+    )
+    expect(pc).toMatchObject({ status: 'frozen', isShuttingDown: true, user: 'maria' })
+  })
+
+  it('carries the server PC flag', () => {
+    expect(toRegisteredPc({ ...serverPc, isServerPc: true }, now).isServerPc).toBe(true)
   })
 
   it('shows a locked online PC as frozen, with no user when it has no session', () => {

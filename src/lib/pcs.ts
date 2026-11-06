@@ -51,8 +51,9 @@ function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
 }
 
 // Locked online PCs are frozen, even with a paused session. Other online PCs are in use with a
-// session, or waiting for a user without one.
+// session, or waiting for a user without one. A PC the server reports as shut down is shutdown.
 function toPcStatus(serverPc: ServerPc): PcStatus {
+  if (serverPc.shutdownState === 'shutdown') return 'shutdown'
   if (!serverPc.isOnline) return 'offline'
   if (serverPc.isLocked) return 'frozen'
   return serverPc.session ? 'in-use' : 'locked'
@@ -65,6 +66,8 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     name: serverPc.name,
     status: toPcStatus(serverPc),
     isLocked: serverPc.isLocked,
+    isShuttingDown: serverPc.shutdownState === 'shutting-down',
+    isServerPc: serverPc.isServerPc,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -159,10 +162,6 @@ function withoutSession(pc: Pc): Pc {
   }
 }
 
-export function shutDownPc(pc: Pc): Pc {
-  return { ...withoutSession(pc), status: 'shutdown', lastSeen: 'Now' }
-}
-
 export function rebootPc(pc: Pc): Pc {
   return { ...withoutSession(pc), status: 'rebooting' }
 }
@@ -191,6 +190,29 @@ export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): 
   return pcs.filter((pc) => selectedNames.includes(pc.name) && canUnlockPc(pc)).map((pc) => pc.id)
 }
 
+export const SERVER_PC_SHUT_DOWN_TITLE = 'This PC runs the server. Shut it down by hand.'
+
+// The server PC is left out, because shutting it down would stop the server itself.
+export function canShutDownPc(pc: Pc): boolean {
+  return isPcOnline(pc) && !pc.isServerPc && !pc.isShuttingDown
+}
+
+function getPcsToShutDown(pcs: RegisteredPc[], selectedNames: string[]): RegisteredPc[] {
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && canShutDownPc(pc))
+}
+
+export function getPcIdsToShutDown(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return getPcsToShutDown(pcs, selectedNames).map((pc) => pc.id)
+}
+
+export function getPcNamesToShutDown(pcs: RegisteredPc[], selectedNames: string[]): string[] {
+  return getPcsToShutDown(pcs, selectedNames).map((pc) => pc.name)
+}
+
+export function getServerPcShutDownNote(pcName: string): string {
+  return `${pcName} runs the server and won't be shut down.`
+}
+
 // The card button does the opposite of the PC's lock state.
 export function getLockToggleTarget(pc: Pc): PcLockAction {
   return pc.isLocked || canUnlockPc(pc) ? 'unlock' : 'lock'
@@ -205,6 +227,11 @@ export function describeBulkLockResult(kind: BulkLockKind, affected: number): st
   return kind === 'lock'
     ? `Locked ${formatPcCount(affected)}.`
     : `Unlocked ${formatPcCount(affected)}.`
+}
+
+export function describeBulkShutdownResult(affected: number): string {
+  if (affected === 0) return 'No PCs could be shut down.'
+  return `Shutting down ${formatPcCount(affected)}.`
 }
 
 export function updateActionablePcs(

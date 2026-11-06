@@ -7,6 +7,8 @@ export interface Pc {
   name: string
   status: PcStatus
   isLocked?: boolean
+  isShuttingDown?: boolean
+  isServerPc?: boolean
   user?: string
   timeUsed?: string
   lastSeen: string
@@ -24,6 +26,8 @@ export interface ServerPcSession {
   secondsRemaining: number | null
 }
 
+export type ServerPcShutdownState = 'shutting-down' | 'shutdown'
+
 export interface ServerPc {
   id: number
   name: string
@@ -33,6 +37,8 @@ export interface ServerPc {
   registeredAt: string
   lastSeenAt: string
   session: ServerPcSession | null
+  shutdownState: ServerPcShutdownState | null
+  isServerPc: boolean
 }
 
 export interface RegisteredPc extends Pc {

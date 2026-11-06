@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
 import {
   bulkLockPcs,
+  bulkShutDownPcs,
   bulkUnlockPcs,
   editPcTime,
   listPcs,
   lockPc,
   removePc,
+  shutDownPc,
   unlockPc,
 } from './pcs-api'
 
@@ -19,6 +21,8 @@ const serverPc = {
   registeredAt: '2026-11-01T08:00:00.000Z',
   lastSeenAt: '2026-11-05T10:00:00.000Z',
   session: null,
+  shutdownState: null,
+  isServerPc: false,
 }
 
 function stubFetch(response: Response | Error) {
@@ -117,6 +121,31 @@ describe('pcs api', () => {
     it('fails when the lock flag is missing', async () => {
       const { isLocked: _isLocked, ...withoutLockFlag } = serverPc
       stubFetch(Response.json([withoutLockFlag]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it.each([
+      ['shutting-down', 'shutting-down'],
+      ['shutdown', 'shutdown'],
+      [null, null],
+    ])('keeps a shutdown state of %s', async (_label, shutdownState) => {
+      stubFetch(Response.json([{ ...serverPc, shutdownState }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, shutdownState }] })
+    })
+
+    it('keeps the server PC flag', async () => {
+      stubFetch(Response.json([{ ...serverPc, isServerPc: true }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, isServerPc: true }] })
+    })
+
+    it('fails on an unknown shutdown state', async () => {
+      stubFetch(Response.json([{ ...serverPc, shutdownState: 'rebooting' }]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('fails when the server PC flag is missing', async () => {
+      const { isServerPc: _isServerPc, ...withoutServerFlag } = serverPc
+      stubFetch(Response.json([withoutServerFlag]))
       expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
@@ -227,6 +256,54 @@ describe('pcs api', () => {
         success: false,
         status,
         error: 'Enter 24 hours or less.',
+      })
+    })
+  })
+
+  describe('shutDownPc', () => {
+    it('posts an empty body to the shutdown route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await shutDownPc(7)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/shutdown',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it.each([404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'This PC is already shutting down.' }, { status }))
+      expect(await shutDownPc(7)).toEqual({
+        success: false,
+        status,
+        error: 'This PC is already shutting down.',
+      })
+    })
+  })
+
+  describe('bulkShutDownPcs', () => {
+    it('posts the PC ids to the shutdown route and returns how many were shut down', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 2 }))
+      expect(await bulkShutDownPcs([3, 7])).toEqual({ success: true, data: { affected: 2 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/shutdown',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7]}' }),
+      )
+    })
+
+    it('fails when the response has no count', async () => {
+      stubFetch(Response.json({ count: 3 }))
+      expect(await bulkShutDownPcs([3])).toMatchObject({
+        success: false,
+        error: FALLBACK_ERROR_MESSAGE,
+      })
+    })
+
+    it('returns the server message when the request fails', async () => {
+      stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
+      expect(await bulkShutDownPcs([3])).toEqual({
+        success: false,
+        status: 401,
+        error: 'Sign in again.',
       })
     })
   })

@@ -11,6 +11,7 @@ interface PcGridProps {
   isLockDisabled?: (pcName: string) => boolean
   isTimeEditDisabled?: (pcName: string) => boolean
   isRemoveDisabled?: (pcName: string) => boolean
+  isShutdownDisabled?: (pcName: string) => boolean
   onToggleSelect?: (pcName: string) => void
   onOpenDetail: (pcName: string) => void
   onToggleLock?: (pcName: string) => void
@@ -29,6 +30,7 @@ export function PcGrid({
   isLockDisabled,
   isTimeEditDisabled,
   isRemoveDisabled,
+  isShutdownDisabled,
   onToggleSelect,
   onOpenDetail,
   onToggleLock,
@@ -57,6 +59,7 @@ export function PcGrid({
               isLockDisabled={isLockDisabled?.(pc.name)}
               isTimeEditDisabled={isTimeEditDisabled?.(pc.name)}
               isRemoveDisabled={isRemoveDisabled?.(pc.name)}
+              isShutdownDisabled={isShutdownDisabled?.(pc.name)}
               historyHref={getLogsHref(pc.name)}
               onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.name))}
               onOpenDetail={() => onOpenDetail(pc.name)}

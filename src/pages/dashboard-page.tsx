@@ -6,6 +6,7 @@ import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
+import { ShutdownDialog, type ShutdownAction } from '../component/pc/shutdown-dialog'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
@@ -19,13 +20,17 @@ import {
   countOnlinePcs,
   countPcsHiddenFromView,
   describeBulkLockResult,
+  describeBulkShutdownResult,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
   getLockToggleTarget,
   getPcIdsToLock,
+  getPcIdsToShutDown,
   getPcIdsToUnlock,
+  getPcNamesToShutDown,
   getSelectionState,
+  getServerPcShutDownNote,
   toggleSelectAll,
   toggleSelectedName,
   toPcTimeCommand,
@@ -46,7 +51,8 @@ export function DashboardPage() {
     removingPcIds,
     lockingPcIds,
     timeEditingPcIds,
-    isBulkLockBusy,
+    shutDownPendingPcIds,
+    isBulkCommandBusy,
     retry,
     removePc,
     lockPc,
@@ -55,12 +61,15 @@ export function DashboardPage() {
     editPcTime,
     lockPcs,
     unlockPcs,
+    shutDownPc,
+    shutDownPcs,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
+  const [shutdownAction, setShutdownAction] = useState<ShutdownAction | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
 
@@ -77,6 +86,13 @@ export function DashboardPage() {
   const selectedPcNames = selectedNames.filter((name) => pcs.some((pc) => pc.name === name))
   const lockPcIds = getPcIdsToLock(pcs, selectedPcNames)
   const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcNames)
+  const shutDownPcIds = getPcIdsToShutDown(pcs, selectedPcNames)
+  const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcNames)
+  const selectedServerPc = pcs.find((pc) => pc.isServerPc && selectedPcNames.includes(pc.name))
+  const isShutdownBusy =
+    shutdownAction?.kind === 'shutdown'
+      ? shutDownPendingPcIds.includes(shutdownAction.pc.id)
+      : isBulkCommandBusy
 
   function toggleSelectedPc(pcName: string) {
     setSelectedNames((current) => toggleSelectedName(current, pcName))
@@ -99,6 +115,11 @@ export function DashboardPage() {
   function isLockDisabled(pcName: string): boolean {
     const pc = pcs.find((candidate) => candidate.name === pcName)
     return isDisconnected || (pc !== undefined && lockingPcIds.includes(pc.id))
+  }
+
+  function isShutdownDisabled(pcName: string): boolean {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    return isDisconnected || (pc !== undefined && shutDownPendingPcIds.includes(pc.id))
   }
 
   // Null means the PC is offline or the same command is still running, so nothing is reported.
@@ -129,6 +150,11 @@ export function DashboardPage() {
     if (pc) void toggleLockOfPc(pc)
   }
 
+  function openShutdownOfPcNamed(pcName: string) {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    if (pc) setShutdownAction({ kind: 'shutdown', pc })
+  }
+
   async function confirmBulkLock(action: BulkLockAction) {
     const result =
       action.kind === 'lock' ? await lockPcs(action.pcIds) : await unlockPcs(action.pcIds)
@@ -140,6 +166,29 @@ export function DashboardPage() {
     } else if (!isSessionExpired(result)) {
       notify(result.error, 'alert')
     }
+  }
+
+  async function shutDownOnePc(pc: RegisteredPc) {
+    const result = await shutDownPc(pc)
+    // Null means the PC is already shutting down or the same request is still running.
+    if (!result) return
+    setShutdownAction(null)
+    if (result.success) notify(`${pc.name} is shutting down.`, 'power')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  async function shutDownSelectedPcs(pcIds: number[]) {
+    const result = await shutDownPcs(pcIds)
+    // Null means the same bulk command is still running, which closes the dialog when it ends.
+    if (!result) return
+    setShutdownAction(null)
+    if (result.success) notify(describeBulkShutdownResult(result.data.affected), 'power')
+    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  async function confirmShutdown(action: ShutdownAction) {
+    if (action.kind === 'shutdown') await shutDownOnePc(action.pc)
+    else await shutDownSelectedPcs(action.pcIds)
   }
 
   async function submitTimeEdit(pc: RegisteredPc, command: PcTimeCommand) {
@@ -197,14 +246,24 @@ export function DashboardPage() {
             areCommandsDisabled
             lockSelectedCount={lockPcIds.length}
             unlockSelectedCount={unlockPcIds.length}
-            isBulkLockDisabled={isDisconnected || isBulkLockBusy}
+            isBulkLockDisabled={isDisconnected || isBulkCommandBusy}
+            shutdownSelectedCount={shutDownPcIds.length}
+            isBulkShutdownDisabled={isDisconnected || isBulkCommandBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
             note={COMMANDS_NOTE}
+            serverPcNote={selectedServerPc && getServerPcShutDownNote(selectedServerPc.name)}
             onUnlockSelected={() => setBulkLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
             onLockSelected={() => setBulkLockAction({ kind: 'lock', pcIds: lockPcIds })}
+            onShutdownSelected={() =>
+              setShutdownAction({
+                kind: 'shutdown-selected',
+                pcIds: shutDownPcIds,
+                pcNames: shutDownPcNames,
+              })
+            }
           />
         )}
       </div>
@@ -247,10 +306,12 @@ export function DashboardPage() {
           isLockDisabled={isLockDisabled}
           isTimeEditDisabled={isTimeEditDisabled}
           isRemoveDisabled={isRemoveDisabled}
+          isShutdownDisabled={isShutdownDisabled}
           onToggleSelect={toggleSelectedPc}
           onOpenDetail={setDetailPcName}
           onToggleLock={toggleLockOfPcNamed}
           onAddTime={setTimeEditPcName}
+          onShutdown={openShutdownOfPcNamed}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
         />
       )}
@@ -262,9 +323,11 @@ export function DashboardPage() {
           viewMode={consoleDefaults.defaultViewMode}
           isLockDisabled={isLockDisabled(detailPc.name)}
           isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
+          isShutdownDisabled={isShutdownDisabled(detailPc.name)}
           onClose={() => setDetailPcName(null)}
           onLock={() => void lockOnePc(detailPc)}
           onUnlock={() => void unlockOnePc(detailPc)}
+          onShutdown={() => setShutdownAction({ kind: 'shutdown', pc: detailPc })}
           onAddTime={() => setTimeEditPcName(detailPc.name)}
         />
       )}
@@ -282,9 +345,22 @@ export function DashboardPage() {
       <BulkLockDialog
         action={bulkLockAction}
         hiddenPcCount={countPcsHiddenFromView(bulkLockAction?.pcIds ?? [], pcs, visiblePcNames)}
-        isBusy={isBulkLockBusy}
+        isBusy={isBulkCommandBusy}
         onConfirm={() => bulkLockAction && void confirmBulkLock(bulkLockAction)}
         onCancel={() => setBulkLockAction(null)}
+      />
+
+      <ShutdownDialog
+        action={shutdownAction}
+        pcs={pcs}
+        hiddenPcCount={countPcsHiddenFromView(
+          shutdownAction?.kind === 'shutdown-selected' ? shutdownAction.pcIds : [],
+          pcs,
+          visiblePcNames,
+        )}
+        isBusy={isShutdownBusy}
+        onConfirm={() => shutdownAction && void confirmShutdown(shutdownAction)}
+        onCancel={() => setShutdownAction(null)}
       />
 
       <RemovePcDialog

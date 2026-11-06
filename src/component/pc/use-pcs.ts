@@ -3,6 +3,7 @@ import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
 import {
   canEditPcTime,
+  canShutDownPc,
   getLockToggleTarget,
   isPcOnline,
   toSortedRegisteredPcs,
@@ -32,13 +33,15 @@ export function usePcs() {
   const [removingPcIds, setRemovingPcIds] = useState<number[]>([])
   const [lockingPcIds, setLockingPcIds] = useState<number[]>([])
   const [timeEditingPcIds, setTimeEditingPcIds] = useState<number[]>([])
+  const [shutDownPendingPcIds, setShutDownPendingPcIds] = useState<number[]>([])
   const latestLoadId = useRef(0)
   const hasLoaded = useRef(false)
   // Checked synchronously so a double click cannot send the command twice.
   const lockingPcIdsInFlight = useRef(new Set<number>())
   const timeEditingPcIdsInFlight = useRef(new Set<number>())
-  const [isBulkLockBusy, setIsBulkLockBusy] = useState(false)
-  const isBulkLockInFlight = useRef(false)
+  const shutDownPcIdsInFlight = useRef(new Set<number>())
+  const [isBulkCommandBusy, setIsBulkCommandBusy] = useState(false)
+  const isBulkCommandInFlight = useRef(false)
   const refreshNow = useRef<((isBackground: boolean) => Promise<void>) | null>(null)
 
   // Resolves with null when a newer load or a removal started since, so the answer is stale.
@@ -196,30 +199,51 @@ export function usePcs() {
     [runPcCommand],
   )
 
-  // Resolves with null when a bulk lock or unlock is already running.
-  const runBulkLockCommand = useCallback(
+  // Resolves with null when a PC cannot be shut down or its shutdown is already running.
+  const shutDownPc = useCallback(
+    async (pc: RegisteredPc): Promise<ApiResult<undefined> | null> => {
+      if (!canShutDownPc(pc) || shutDownPcIdsInFlight.current.has(pc.id)) return null
+      shutDownPcIdsInFlight.current.add(pc.id)
+      setShutDownPendingPcIds((current) => [...current, pc.id])
+      try {
+        return await runPcCommand(pcsApi.shutDownPc(pc.id))
+      } finally {
+        shutDownPcIdsInFlight.current.delete(pc.id)
+        setShutDownPendingPcIds((current) => current.filter((id) => id !== pc.id))
+      }
+    },
+    [runPcCommand],
+  )
+
+  // Resolves with null when a bulk lock, unlock or shutdown is already running.
+  const runBulkCommand = useCallback(
     async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
-      if (isBulkLockInFlight.current) return null
-      isBulkLockInFlight.current = true
-      setIsBulkLockBusy(true)
+      if (isBulkCommandInFlight.current) return null
+      isBulkCommandInFlight.current = true
+      setIsBulkCommandBusy(true)
       try {
         return await runPcCommand(command())
       } finally {
-        isBulkLockInFlight.current = false
-        setIsBulkLockBusy(false)
+        isBulkCommandInFlight.current = false
+        setIsBulkCommandBusy(false)
       }
     },
     [runPcCommand],
   )
 
   const lockPcs = useCallback(
-    (pcIds: number[]) => runBulkLockCommand(() => pcsApi.bulkLockPcs(pcIds)),
-    [runBulkLockCommand],
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkLockPcs(pcIds)),
+    [runBulkCommand],
   )
 
   const unlockPcs = useCallback(
-    (pcIds: number[]) => runBulkLockCommand(() => pcsApi.bulkUnlockPcs(pcIds)),
-    [runBulkLockCommand],
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkUnlockPcs(pcIds)),
+    [runBulkCommand],
+  )
+
+  const shutDownPcs = useCallback(
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkShutDownPcs(pcIds)),
+    [runBulkCommand],
   )
 
   return {
@@ -230,7 +254,8 @@ export function usePcs() {
     removingPcIds,
     lockingPcIds,
     timeEditingPcIds,
-    isBulkLockBusy,
+    shutDownPendingPcIds,
+    isBulkCommandBusy,
     retry,
     removePc,
     lockPc,
@@ -239,5 +264,7 @@ export function usePcs() {
     editPcTime,
     lockPcs,
     unlockPcs,
+    shutDownPc,
+    shutDownPcs,
   }
 }

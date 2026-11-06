@@ -23,6 +23,8 @@ const serverPcSchema = z.object({
   registeredAt: z.string(),
   lastSeenAt: z.string(),
   session: serverPcSessionSchema.nullable(),
+  shutdownState: z.enum(['shutting-down', 'shutdown']).nullable(),
+  isServerPc: z.boolean(),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)
@@ -60,6 +62,10 @@ export function editPcTime(id: number, command: PcTimeCommand): Promise<ApiResul
   return apiRequest(`/api/pcs/${id}/time`, { method: 'POST', body: command })
 }
 
+export function shutDownPc(id: number): Promise<ApiResult<undefined>> {
+  return apiRequest(`/api/pcs/${id}/shutdown`, { method: 'POST', body: COMMAND_BODY })
+}
+
 async function postBulkCommand(
   path: string,
   ids: number[],
@@ -77,4 +83,8 @@ export function bulkLockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>
 
 export function bulkUnlockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
   return postBulkCommand('/api/pcs/unlock', ids)
+}
+
+export function bulkShutDownPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/shutdown', ids)
 }

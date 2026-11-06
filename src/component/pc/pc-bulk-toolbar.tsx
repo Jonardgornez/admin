@@ -6,7 +6,7 @@ import { Icon } from '../ui/icon'
 
 interface PcBulkToolbarProps {
   selectionState?: SelectionState
-  selectedCount?: number
+  shutdownSelectedCount?: number
   messageRecipientCount?: number
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
@@ -14,6 +14,7 @@ interface PcBulkToolbarProps {
   lockSelectedCount?: number
   unlockSelectedCount?: number
   isBulkLockDisabled?: boolean
+  isBulkShutdownDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
@@ -23,6 +24,7 @@ interface PcBulkToolbarProps {
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
   note?: string
+  serverPcNote?: string
 }
 
 function withCount(label: string, count: number): string {
@@ -31,7 +33,7 @@ function withCount(label: string, count: number): string {
 
 export function PcBulkToolbar({
   selectionState = 'none',
-  selectedCount = 0,
+  shutdownSelectedCount = 0,
   messageRecipientCount = 0,
   restrictionTargetCount = 0,
   hasVisiblePcs,
@@ -39,6 +41,7 @@ export function PcBulkToolbar({
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
   isBulkLockDisabled = false,
+  isBulkShutdownDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
@@ -48,6 +51,7 @@ export function PcBulkToolbar({
   onSendMessage,
   onOpenRestrictions,
   note,
+  serverPcNote,
 }: PcBulkToolbarProps) {
   return (
     <div
@@ -84,12 +88,15 @@ export function PcBulkToolbar({
       </Button>
       <Button
         variant="danger"
-        disabled={areCommandsDisabled || selectedCount === 0}
+        disabled={isBulkShutdownDisabled || shutdownSelectedCount === 0}
         onClick={onShutdownSelected}
       >
         <Icon name="power" />
-        {withCount('Shut down selected', selectedCount)}
+        {`Shut down selected (${shutdownSelectedCount})`}
       </Button>
+      {serverPcNote && (
+        <span className="self-center px-2 text-xs text-ink-muted">{serverPcNote}</span>
+      )}
       <Button
         variant="secondary"
         disabled={areCommandsDisabled || messageRecipientCount === 0}
