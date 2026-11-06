@@ -98,8 +98,9 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
       url: buildScreenStreamUrl(window.location, pcId, mode),
       getCanvas: () => canvasRef.current,
       onServerState: (serverState) => {
-        // A state from the server means the connection is healthy, so the retry budget resets.
-        automaticRetriesRef.current = 0
+        // Only a live PC proves the connection is healthy. Every new socket starts with "waiting",
+        // so counting that as healthy would let a failing view retry forever.
+        if (serverState === 'live') automaticRetriesRef.current = 0
         setState((previous) => withStatus(previous, { kind: serverState }))
       },
       onFrameDrawn: (size) => setState((previous) => ({ ...previous, size })),
