@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
 import type { Pc, PcStatus, RegisteredPc, ServerPc } from '../types'
 import {
+  canCancelPcPower,
+  describeBulkCancelResult,
+  describeCancelPowerRequest,
+  getCancelPowerLabel,
+  getPcIdsToCancelPower,
+  isPowerCancelButtonShown,
   canEditPcTime,
   canTimeOutPc,
   comparePcNames,
@@ -551,6 +557,85 @@ describe('describeSinglePowerResult', () => {
   it('says the PC is shutting down or restarting', () => {
     expect(describeSinglePowerResult('PC-05', 'shutdown')).toBe('PC-05 is shutting down.')
     expect(describeSinglePowerResult('PC-05', 'reboot')).toBe('PC-05 is restarting.')
+  })
+})
+
+describe('canCancelPcPower', () => {
+  it('allows a PC in a shutdown or restart countdown', () => {
+    expect(canCancelPcPower({ name: 'A', status: 'in-use', isShuttingDown: true, lastSeen: 'Now' })).toBe(true)
+    expect(canCancelPcPower({ name: 'A', status: 'locked', isRestarting: true, lastSeen: 'Now' })).toBe(true)
+  })
+
+  it('refuses a PC that is already cancelling', () => {
+    expect(canCancelPcPower({ name: 'A', status: 'locked', isCancelling: true, lastSeen: 'Now' })).toBe(false)
+  })
+
+  it('refuses a PC with no countdown, including an offline or rebooting PC', () => {
+    expect(canCancelPcPower({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(false)
+    expect(canCancelPcPower({ name: 'A', status: 'offline', lastSeen: 'Now' })).toBe(false)
+    expect(canCancelPcPower({ name: 'A', status: 'rebooting', lastSeen: 'Now' })).toBe(false)
+  })
+})
+
+describe('isPowerCancelButtonShown', () => {
+  it('shows the cancel button for a PC that can be cancelled or is cancelling', () => {
+    expect(isPowerCancelButtonShown({ name: 'A', status: 'locked', isRestarting: true, lastSeen: 'Now' })).toBe(true)
+    expect(isPowerCancelButtonShown({ name: 'A', status: 'locked', isCancelling: true, lastSeen: 'Now' })).toBe(true)
+  })
+
+  it('hides the cancel button for a PC with no countdown', () => {
+    expect(isPowerCancelButtonShown({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(false)
+  })
+})
+
+describe('getCancelPowerLabel', () => {
+  it('names the action that can be cancelled', () => {
+    expect(getCancelPowerLabel({ name: 'A', status: 'in-use', isShuttingDown: true, lastSeen: 'Now' })).toBe('Cancel shutdown')
+    expect(getCancelPowerLabel({ name: 'A', status: 'locked', isRestarting: true, lastSeen: 'Now' })).toBe('Cancel restart')
+  })
+
+  it('says Cancelling while the cancel is pending', () => {
+    expect(getCancelPowerLabel({ name: 'A', status: 'locked', isCancelling: true, lastSeen: 'Now' })).toBe('Cancelling')
+  })
+})
+
+describe('getPcIdsToCancelPower', () => {
+  const cancelList: RegisteredPc[] = [
+    { id: 1, name: 'PC-01', status: 'in-use', isShuttingDown: true, lastSeen: 'Now' },
+    { id: 2, name: 'PC-02', status: 'locked', lastSeen: 'Now' },
+    { id: 3, name: 'PC-03', status: 'frozen', isRestarting: true, lastSeen: 'Now' },
+    { id: 4, name: 'PC-04', status: 'locked', isCancelling: true, lastSeen: 'Now' },
+    { id: 5, name: 'PC-05', status: 'locked', isRestarting: true, lastSeen: 'Now' },
+  ]
+
+  it('takes only the selected PCs that can be cancelled', () => {
+    expect(getPcIdsToCancelPower(cancelList, ['PC-01', 'PC-02', 'PC-04'])).toEqual([1])
+  })
+
+  it('takes every selected PC in a countdown and skips the rest', () => {
+    expect(getPcIdsToCancelPower(cancelList, ['PC-01', 'PC-03', 'PC-05'])).toEqual([1, 3, 5])
+  })
+
+  it('takes nothing when no selected PC is in a countdown', () => {
+    expect(getPcIdsToCancelPower(cancelList, ['PC-02', 'PC-04'])).toEqual([])
+    expect(getPcIdsToCancelPower(cancelList, [])).toEqual([])
+  })
+})
+
+describe('describeCancelPowerRequest', () => {
+  it('says the cancel was asked for, not that it happened', () => {
+    expect(describeCancelPowerRequest('PC-02')).toBe('Asking PC-02 to cancel.')
+  })
+})
+
+describe('describeBulkCancelResult', () => {
+  it('counts the PCs asked to cancel', () => {
+    expect(describeBulkCancelResult(1)).toBe('Asking 1 PC to cancel.')
+    expect(describeBulkCancelResult(3)).toBe('Asking 3 PCs to cancel.')
+  })
+
+  it('says when no PC had a countdown to cancel', () => {
+    expect(describeBulkCancelResult(0)).toBe('No PCs had a shutdown or restart to cancel.')
   })
 })
 

@@ -224,6 +224,25 @@ export function getPcNamesToReboot(pcs: RegisteredPc[], selectedNames: string[])
   return getSelectedPcs(pcs, selectedNames, canRebootPc).map((pc) => pc.name)
 }
 
+// Only a PC in a shutdown or restart countdown can be cancelled. Cancelling does not wait for a confirm.
+export function canCancelPcPower(pc: Pc): boolean {
+  return !pc.isCancelling && (pc.isShuttingDown === true || pc.isRestarting === true)
+}
+
+// The cancel button stays visible while cancelling, but disabled, so the PC's controls read as paused.
+export function isPowerCancelButtonShown(pc: Pc): boolean {
+  return canCancelPcPower(pc) || pc.isCancelling === true
+}
+
+export function getCancelPowerLabel(pc: Pc): string {
+  if (pc.isCancelling) return 'Cancelling'
+  return pc.isRestarting ? 'Cancel restart' : 'Cancel shutdown'
+}
+
+export function getPcIdsToCancelPower(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return getSelectedPcs(pcs, selectedNames, canCancelPcPower).map((pc) => pc.id)
+}
+
 export function getServerPcPowerNote(pcName: string): string {
   return `${pcName} runs the server and won't be shut down or restarted.`
 }
@@ -255,6 +274,16 @@ export function describeBulkPowerResult(kind: PowerCommand, affected: number): s
 
 export function describeSinglePowerResult(pcName: string, kind: PowerCommand): string {
   return kind === 'shutdown' ? `${pcName} is shutting down.` : `${pcName} is restarting.`
+}
+
+// The request was accepted. The PC's status returning to normal is what confirms the cancel.
+export function describeCancelPowerRequest(pcName: string): string {
+  return `Asking ${pcName} to cancel.`
+}
+
+export function describeBulkCancelResult(affected: number): string {
+  if (affected === 0) return 'No PCs had a shutdown or restart to cancel.'
+  return `Asking ${formatPcCount(affected)} to cancel.`
 }
 
 export function getLogsHref(pcName: string): string {

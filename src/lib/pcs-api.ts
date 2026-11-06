@@ -72,6 +72,10 @@ export function rebootPc(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}/reboot`, { method: 'POST', body: COMMAND_BODY })
 }
 
+export function cancelPcPower(id: number): Promise<ApiResult<undefined>> {
+  return apiRequest(`/api/pcs/${id}/cancel-power`, { method: 'POST', body: COMMAND_BODY })
+}
+
 async function postBulkCommand(
   path: string,
   ids: number[],
@@ -97,4 +101,8 @@ export function bulkShutDownPcs(ids: number[]): Promise<ApiResult<BulkCommandRes
 
 export function bulkRebootPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
   return postBulkCommand('/api/pcs/reboot', ids)
+}
+
+export function cancelPcsPower(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/cancel-power', ids)
 }

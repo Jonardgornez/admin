@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
 import {
+  canCancelPcPower,
   canEditPcTime,
   canRebootPc,
   canShutDownPc,
@@ -200,7 +201,7 @@ export function usePcs() {
     [runPcCommand],
   )
 
-  // Resolves with null when the PC cannot take the command or another shutdown or reboot of it is running.
+  // Resolves with null when the PC cannot take the command or another shutdown, reboot or cancel of it is running.
   const runPcPowerCommand = useCallback(
     async (
       pc: RegisteredPc,
@@ -231,7 +232,13 @@ export function usePcs() {
     [runPcPowerCommand],
   )
 
-  // Resolves with null when a bulk lock, unlock, shutdown or reboot is already running.
+  const cancelPcPower = useCallback(
+    (pc: RegisteredPc) =>
+      runPcPowerCommand(pc, canCancelPcPower, () => pcsApi.cancelPcPower(pc.id)),
+    [runPcPowerCommand],
+  )
+
+  // Resolves with null when a bulk lock, unlock, shutdown, reboot or cancel is already running.
   const runBulkCommand = useCallback(
     async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
       if (isBulkCommandInFlight.current) return null
@@ -267,6 +274,11 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const cancelPcsPower = useCallback(
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.cancelPcsPower(pcIds)),
+    [runBulkCommand],
+  )
+
   return {
     pcs,
     loadState,
@@ -289,5 +301,7 @@ export function usePcs() {
     shutDownPcs,
     rebootPc,
     rebootPcs,
+    cancelPcPower,
+    cancelPcsPower,
   }
 }

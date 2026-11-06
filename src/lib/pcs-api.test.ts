@@ -5,6 +5,8 @@ import {
   bulkRebootPcs,
   bulkShutDownPcs,
   bulkUnlockPcs,
+  cancelPcPower,
+  cancelPcsPower,
   editPcTime,
   listPcs,
   lockPc,
@@ -301,6 +303,54 @@ describe('pcs api', () => {
         success: false,
         status,
         error: 'This PC is already restarting.',
+      })
+    })
+  })
+
+  describe('cancelPcPower', () => {
+    it('posts an empty body to the cancel route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await cancelPcPower(7)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/cancel-power',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it.each([404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'No shutdown is pending.' }, { status }))
+      expect(await cancelPcPower(7)).toEqual({
+        success: false,
+        status,
+        error: 'No shutdown is pending.',
+      })
+    })
+  })
+
+  describe('cancelPcsPower', () => {
+    it('posts the PC ids to the cancel route and returns how many were cancelled', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 2 }))
+      expect(await cancelPcsPower([3, 7])).toEqual({ success: true, data: { affected: 2 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/cancel-power',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7]}' }),
+      )
+    })
+
+    it('fails when the response has no count', async () => {
+      stubFetch(Response.json({ count: 3 }))
+      expect(await cancelPcsPower([3])).toMatchObject({
+        success: false,
+        error: FALLBACK_ERROR_MESSAGE,
+      })
+    })
+
+    it('returns the server message when the request fails', async () => {
+      stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
+      expect(await cancelPcsPower([3])).toEqual({
+        success: false,
+        status: 401,
+        error: 'Sign in again.',
       })
     })
   })
