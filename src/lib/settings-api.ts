@@ -15,6 +15,7 @@ const settingsSchema = z.object({
   }),
   idleTimeoutMinutes: z.number().int(),
   defaultViewMode: z.enum(['notified', 'anonymous']),
+  powerCountdownSeconds: z.number().int(),
 })
 
 export type DefaultApproval = z.infer<typeof defaultApprovalSchema>

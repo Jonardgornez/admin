@@ -16,6 +16,7 @@ const valid: SettingsFormValues = {
   noticeText: 'This computer may be monitored.',
   idleTimeoutMinutes: '30',
   defaultViewMode: 'notified',
+  powerCountdownSeconds: '30',
 }
 
 function errorsFor(values: Partial<SettingsFormValues>): Record<string, string> {
@@ -33,6 +34,7 @@ const savedSettings: AppSettings = {
   notice: { isEnabled: false, text: 'Off for now.' },
   idleTimeoutMinutes: 15,
   defaultViewMode: 'anonymous',
+  powerCountdownSeconds: 45,
 }
 
 describe('parseWholeNumberInRange', () => {
@@ -88,6 +90,18 @@ describe('settingsFormSchema', () => {
     })
   })
 
+  describe('power countdown', () => {
+    it.each(['5', '3600'])('accepts %j', (powerCountdownSeconds) => {
+      expect(errorsFor({ powerCountdownSeconds })).toEqual({})
+    })
+
+    it.each(['4', '3601', '', '30.5', 'soon', '-5'])('rejects %j', (powerCountdownSeconds) => {
+      expect(errorsFor({ powerCountdownSeconds }).powerCountdownSeconds).toBe(
+        'Enter a whole number from 5 to 3600.',
+      )
+    })
+  })
+
   describe('notice text', () => {
     it('requires text when the notice is on, including text that is only spaces', () => {
       expect(errorsFor({ noticeText: '' }).noticeText).toBe(
@@ -131,6 +145,7 @@ describe('toSettingsFormValues', () => {
       noticeText: 'Off for now.',
       idleTimeoutMinutes: '15',
       defaultViewMode: 'anonymous',
+      powerCountdownSeconds: '45',
     })
   })
 })
@@ -145,12 +160,14 @@ describe('buildSettingsPayload', () => {
         idleTimeoutMinutes: '15',
         defaultViewMode: 'anonymous',
         noticeText: '  Watched.  ',
+        powerCountdownSeconds: ' 45 ',
       }),
     ).toEqual({
       defaultApproval: { mode: 'open-time', minutes: 90 },
       notice: { isEnabled: true, text: 'Watched.' },
       idleTimeoutMinutes: 15,
       defaultViewMode: 'anonymous',
+      powerCountdownSeconds: 45,
     })
   })
 
@@ -161,5 +178,6 @@ describe('buildSettingsPayload', () => {
   it('returns null when a number does not parse', () => {
     expect(buildSettingsPayload({ ...valid, defaultMinutes: 'abc' })).toBeNull()
     expect(buildSettingsPayload({ ...valid, idleTimeoutMinutes: '' })).toBeNull()
+    expect(buildSettingsPayload({ ...valid, powerCountdownSeconds: '' })).toBeNull()
   })
 })

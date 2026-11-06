@@ -7,6 +7,7 @@ const settings: AppSettings = {
   notice: { isEnabled: true, text: 'Monitored.' },
   idleTimeoutMinutes: 30,
   defaultViewMode: 'notified',
+  powerCountdownSeconds: 30,
 }
 
 function stubFetch(response: Response | Error) {
@@ -60,6 +61,20 @@ describe('settings api', () => {
 
     it('fails when a section is missing', async () => {
       stubFetch(Response.json({ ...settings, notice: undefined }))
+      expect(await getSettings()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('keeps the power countdown', async () => {
+      stubFetch(Response.json({ ...settings, powerCountdownSeconds: 120 }))
+      expect(await getSettings()).toEqual({
+        success: true,
+        data: { ...settings, powerCountdownSeconds: 120 },
+      })
+    })
+
+    it('fails when the power countdown is missing', async () => {
+      const { powerCountdownSeconds: _countdown, ...withoutCountdown } = settings
+      stubFetch(Response.json(withoutCountdown))
       expect(await getSettings()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 

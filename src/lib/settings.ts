@@ -8,16 +8,20 @@ export const FALLBACK_SETTINGS: AppSettings = {
   notice: { isEnabled: true, text: 'This computer may be monitored by the administrator.' },
   idleTimeoutMinutes: 30,
   defaultViewMode: 'notified',
+  powerCountdownSeconds: 30,
 }
 
 export interface ConsoleDefaults {
   defaultApproval: DefaultApproval
   defaultViewMode: ViewMode
+  // Null until the saved value loads, or when it never does. Wording must not guess a number.
+  powerCountdownSeconds: number | null
 }
 
 export const FALLBACK_CONSOLE_DEFAULTS: ConsoleDefaults = {
   defaultApproval: FALLBACK_SETTINGS.defaultApproval,
   defaultViewMode: FALLBACK_SETTINGS.defaultViewMode,
+  powerCountdownSeconds: null,
 }
 
 export function toConsoleDefaults(result: ApiResult<AppSettings>): ConsoleDefaults {
@@ -25,5 +29,6 @@ export function toConsoleDefaults(result: ApiResult<AppSettings>): ConsoleDefaul
   return {
     defaultApproval: result.data.defaultApproval,
     defaultViewMode: result.data.defaultViewMode,
+    powerCountdownSeconds: result.data.powerCountdownSeconds,
   }
 }

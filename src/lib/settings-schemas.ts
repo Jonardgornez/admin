@@ -5,12 +5,16 @@ import type { AppSettings } from './settings-api'
 export const MIN_DEFAULT_MINUTES = 1
 export const MIN_IDLE_TIMEOUT_MINUTES = 5
 export const MAX_IDLE_TIMEOUT_MINUTES = 480
+export const MIN_POWER_COUNTDOWN_SECONDS = 5
+export const MAX_POWER_COUNTDOWN_SECONDS = 3600
 export const MAX_NOTICE_TEXT_LENGTH = 300
 
 const DEFAULT_MINUTES_MESSAGE =
   `Enter a whole number from ${MIN_DEFAULT_MINUTES} to ${MAX_TIME_LIMIT_MINUTES}.`
 const IDLE_TIMEOUT_MESSAGE =
   `Enter a whole number from ${MIN_IDLE_TIMEOUT_MINUTES} to ${MAX_IDLE_TIMEOUT_MINUTES}.`
+const POWER_COUNTDOWN_MESSAGE =
+  `Enter a whole number from ${MIN_POWER_COUNTDOWN_SECONDS} to ${MAX_POWER_COUNTDOWN_SECONDS}.`
 const NOTICE_TEXT_REQUIRED_MESSAGE = 'Enter the notice text, or turn the notice off.'
 const NOTICE_TEXT_TOO_LONG_MESSAGE =
   `Notice text must be at most ${MAX_NOTICE_TEXT_LENGTH} characters.`
@@ -32,6 +36,7 @@ export const settingsFormSchema = z
     noticeText: z.string(),
     idleTimeoutMinutes: z.string(),
     defaultViewMode: z.enum(['notified', 'anonymous']),
+    powerCountdownSeconds: z.string(),
   })
   .superRefine((values, context) => {
     const minutes = parseWholeNumberInRange(
@@ -61,6 +66,20 @@ export const settingsFormSchema = z
       })
     }
 
+    if (
+      parseWholeNumberInRange(
+        values.powerCountdownSeconds,
+        MIN_POWER_COUNTDOWN_SECONDS,
+        MAX_POWER_COUNTDOWN_SECONDS,
+      ) === null
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['powerCountdownSeconds'],
+        message: POWER_COUNTDOWN_MESSAGE,
+      })
+    }
+
     const noticeText = values.noticeText.trim()
     if (noticeText.length > MAX_NOTICE_TEXT_LENGTH) {
       context.addIssue({
@@ -87,6 +106,7 @@ export function toSettingsFormValues(settings: AppSettings): SettingsFormValues 
     noticeText: settings.notice.text,
     idleTimeoutMinutes: String(settings.idleTimeoutMinutes),
     defaultViewMode: settings.defaultViewMode,
+    powerCountdownSeconds: String(settings.powerCountdownSeconds),
   }
 }
 
@@ -102,11 +122,19 @@ export function buildSettingsPayload(values: SettingsFormValues): AppSettings | 
     MIN_IDLE_TIMEOUT_MINUTES,
     MAX_IDLE_TIMEOUT_MINUTES,
   )
-  if (minutes === null || idleTimeoutMinutes === null) return null
+  const powerCountdownSeconds = parseWholeNumberInRange(
+    values.powerCountdownSeconds,
+    MIN_POWER_COUNTDOWN_SECONDS,
+    MAX_POWER_COUNTDOWN_SECONDS,
+  )
+  if (minutes === null || idleTimeoutMinutes === null || powerCountdownSeconds === null) {
+    return null
+  }
   return {
     defaultApproval: { mode: values.approvalMode, minutes },
     notice: { isEnabled: values.isNoticeEnabled, text: values.noticeText.trim() },
     idleTimeoutMinutes,
     defaultViewMode: values.defaultViewMode,
+    powerCountdownSeconds,
   }
 }
