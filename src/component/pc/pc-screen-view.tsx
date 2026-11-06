@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { cva } from 'class-variance-authority'
-import pcScreenMockImage from '../../assets/pc-screen-mock.jpg'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Icon } from '../ui/icon'
@@ -16,11 +15,11 @@ const containerVariants = cva('flex flex-col', {
 })
 
 const screenVariants = cva(
-  'flex w-full cursor-none items-center justify-center overflow-hidden rounded-lg bg-surface-300 text-center text-ink-subtle',
+  'flex w-full items-center justify-center overflow-hidden rounded-lg bg-surface-300 text-center text-ink-subtle',
   {
     variants: {
       isControlling: {
-        true: 'border-2 border-brand',
+        true: 'border-2 border-brand cursor-none',
         false: 'border border-border-strong',
       },
       isFullView: {
@@ -35,8 +34,11 @@ interface PcScreenViewProps {
   pcName: string
   isOffline: boolean
   isControlling: boolean
+  isFrameVisible: boolean
+  placeholderText: string
   viewModeLabel: string
-  captionText: string
+  captionText?: string
+  canvasRef: RefObject<HTMLCanvasElement | null>
   onStopControl: () => void
 }
 
@@ -44,8 +46,11 @@ export function PcScreenView({
   pcName,
   isOffline,
   isControlling,
+  isFrameVisible,
+  placeholderText,
   viewModeLabel,
   captionText,
+  canvasRef,
   onStopControl,
 }: PcScreenViewProps) {
   const notify = useNotify()
@@ -119,23 +124,26 @@ export function PcScreenView({
         </div>
       )}
       <div className={screenVariants({ isControlling, isFullView })}>
-        {isOffline ? (
-          <p className="m-0 p-4">This PC is offline, so its screen can't be viewed.</p>
-        ) : (
-          <img
-            src={pcScreenMockImage}
-            alt={`Screenshot of ${pcName}`}
-            width={1920}
-            height={1032}
-            className="size-full object-contain"
-          />
+        {/* The canvas stays mounted so its last frame survives a placeholder. */}
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label={`Live screen of ${pcName}`}
+          hidden={!isFrameVisible}
+          className="size-full object-contain"
+        />
+        {isOffline && <p className="m-0 p-4">This PC is offline, so its screen can't be viewed.</p>}
+        {!isOffline && !isFrameVisible && (
+          <p role="status" className="m-0 p-4">
+            {placeholderText}
+          </p>
         )}
       </div>
       {!isFullView && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {!isOffline && (
             <p className="m-0 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-              <span>{captionText}</span>
+              {captionText && <span>{captionText}</span>}
               <span>Nothing is saved unless you press Save screenshot.</span>
             </p>
           )}
