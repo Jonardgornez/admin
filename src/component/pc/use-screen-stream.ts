@@ -59,6 +59,7 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
   const [trackedTarget, setTrackedTarget] = useState(target)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const automaticRetriesRef = useRef(0)
+  const retriesTargetRef = useRef<string | null>(null)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const reportRefused = useEffectEvent(onRefused)
   const endExpiredSession = useEffectEvent(() => markSignedOut(SESSION_EXPIRED_NOTICE))
@@ -71,6 +72,13 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
 
   useEffect(() => {
     if (pcId === null) return
+
+    // A different PC or mode gets its own retries.
+    const connectionTarget = `${pcId}:${mode}`
+    if (retriesTargetRef.current !== connectionTarget) {
+      retriesTargetRef.current = connectionTarget
+      automaticRetriesRef.current = 0
+    }
 
     function handleClose(code: number, wasOpen: boolean) {
       if (!wasOpen) {
