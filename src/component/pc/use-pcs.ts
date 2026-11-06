@@ -3,6 +3,7 @@ import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
 import {
   canEditPcTime,
+  canRebootPc,
   canShutDownPc,
   getLockToggleTarget,
   isPcOnline,
@@ -10,7 +11,7 @@ import {
 } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
 import type { BulkCommandResult } from '../../lib/pcs-api'
-import type { PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
+import type { Pc, PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 export const POLL_INTERVAL_MS = 5000
@@ -33,13 +34,13 @@ export function usePcs() {
   const [removingPcIds, setRemovingPcIds] = useState<number[]>([])
   const [lockingPcIds, setLockingPcIds] = useState<number[]>([])
   const [timeEditingPcIds, setTimeEditingPcIds] = useState<number[]>([])
-  const [shutDownPendingPcIds, setShutDownPendingPcIds] = useState<number[]>([])
+  const [powerPendingPcIds, setPowerPendingPcIds] = useState<number[]>([])
   const latestLoadId = useRef(0)
   const hasLoaded = useRef(false)
   // Checked synchronously so a double click cannot send the command twice.
   const lockingPcIdsInFlight = useRef(new Set<number>())
   const timeEditingPcIdsInFlight = useRef(new Set<number>())
-  const shutDownPcIdsInFlight = useRef(new Set<number>())
+  const powerPcIdsInFlight = useRef(new Set<number>())
   const [isBulkCommandBusy, setIsBulkCommandBusy] = useState(false)
   const isBulkCommandInFlight = useRef(false)
   const refreshNow = useRef<((isBackground: boolean) => Promise<void>) | null>(null)
@@ -199,23 +200,38 @@ export function usePcs() {
     [runPcCommand],
   )
 
-  // Resolves with null when a PC cannot be shut down or its shutdown is already running.
-  const shutDownPc = useCallback(
-    async (pc: RegisteredPc): Promise<ApiResult<undefined> | null> => {
-      if (!canShutDownPc(pc) || shutDownPcIdsInFlight.current.has(pc.id)) return null
-      shutDownPcIdsInFlight.current.add(pc.id)
-      setShutDownPendingPcIds((current) => [...current, pc.id])
+  // Resolves with null when the PC cannot take the command or another shutdown or reboot of it is running.
+  const runPcPowerCommand = useCallback(
+    async (
+      pc: RegisteredPc,
+      canRunOnPc: (candidate: Pc) => boolean,
+      sendCommand: () => Promise<ApiResult<undefined>>,
+    ): Promise<ApiResult<undefined> | null> => {
+      if (!canRunOnPc(pc) || powerPcIdsInFlight.current.has(pc.id)) return null
+      powerPcIdsInFlight.current.add(pc.id)
+      setPowerPendingPcIds((current) => [...current, pc.id])
       try {
-        return await runPcCommand(pcsApi.shutDownPc(pc.id))
+        return await runPcCommand(sendCommand())
       } finally {
-        shutDownPcIdsInFlight.current.delete(pc.id)
-        setShutDownPendingPcIds((current) => current.filter((id) => id !== pc.id))
+        powerPcIdsInFlight.current.delete(pc.id)
+        setPowerPendingPcIds((current) => current.filter((id) => id !== pc.id))
       }
     },
     [runPcCommand],
   )
 
-  // Resolves with null when a bulk lock, unlock or shutdown is already running.
+  const shutDownPc = useCallback(
+    (pc: RegisteredPc) =>
+      runPcPowerCommand(pc, canShutDownPc, () => pcsApi.shutDownPc(pc.id)),
+    [runPcPowerCommand],
+  )
+
+  const rebootPc = useCallback(
+    (pc: RegisteredPc) => runPcPowerCommand(pc, canRebootPc, () => pcsApi.rebootPc(pc.id)),
+    [runPcPowerCommand],
+  )
+
+  // Resolves with null when a bulk lock, unlock, shutdown or reboot is already running.
   const runBulkCommand = useCallback(
     async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
       if (isBulkCommandInFlight.current) return null
@@ -246,6 +262,11 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const rebootPcs = useCallback(
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkRebootPcs(pcIds)),
+    [runBulkCommand],
+  )
+
   return {
     pcs,
     loadState,
@@ -254,7 +275,7 @@ export function usePcs() {
     removingPcIds,
     lockingPcIds,
     timeEditingPcIds,
-    shutDownPendingPcIds,
+    powerPendingPcIds,
     isBulkCommandBusy,
     retry,
     removePc,
@@ -266,5 +287,7 @@ export function usePcs() {
     unlockPcs,
     shutDownPc,
     shutDownPcs,
+    rebootPc,
+    rebootPcs,
   }
 }

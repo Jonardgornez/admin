@@ -7,6 +7,7 @@ import { Icon } from '../ui/icon'
 interface PcBulkToolbarProps {
   selectionState?: SelectionState
   shutdownSelectedCount?: number
+  rebootSelectedCount?: number
   messageRecipientCount?: number
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
@@ -14,12 +15,13 @@ interface PcBulkToolbarProps {
   lockSelectedCount?: number
   unlockSelectedCount?: number
   isBulkLockDisabled?: boolean
-  isBulkShutdownDisabled?: boolean
+  isBulkPowerDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
   onUnlockSelected?: () => void
   onLockSelected?: () => void
+  onRebootSelected?: () => void
   onShutdownSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
@@ -34,6 +36,7 @@ function withCount(label: string, count: number): string {
 export function PcBulkToolbar({
   selectionState = 'none',
   shutdownSelectedCount = 0,
+  rebootSelectedCount = 0,
   messageRecipientCount = 0,
   restrictionTargetCount = 0,
   hasVisiblePcs,
@@ -41,12 +44,13 @@ export function PcBulkToolbar({
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
   isBulkLockDisabled = false,
-  isBulkShutdownDisabled = false,
+  isBulkPowerDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
   onUnlockSelected,
   onLockSelected,
+  onRebootSelected,
   onShutdownSelected,
   onSendMessage,
   onOpenRestrictions,
@@ -87,8 +91,16 @@ export function PcBulkToolbar({
         {`Lock selected (${lockSelectedCount})`}
       </Button>
       <Button
+        variant="secondary"
+        disabled={isBulkPowerDisabled || rebootSelectedCount === 0}
+        onClick={onRebootSelected}
+      >
+        <Icon name="refresh" />
+        {`Reboot selected (${rebootSelectedCount})`}
+      </Button>
+      <Button
         variant="danger"
-        disabled={isBulkShutdownDisabled || shutdownSelectedCount === 0}
+        disabled={isBulkPowerDisabled || shutdownSelectedCount === 0}
         onClick={onShutdownSelected}
       >
         <Icon name="power" />

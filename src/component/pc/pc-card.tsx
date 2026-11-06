@@ -2,12 +2,14 @@ import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
 import {
   canEditPcTime,
+  canRebootPc,
   canShutDownPc,
   getLockToggleTarget,
   getTimeLeftLabel,
   isPcActionable,
   isPcOff,
   isPcOnline,
+  SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
 import type { Pc } from '../../types'
@@ -68,13 +70,14 @@ interface PcCardProps {
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isRemoveDisabled?: boolean
-  isShutdownDisabled?: boolean
+  isPowerDisabled?: boolean
   historyHref: string
   onToggleSelect?: () => void
   onOpenDetail: () => void
   onToggleLock?: () => void
   onViewScreen?: () => void
   onAddTime?: () => void
+  onReboot?: () => void
   onShutdown?: () => void
   onRemove?: () => void
 }
@@ -105,13 +108,14 @@ export function PcCard({
   isLockDisabled = false,
   isTimeEditDisabled = false,
   isRemoveDisabled = false,
-  isShutdownDisabled = false,
+  isPowerDisabled = false,
   historyHref,
   onToggleSelect,
   onOpenDetail,
   onToggleLock,
   onViewScreen,
   onAddTime,
+  onReboot,
   onShutdown,
   onRemove,
 }: PcCardProps) {
@@ -124,6 +128,8 @@ export function PcCard({
   const viewLabel = `View screen of ${pc.name}`
   const historyLabel = `View history of ${pc.name}`
   const editTimeLabel = `Edit time for ${pc.name}`
+  const rebootLabel = `Reboot ${pc.name}`
+  const rebootTitle = pc.isServerPc ? SERVER_PC_REBOOT_TITLE : rebootLabel
   const shutdownLabel = `Shut down ${pc.name}`
   const shutdownTitle = pc.isServerPc ? SERVER_PC_SHUT_DOWN_TITLE : shutdownLabel
   const removeLabel = `Remove ${pc.name}`
@@ -226,11 +232,21 @@ export function PcCard({
           <Icon name="clock" />
         </Button>
         <Button
+          variant="secondary"
+          isIconOnly
+          title={rebootTitle}
+          aria-label={rebootLabel}
+          disabled={!canRebootPc(pc) || isPowerDisabled}
+          onClick={onReboot}
+        >
+          <Icon name="refresh" />
+        </Button>
+        <Button
           variant="danger"
           isIconOnly
           title={shutdownTitle}
           aria-label={shutdownLabel}
-          disabled={!canShutDownPc(pc) || isShutdownDisabled}
+          disabled={!canShutDownPc(pc) || isPowerDisabled}
           onClick={onShutdown}
         >
           <Icon name="power" />

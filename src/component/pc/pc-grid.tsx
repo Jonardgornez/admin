@@ -11,12 +11,13 @@ interface PcGridProps {
   isLockDisabled?: (pcName: string) => boolean
   isTimeEditDisabled?: (pcName: string) => boolean
   isRemoveDisabled?: (pcName: string) => boolean
-  isShutdownDisabled?: (pcName: string) => boolean
+  isPowerDisabled?: (pcName: string) => boolean
   onToggleSelect?: (pcName: string) => void
   onOpenDetail: (pcName: string) => void
   onToggleLock?: (pcName: string) => void
   onViewScreen?: (href: string) => void
   onAddTime?: (pcName: string) => void
+  onReboot?: (pcName: string) => void
   onShutdown?: (pcName: string) => void
   onRemove?: (pcName: string) => void
 }
@@ -30,12 +31,13 @@ export function PcGrid({
   isLockDisabled,
   isTimeEditDisabled,
   isRemoveDisabled,
-  isShutdownDisabled,
+  isPowerDisabled,
   onToggleSelect,
   onOpenDetail,
   onToggleLock,
   onViewScreen,
   onAddTime,
+  onReboot,
   onShutdown,
   onRemove,
 }: PcGridProps) {
@@ -59,13 +61,14 @@ export function PcGrid({
               isLockDisabled={isLockDisabled?.(pc.name)}
               isTimeEditDisabled={isTimeEditDisabled?.(pc.name)}
               isRemoveDisabled={isRemoveDisabled?.(pc.name)}
-              isShutdownDisabled={isShutdownDisabled?.(pc.name)}
+              isPowerDisabled={isPowerDisabled?.(pc.name)}
               historyHref={getLogsHref(pc.name)}
               onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.name))}
               onOpenDetail={() => onOpenDetail(pc.name)}
               onToggleLock={onToggleLock && (() => onToggleLock(pc.name))}
               onViewScreen={onViewScreen && (() => onViewScreen(getScreenHref(pc.name, viewMode)))}
               onAddTime={onAddTime && (() => onAddTime(pc.name))}
+              onReboot={onReboot && (() => onReboot(pc.name))}
               onShutdown={onShutdown && (() => onShutdown(pc.name))}
               onRemove={onRemove && (() => onRemove(pc.name))}
             />

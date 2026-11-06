@@ -17,12 +17,18 @@ describe('getPcConfirmation', () => {
     expect(body).not.toContain('Unsaved work')
   })
 
-  it('describes a reboot', () => {
-    const result = getPcConfirmation({ kind: 'reboot', pcName: 'PC-05' }, pcs)
-    expect(result.title).toBe('Reboot PC-05?')
-    expect(result.confirmLabel).toBe('Reboot')
-    expect(result.body).toContain('before it restarts')
-    expect(result.body).toContain('Unsaved work on that PC may be lost.')
+  it('describes a reboot of a PC with a user, including the logout', () => {
+    expect(getPcConfirmation({ kind: 'reboot', pcName: 'PC-05' }, pcs)).toEqual({
+      title: 'Reboot PC-05?',
+      body: 'PC-05 has a user signed in (lab-pc05). The client shows a 30-second countdown before it restarts. Unsaved work on that PC may be lost, and the student is logged out.',
+      confirmLabel: 'Reboot',
+    })
+  })
+
+  it('does not warn about lost work or a logout when a reboot has no user', () => {
+    expect(getPcConfirmation({ kind: 'reboot', pcName: 'PC-02' }, pcs).body).toBe(
+      'No user is signed in on PC-02, so no work should be lost. The client shows a 30-second countdown before it restarts.',
+    )
   })
 
   it('summarizes several PCs and counts signed-in users', () => {
@@ -47,5 +53,35 @@ describe('getPcConfirmation', () => {
   it('falls back to the single-PC wording for a one-PC selection', () => {
     const result = getPcConfirmation({ kind: 'shutdown-selected', pcNames: ['PC-05'] }, pcs)
     expect(result.title).toBe('Shut down PC-05?')
+  })
+
+  it('summarizes several PCs for a reboot with the restart and logout wording', () => {
+    const result = getPcConfirmation(
+      { kind: 'reboot-selected', pcNames: ['PC-01', 'PC-02', 'PC-05'] },
+      pcs,
+    )
+    expect(result).toEqual({
+      title: 'Reboot 3 PCs?',
+      body: '2 of them have a user signed in. The clients show a 30-second countdown before they restart. Unsaved work on those PCs may be lost, and signed-in students are logged out.',
+      confirmLabel: 'Reboot',
+    })
+  })
+
+  it('handles several PCs being restarted with nobody signed in', () => {
+    const result = getPcConfirmation({ kind: 'reboot-selected', pcNames: ['PC-02', 'PC-06'] }, pcs)
+    expect(result.body).toBe(
+      'No user is signed in on these PCs, so no work should be lost. The clients show a 30-second countdown before they restart.',
+    )
+  })
+
+  it('handles exactly one signed-in user among several PCs being restarted', () => {
+    const result = getPcConfirmation({ kind: 'reboot-selected', pcNames: ['PC-01', 'PC-02'] }, pcs)
+    expect(result.body).toContain('1 of them has a user signed in')
+  })
+
+  it('falls back to the single-PC reboot wording for a one-PC reboot selection', () => {
+    const result = getPcConfirmation({ kind: 'reboot-selected', pcNames: ['PC-05'] }, pcs)
+    expect(result.title).toBe('Reboot PC-05?')
+    expect(result.body).toContain('and the student is logged out.')
   })
 })

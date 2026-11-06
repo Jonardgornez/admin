@@ -5,13 +5,13 @@ import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-d
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
+import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
-import { ShutdownDialog, type ShutdownAction } from '../component/pc/shutdown-dialog'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
-import { Icon } from '../component/ui/icon'
+import { Icon, type IconName } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
@@ -20,26 +20,34 @@ import {
   countOnlinePcs,
   countPcsHiddenFromView,
   describeBulkLockResult,
-  describeBulkShutdownResult,
+  describeBulkPowerResult,
+  describeSinglePowerResult,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
   getLockToggleTarget,
   getPcIdsToLock,
+  getPcIdsToReboot,
   getPcIdsToShutDown,
   getPcIdsToUnlock,
+  getPcNamesToReboot,
   getPcNamesToShutDown,
   getSelectionState,
-  getServerPcShutDownNote,
+  getServerPcPowerNote,
   toggleSelectAll,
   toggleSelectedName,
   toPcTimeCommand,
 } from '../lib/pcs'
-import type { PcLockAction, PcTimeCommand, RegisteredPc } from '../types'
+import type { PcLockAction, PcTimeCommand, PowerCommand, RegisteredPc } from '../types'
 
 const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
   'No PCs registered yet. Install the client on a PC and register it to see it here.'
+const POWER_NOTICE_ICON: Record<PowerCommand, IconName> = { shutdown: 'power', reboot: 'refresh' }
+
+function getSelectedPowerPcIds(action: PowerAction | null): number[] {
+  return action && 'pcIds' in action ? action.pcIds : []
+}
 
 export function DashboardPage() {
   const notify = useNotify()
@@ -51,7 +59,7 @@ export function DashboardPage() {
     removingPcIds,
     lockingPcIds,
     timeEditingPcIds,
-    shutDownPendingPcIds,
+    powerPendingPcIds,
     isBulkCommandBusy,
     retry,
     removePc,
@@ -63,13 +71,15 @@ export function DashboardPage() {
     unlockPcs,
     shutDownPc,
     shutDownPcs,
+    rebootPc,
+    rebootPcs,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
-  const [shutdownAction, setShutdownAction] = useState<ShutdownAction | null>(null)
+  const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
 
@@ -88,10 +98,12 @@ export function DashboardPage() {
   const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcNames)
   const shutDownPcIds = getPcIdsToShutDown(pcs, selectedPcNames)
   const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcNames)
+  const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
+  const rebootPcNames = getPcNamesToReboot(pcs, selectedPcNames)
   const selectedServerPc = pcs.find((pc) => pc.isServerPc && selectedPcNames.includes(pc.name))
-  const isShutdownBusy =
-    shutdownAction?.kind === 'shutdown'
-      ? shutDownPendingPcIds.includes(shutdownAction.pc.id)
+  const isPowerBusy =
+    powerAction && 'pc' in powerAction
+      ? powerPendingPcIds.includes(powerAction.pc.id)
       : isBulkCommandBusy
 
   function toggleSelectedPc(pcName: string) {
@@ -117,9 +129,9 @@ export function DashboardPage() {
     return isDisconnected || (pc !== undefined && lockingPcIds.includes(pc.id))
   }
 
-  function isShutdownDisabled(pcName: string): boolean {
+  function isPowerDisabled(pcName: string): boolean {
     const pc = pcs.find((candidate) => candidate.name === pcName)
-    return isDisconnected || (pc !== undefined && shutDownPendingPcIds.includes(pc.id))
+    return isDisconnected || (pc !== undefined && powerPendingPcIds.includes(pc.id))
   }
 
   // Null means the PC is offline or the same command is still running, so nothing is reported.
@@ -150,9 +162,9 @@ export function DashboardPage() {
     if (pc) void toggleLockOfPc(pc)
   }
 
-  function openShutdownOfPcNamed(pcName: string) {
+  function openPowerOfPcNamed(kind: PowerCommand, pcName: string) {
     const pc = pcs.find((candidate) => candidate.name === pcName)
-    if (pc) setShutdownAction({ kind: 'shutdown', pc })
+    if (pc) setPowerAction({ kind, pc })
   }
 
   async function confirmBulkLock(action: BulkLockAction) {
@@ -168,27 +180,34 @@ export function DashboardPage() {
     }
   }
 
-  async function shutDownOnePc(pc: RegisteredPc) {
-    const result = await shutDownPc(pc)
-    // Null means the PC is already shutting down or the same request is still running.
+  // Null means the PC cannot take the command or the same command is still running.
+  async function runOnePcPower(kind: PowerCommand, pc: RegisteredPc) {
+    const result = kind === 'shutdown' ? await shutDownPc(pc) : await rebootPc(pc)
     if (!result) return
-    setShutdownAction(null)
-    if (result.success) notify(`${pc.name} is shutting down.`, 'power')
+    setPowerAction(null)
+    if (result.success) notify(describeSinglePowerResult(pc.name, kind), POWER_NOTICE_ICON[kind])
     else if (!isSessionExpired(result)) notify(result.error, 'alert')
   }
 
-  async function shutDownSelectedPcs(pcIds: number[]) {
-    const result = await shutDownPcs(pcIds)
+  async function runSelectedPcsPower(kind: PowerCommand, pcIds: number[]) {
+    const result = kind === 'shutdown' ? await shutDownPcs(pcIds) : await rebootPcs(pcIds)
     // Null means the same bulk command is still running, which closes the dialog when it ends.
     if (!result) return
-    setShutdownAction(null)
-    if (result.success) notify(describeBulkShutdownResult(result.data.affected), 'power')
-    else if (!isSessionExpired(result)) notify(result.error, 'alert')
+    setPowerAction(null)
+    if (result.success) {
+      notify(describeBulkPowerResult(kind, result.data.affected), POWER_NOTICE_ICON[kind])
+    } else if (!isSessionExpired(result)) {
+      notify(result.error, 'alert')
+    }
   }
 
-  async function confirmShutdown(action: ShutdownAction) {
-    if (action.kind === 'shutdown') await shutDownOnePc(action.pc)
-    else await shutDownSelectedPcs(action.pcIds)
+  async function confirmPowerAction(action: PowerAction) {
+    if ('pc' in action) {
+      await runOnePcPower(action.kind, action.pc)
+    } else {
+      const kind = action.kind === 'reboot-selected' ? 'reboot' : 'shutdown'
+      await runSelectedPcsPower(kind, action.pcIds)
+    }
   }
 
   async function submitTimeEdit(pc: RegisteredPc, command: PcTimeCommand) {
@@ -248,17 +267,25 @@ export function DashboardPage() {
             unlockSelectedCount={unlockPcIds.length}
             isBulkLockDisabled={isDisconnected || isBulkCommandBusy}
             shutdownSelectedCount={shutDownPcIds.length}
-            isBulkShutdownDisabled={isDisconnected || isBulkCommandBusy}
+            rebootSelectedCount={rebootPcIds.length}
+            isBulkPowerDisabled={isDisconnected || isBulkCommandBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
             note={COMMANDS_NOTE}
-            serverPcNote={selectedServerPc && getServerPcShutDownNote(selectedServerPc.name)}
+            serverPcNote={selectedServerPc && getServerPcPowerNote(selectedServerPc.name)}
             onUnlockSelected={() => setBulkLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
             onLockSelected={() => setBulkLockAction({ kind: 'lock', pcIds: lockPcIds })}
+            onRebootSelected={() =>
+              setPowerAction({
+                kind: 'reboot-selected',
+                pcIds: rebootPcIds,
+                pcNames: rebootPcNames,
+              })
+            }
             onShutdownSelected={() =>
-              setShutdownAction({
+              setPowerAction({
                 kind: 'shutdown-selected',
                 pcIds: shutDownPcIds,
                 pcNames: shutDownPcNames,
@@ -306,12 +333,13 @@ export function DashboardPage() {
           isLockDisabled={isLockDisabled}
           isTimeEditDisabled={isTimeEditDisabled}
           isRemoveDisabled={isRemoveDisabled}
-          isShutdownDisabled={isShutdownDisabled}
+          isPowerDisabled={isPowerDisabled}
           onToggleSelect={toggleSelectedPc}
           onOpenDetail={setDetailPcName}
           onToggleLock={toggleLockOfPcNamed}
           onAddTime={setTimeEditPcName}
-          onShutdown={openShutdownOfPcNamed}
+          onReboot={(pcName) => openPowerOfPcNamed('reboot', pcName)}
+          onShutdown={(pcName) => openPowerOfPcNamed('shutdown', pcName)}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
         />
       )}
@@ -323,11 +351,12 @@ export function DashboardPage() {
           viewMode={consoleDefaults.defaultViewMode}
           isLockDisabled={isLockDisabled(detailPc.name)}
           isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
-          isShutdownDisabled={isShutdownDisabled(detailPc.name)}
+          isPowerDisabled={isPowerDisabled(detailPc.name)}
           onClose={() => setDetailPcName(null)}
           onLock={() => void lockOnePc(detailPc)}
           onUnlock={() => void unlockOnePc(detailPc)}
-          onShutdown={() => setShutdownAction({ kind: 'shutdown', pc: detailPc })}
+          onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}
+          onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
           onAddTime={() => setTimeEditPcName(detailPc.name)}
         />
       )}
@@ -350,17 +379,17 @@ export function DashboardPage() {
         onCancel={() => setBulkLockAction(null)}
       />
 
-      <ShutdownDialog
-        action={shutdownAction}
+      <PowerDialog
+        action={powerAction}
         pcs={pcs}
         hiddenPcCount={countPcsHiddenFromView(
-          shutdownAction?.kind === 'shutdown-selected' ? shutdownAction.pcIds : [],
+          getSelectedPowerPcIds(powerAction),
           pcs,
           visiblePcNames,
         )}
-        isBusy={isShutdownBusy}
-        onConfirm={() => shutdownAction && void confirmShutdown(shutdownAction)}
-        onCancel={() => setShutdownAction(null)}
+        isBusy={isPowerBusy}
+        onConfirm={() => powerAction && void confirmPowerAction(powerAction)}
+        onCancel={() => setPowerAction(null)}
       />
 
       <RemovePcDialog

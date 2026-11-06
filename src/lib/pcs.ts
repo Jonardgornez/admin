@@ -5,6 +5,7 @@ import type {
   PcLockAction,
   PcStatus,
   PcTimeCommand,
+  PowerCommand,
   RegisteredPc,
   SelectionState,
   ServerPc,
@@ -51,9 +52,11 @@ function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
 }
 
 // Locked online PCs are frozen, even with a paused session. Other online PCs are in use with a
-// session, or waiting for a user without one. A PC the server reports as shut down is shutdown.
+// session, or waiting for a user without one. A PC the server reports as shut down or rebooting
+// keeps that status. A restart countdown keeps the online status, flagged by isRestarting.
 function toPcStatus(serverPc: ServerPc): PcStatus {
   if (serverPc.shutdownState === 'shutdown') return 'shutdown'
+  if (serverPc.shutdownState === 'rebooting') return 'rebooting'
   if (!serverPc.isOnline) return 'offline'
   if (serverPc.isLocked) return 'frozen'
   return serverPc.session ? 'in-use' : 'locked'
@@ -67,6 +70,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     status: toPcStatus(serverPc),
     isLocked: serverPc.isLocked,
     isShuttingDown: serverPc.shutdownState === 'shutting-down',
+    isRestarting: serverPc.shutdownState === 'restarting',
     isServerPc: serverPc.isServerPc,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
@@ -152,20 +156,6 @@ export function isPcUnlockedWithoutUser(pc: Pick<Pc, 'status' | 'user'>): boolea
   return pc.status === 'in-use' && !pc.user
 }
 
-function withoutSession(pc: Pc): Pc {
-  return {
-    ...pc,
-    user: undefined,
-    timeUsed: undefined,
-    isOpenTime: undefined,
-    minutesLeft: undefined,
-  }
-}
-
-export function rebootPc(pc: Pc): Pc {
-  return { ...withoutSession(pc), status: 'rebooting' }
-}
-
 export function canLockPc(pc: Pc): boolean {
   return pc.status === 'in-use' || pc.status === 'locked'
 }
@@ -191,26 +181,48 @@ export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): 
 }
 
 export const SERVER_PC_SHUT_DOWN_TITLE = 'This PC runs the server. Shut it down by hand.'
+export const SERVER_PC_REBOOT_TITLE = 'This PC runs the server. Restart it by hand.'
 
-// The server PC is left out, because shutting it down would stop the server itself.
-export function canShutDownPc(pc: Pc): boolean {
-  return isPcOnline(pc) && !pc.isServerPc && !pc.isShuttingDown
+// The server PC is left out, because a shutdown or restart would stop the server itself.
+// A PC in either countdown takes neither command until the countdown ends.
+function canTakePowerCommand(pc: Pc): boolean {
+  return isPcOnline(pc) && !pc.isServerPc && !pc.isShuttingDown && !pc.isRestarting
 }
 
-function getPcsToShutDown(pcs: RegisteredPc[], selectedNames: string[]): RegisteredPc[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && canShutDownPc(pc))
+export function canShutDownPc(pc: Pc): boolean {
+  return canTakePowerCommand(pc)
+}
+
+export function canRebootPc(pc: Pc): boolean {
+  return canTakePowerCommand(pc)
+}
+
+function getSelectedPcs(
+  pcs: RegisteredPc[],
+  selectedNames: string[],
+  canRun: (pc: Pc) => boolean,
+): RegisteredPc[] {
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && canRun(pc))
 }
 
 export function getPcIdsToShutDown(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return getPcsToShutDown(pcs, selectedNames).map((pc) => pc.id)
+  return getSelectedPcs(pcs, selectedNames, canShutDownPc).map((pc) => pc.id)
 }
 
 export function getPcNamesToShutDown(pcs: RegisteredPc[], selectedNames: string[]): string[] {
-  return getPcsToShutDown(pcs, selectedNames).map((pc) => pc.name)
+  return getSelectedPcs(pcs, selectedNames, canShutDownPc).map((pc) => pc.name)
 }
 
-export function getServerPcShutDownNote(pcName: string): string {
-  return `${pcName} runs the server and won't be shut down.`
+export function getPcIdsToReboot(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return getSelectedPcs(pcs, selectedNames, canRebootPc).map((pc) => pc.id)
+}
+
+export function getPcNamesToReboot(pcs: RegisteredPc[], selectedNames: string[]): string[] {
+  return getSelectedPcs(pcs, selectedNames, canRebootPc).map((pc) => pc.name)
+}
+
+export function getServerPcPowerNote(pcName: string): string {
+  return `${pcName} runs the server and won't be shut down or restarted.`
 }
 
 // The card button does the opposite of the PC's lock state.
@@ -229,17 +241,17 @@ export function describeBulkLockResult(kind: BulkLockKind, affected: number): st
     : `Unlocked ${formatPcCount(affected)}.`
 }
 
-export function describeBulkShutdownResult(affected: number): string {
-  if (affected === 0) return 'No PCs could be shut down.'
-  return `Shutting down ${formatPcCount(affected)}.`
+export function describeBulkPowerResult(kind: PowerCommand, affected: number): string {
+  if (affected === 0) {
+    return kind === 'shutdown' ? 'No PCs could be shut down.' : 'No PCs could be restarted.'
+  }
+  return kind === 'shutdown'
+    ? `Shutting down ${formatPcCount(affected)}.`
+    : `Restarting ${formatPcCount(affected)}.`
 }
 
-export function updateActionablePcs(
-  pcs: Pc[],
-  pcNames: string[],
-  transform: (pc: Pc) => Pc,
-): Pc[] {
-  return pcs.map((pc) => (pcNames.includes(pc.name) && isPcActionable(pc) ? transform(pc) : pc))
+export function describeSinglePowerResult(pcName: string, kind: PowerCommand): string {
+  return kind === 'shutdown' ? `${pcName} is shutting down.` : `${pcName} is restarting.`
 }
 
 export function getLogsHref(pcName: string): string {

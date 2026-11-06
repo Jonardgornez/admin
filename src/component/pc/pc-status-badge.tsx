@@ -20,7 +20,7 @@ const STATUS_DISPLAY: Record<PcStatus, StatusDisplay> = {
 const UNLOCKED_DISPLAY: StatusDisplay = { label: 'Online – Unlocked', icon: 'unlock' }
 
 interface PcStatusBadgeProps {
-  pc: Pick<Pc, 'status' | 'user' | 'isShuttingDown'>
+  pc: Pick<Pc, 'status' | 'user' | 'isShuttingDown' | 'isRestarting'>
 }
 
 export function PcStatusBadge({ pc }: PcStatusBadgeProps) {
@@ -28,6 +28,13 @@ export function PcStatusBadge({ pc }: PcStatusBadgeProps) {
     return (
       <Badge variant="shutdown" icon="power">
         Shutting down
+      </Badge>
+    )
+  }
+  if (pc.isRestarting) {
+    return (
+      <Badge variant="rebooting" icon="refresh">
+        Restarting
       </Badge>
     )
   }

@@ -2,10 +2,11 @@ import { useId } from 'react'
 import {
   canEditPcTime,
   canLockPc,
+  canRebootPc,
   canShutDownPc,
   canUnlockPc,
   getTimeLeftLabel,
-  isPcOff,
+  SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
 import { getRestrictionSummary } from '../../lib/restrictions'
@@ -21,7 +22,7 @@ interface PcDetailDialogProps {
   areCommandsDisabled: boolean
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
-  isShutdownDisabled?: boolean
+  isPowerDisabled?: boolean
   onClose: () => void
   onLock?: () => void
   onUnlock?: () => void
@@ -54,7 +55,7 @@ export function PcDetailDialog({
   areCommandsDisabled,
   isLockDisabled = false,
   isTimeEditDisabled = false,
-  isShutdownDisabled = false,
+  isPowerDisabled = false,
   onClose,
   onLock,
   onUnlock,
@@ -66,7 +67,6 @@ export function PcDetailDialog({
   screenHref,
 }: PcDetailDialogProps) {
   const titleId = useId()
-  const isBusy = areCommandsDisabled || isPcOff(pc) || pc.status === 'rebooting'
   const viewModeName = `view-mode-${pc.name}`
 
   return (
@@ -128,14 +128,19 @@ export function PcDetailDialog({
             <Icon name="lock" />
             Lock
           </Button>
-          <Button variant="secondary" disabled={isBusy} onClick={onReboot}>
+          <Button
+            variant="secondary"
+            title={pc.isServerPc ? SERVER_PC_REBOOT_TITLE : undefined}
+            disabled={!canRebootPc(pc) || isPowerDisabled}
+            onClick={onReboot}
+          >
             <Icon name="refresh" />
             Reboot
           </Button>
           <Button
             variant="danger"
             title={pc.isServerPc ? SERVER_PC_SHUT_DOWN_TITLE : undefined}
-            disabled={!canShutDownPc(pc) || isShutdownDisabled}
+            disabled={!canShutDownPc(pc) || isPowerDisabled}
             onClick={onShutdown}
           >
             <Icon name="power" />

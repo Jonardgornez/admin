@@ -8,6 +8,7 @@ export interface Pc {
   status: PcStatus
   isLocked?: boolean
   isShuttingDown?: boolean
+  isRestarting?: boolean
   isServerPc?: boolean
   user?: string
   timeUsed?: string
@@ -26,7 +27,7 @@ export interface ServerPcSession {
   secondsRemaining: number | null
 }
 
-export type ServerPcShutdownState = 'shutting-down' | 'shutdown'
+export type ServerPcShutdownState = 'shutting-down' | 'shutdown' | 'restarting' | 'rebooting'
 
 export interface ServerPc {
   id: number
@@ -125,7 +126,9 @@ export interface SessionLog {
 
 export type ApprovalChoice = { mode: 'time-limit'; minutes: number } | { mode: 'open-time' }
 
+// The power commands that take a PC offline or back on. Shutdown and reboot share one flow.
+export type PowerCommand = 'shutdown' | 'reboot'
+
 export type PendingPcAction =
-  | { kind: 'shutdown'; pcName: string }
-  | { kind: 'shutdown-selected'; pcNames: string[] }
-  | { kind: 'reboot'; pcName: string }
+  | { kind: PowerCommand; pcName: string }
+  | { kind: `${PowerCommand}-selected`; pcNames: string[] }

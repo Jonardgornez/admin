@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
 import {
   bulkLockPcs,
+  bulkRebootPcs,
   bulkShutDownPcs,
   bulkUnlockPcs,
   editPcTime,
   listPcs,
   lockPc,
+  rebootPc,
   removePc,
   shutDownPc,
   unlockPc,
@@ -127,6 +129,8 @@ describe('pcs api', () => {
     it.each([
       ['shutting-down', 'shutting-down'],
       ['shutdown', 'shutdown'],
+      ['restarting', 'restarting'],
+      ['rebooting', 'rebooting'],
       [null, null],
     ])('keeps a shutdown state of %s', async (_label, shutdownState) => {
       stubFetch(Response.json([{ ...serverPc, shutdownState }]))
@@ -139,7 +143,7 @@ describe('pcs api', () => {
     })
 
     it('fails on an unknown shutdown state', async () => {
-      stubFetch(Response.json([{ ...serverPc, shutdownState: 'rebooting' }]))
+      stubFetch(Response.json([{ ...serverPc, shutdownState: 'hibernating' }]))
       expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
@@ -276,6 +280,54 @@ describe('pcs api', () => {
         success: false,
         status,
         error: 'This PC is already shutting down.',
+      })
+    })
+  })
+
+  describe('rebootPc', () => {
+    it('posts an empty body to the reboot route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await rebootPc(7)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/reboot',
+        expect.objectContaining({ method: 'POST', body: '{}' }),
+      )
+    })
+
+    it.each([404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'This PC is already restarting.' }, { status }))
+      expect(await rebootPc(7)).toEqual({
+        success: false,
+        status,
+        error: 'This PC is already restarting.',
+      })
+    })
+  })
+
+  describe('bulkRebootPcs', () => {
+    it('posts the PC ids to the reboot route and returns how many were restarted', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 2 }))
+      expect(await bulkRebootPcs([3, 7])).toEqual({ success: true, data: { affected: 2 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/reboot',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7]}' }),
+      )
+    })
+
+    it('fails when the response has no count', async () => {
+      stubFetch(Response.json({ count: 3 }))
+      expect(await bulkRebootPcs([3])).toMatchObject({
+        success: false,
+        error: FALLBACK_ERROR_MESSAGE,
+      })
+    })
+
+    it('returns the server message when the request fails', async () => {
+      stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
+      expect(await bulkRebootPcs([3])).toEqual({
+        success: false,
+        status: 401,
+        error: 'Sign in again.',
       })
     })
   })

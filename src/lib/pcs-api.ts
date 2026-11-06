@@ -23,7 +23,7 @@ const serverPcSchema = z.object({
   registeredAt: z.string(),
   lastSeenAt: z.string(),
   session: serverPcSessionSchema.nullable(),
-  shutdownState: z.enum(['shutting-down', 'shutdown']).nullable(),
+  shutdownState: z.enum(['shutting-down', 'shutdown', 'restarting', 'rebooting']).nullable(),
   isServerPc: z.boolean(),
 })
 
@@ -66,6 +66,10 @@ export function shutDownPc(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}/shutdown`, { method: 'POST', body: COMMAND_BODY })
 }
 
+export function rebootPc(id: number): Promise<ApiResult<undefined>> {
+  return apiRequest(`/api/pcs/${id}/reboot`, { method: 'POST', body: COMMAND_BODY })
+}
+
 async function postBulkCommand(
   path: string,
   ids: number[],
@@ -87,4 +91,8 @@ export function bulkUnlockPcs(ids: number[]): Promise<ApiResult<BulkCommandResul
 
 export function bulkShutDownPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
   return postBulkCommand('/api/pcs/shutdown', ids)
+}
+
+export function bulkRebootPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/reboot', ids)
 }
