@@ -5,12 +5,19 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 interface PcConfirmDialogProps {
   action: PendingPcAction | null
   pcs: Pc[]
+  countdownSeconds: number | null
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function PcConfirmDialog({ action, pcs, onConfirm, onCancel }: PcConfirmDialogProps) {
-  const confirmation = action ? getPcConfirmation(action, pcs) : null
+export function PcConfirmDialog({
+  action,
+  pcs,
+  countdownSeconds,
+  onConfirm,
+  onCancel,
+}: PcConfirmDialogProps) {
+  const confirmation = action ? getPcConfirmation(action, pcs, countdownSeconds) : null
 
   return (
     <ConfirmDialog

@@ -11,13 +11,15 @@ export type PowerAction =
 interface PowerDialogProps {
   action: PowerAction | null
   pcs: Pc[]
+  countdownSeconds: number | null
   hiddenPcCount: number
   isBusy: boolean
   onConfirm: () => void
   onCancel: () => void
 }
 
-const NOT_STOPPABLE_NOTE = 'Neither you nor the student can stop it once you confirm.'
+const NOT_STOPPABLE_NOTE =
+  "The student can't stop it, but you can cancel it from the Dashboard until the countdown ends."
 
 function toPendingPcAction(action: PowerAction): PendingPcAction {
   if ('pc' in action) return { kind: action.kind, pcName: action.pc.name }
@@ -27,12 +29,15 @@ function toPendingPcAction(action: PowerAction): PendingPcAction {
 export function PowerDialog({
   action,
   pcs,
+  countdownSeconds,
   hiddenPcCount,
   isBusy,
   onConfirm,
   onCancel,
 }: PowerDialogProps) {
-  const confirmation = action ? getPcConfirmation(toPendingPcAction(action), pcs) : null
+  const confirmation = action
+    ? getPcConfirmation(toPendingPcAction(action), pcs, countdownSeconds)
+    : null
   const hiddenNote =
     hiddenPcCount > 0 ? `${formatPcCount(hiddenPcCount)} hidden by your search included.` : ''
 

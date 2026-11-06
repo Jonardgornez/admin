@@ -395,6 +395,7 @@ export function DashboardPage() {
       <PowerDialog
         action={powerAction}
         pcs={pcs}
+        countdownSeconds={consoleDefaults.powerCountdownSeconds}
         hiddenPcCount={countPcsHiddenFromView(
           getSelectedPowerPcIds(powerAction),
           pcs,
