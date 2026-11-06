@@ -2,6 +2,7 @@ import type {
   ApprovalChoice,
   BulkLockKind,
   Pc,
+  PcLockAction,
   PcStatus,
   RegisteredPc,
   SelectionState,
@@ -185,6 +186,11 @@ export function getPcIdsToLock(pcs: RegisteredPc[], selectedNames: string[]): nu
 
 export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
   return pcs.filter((pc) => selectedNames.includes(pc.name) && canUnlockPc(pc)).map((pc) => pc.id)
+}
+
+// The card button does the opposite of the PC's lock state.
+export function getLockToggleTarget(pc: Pc): PcLockAction {
+  return pc.isLocked || canUnlockPc(pc) ? 'unlock' : 'lock'
 }
 
 export function formatPcCount(count: number): string {

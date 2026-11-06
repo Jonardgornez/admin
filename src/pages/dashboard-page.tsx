@@ -10,19 +10,21 @@ import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
+import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
 import {
   countOnlinePcs,
   describeBulkLockResult,
   filterPcs,
   formatLastUpdate,
+  getLockToggleTarget,
   getPcIdsToLock,
   getPcIdsToUnlock,
   getSelectionState,
   toggleSelectAll,
   toggleSelectedName,
 } from '../lib/pcs'
-import type { RegisteredPc } from '../types'
+import type { PcLockAction, RegisteredPc } from '../types'
 
 const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
@@ -40,6 +42,8 @@ export function DashboardPage() {
     isBulkLockBusy,
     retry,
     removePc,
+    lockPc,
+    unlockPc,
     togglePcLock,
     lockPcs,
     unlockPcs,
@@ -77,13 +81,27 @@ export function DashboardPage() {
     return isDisconnected || (pc !== undefined && lockingPcIds.includes(pc.id))
   }
 
-  async function toggleLockOfPc(pc: RegisteredPc) {
-    const result = await togglePcLock(pc)
+  // Null means the PC is offline or the same command is still running, so nothing is reported.
+  function notifySinglePcLock(
+    pc: RegisteredPc,
+    action: PcLockAction,
+    result: ApiResult<undefined> | null,
+  ) {
     if (!result) return
-    const isLocking = pc.status === 'in-use'
-    const outcome = isLocking ? 'locked' : 'unlocked'
-    if (result.success) notify(`${pc.name} ${outcome}.`, isLocking ? 'lock' : 'unlock')
+    if (result.success) notify(`${pc.name} ${action === 'lock' ? 'locked' : 'unlocked'}.`, action)
     else if (!isSessionExpired(result)) notify(result.error, 'alert')
+  }
+
+  async function toggleLockOfPc(pc: RegisteredPc) {
+    notifySinglePcLock(pc, getLockToggleTarget(pc), await togglePcLock(pc))
+  }
+
+  async function lockOnePc(pc: RegisteredPc) {
+    notifySinglePcLock(pc, 'lock', await lockPc(pc))
+  }
+
+  async function unlockOnePc(pc: RegisteredPc) {
+    notifySinglePcLock(pc, 'unlock', await unlockPc(pc))
   }
 
   function toggleLockOfPcNamed(pcName: string) {
@@ -209,7 +227,8 @@ export function DashboardPage() {
           areCommandsDisabled
           isLockDisabled={isLockDisabled(detailPc.name)}
           onClose={() => setDetailPcName(null)}
-          onToggleLock={() => void toggleLockOfPc(detailPc)}
+          onLock={() => void lockOnePc(detailPc)}
+          onUnlock={() => void unlockOnePc(detailPc)}
         />
       )}
 

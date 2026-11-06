@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { getTimeLeftLabel, isPcOff } from '../../lib/pcs'
+import { canLockPc, canUnlockPc, getTimeLeftLabel, isPcOff } from '../../lib/pcs'
 import { getRestrictionSummary } from '../../lib/restrictions'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
@@ -13,7 +13,8 @@ interface PcDetailDialogProps {
   areCommandsDisabled: boolean
   isLockDisabled?: boolean
   onClose: () => void
-  onToggleLock?: () => void
+  onLock?: () => void
+  onUnlock?: () => void
   onReboot?: () => void
   onShutdown?: () => void
   onAddTime?: () => void
@@ -43,7 +44,8 @@ export function PcDetailDialog({
   areCommandsDisabled,
   isLockDisabled = false,
   onClose,
-  onToggleLock,
+  onLock,
+  onUnlock,
   onReboot,
   onShutdown,
   onAddTime,
@@ -95,16 +97,16 @@ export function PcDetailDialog({
           </Button>
           <Button
             variant="secondary"
-            disabled={isLockDisabled || pc.status !== 'locked'}
-            onClick={onToggleLock}
+            disabled={isLockDisabled || !canUnlockPc(pc)}
+            onClick={onUnlock}
           >
             <Icon name="unlock" />
             Unlock
           </Button>
           <Button
             variant="secondary"
-            disabled={isLockDisabled || pc.status !== 'in-use'}
-            onClick={onToggleLock}
+            disabled={isLockDisabled || !canLockPc(pc)}
+            onClick={onLock}
           >
             <Icon name="lock" />
             Lock

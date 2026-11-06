@@ -18,6 +18,7 @@ import {
   formatPcCount,
   getLogsHref,
   getMessageRecipients,
+  getLockToggleTarget,
   getPcIdsToLock,
   getPcIdsToUnlock,
   getScreenHref,
@@ -119,6 +120,24 @@ describe('getPcIdsToLock', () => {
   it('returns nothing when no selected PC can be locked', () => {
     expect(getPcIdsToLock(bulkPcList, ['PC-03', 'PC-06'])).toEqual([])
     expect(getPcIdsToLock(bulkPcList, [])).toEqual([])
+  })
+})
+
+describe('getLockToggleTarget', () => {
+  it('unlocks frozen PCs and PCs with no user', () => {
+    expect(getLockToggleTarget({ name: 'A', status: 'frozen', lastSeen: 'Now' })).toBe('unlock')
+    expect(getLockToggleTarget({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe('unlock')
+  })
+
+  it('locks in-use PCs', () => {
+    expect(getLockToggleTarget(inUsePc)).toBe('lock')
+  })
+
+  it('unlocks an offline PC that is locked and locks one that is not', () => {
+    expect(getLockToggleTarget({ name: 'A', status: 'offline', isLocked: true, lastSeen: '' })).toBe(
+      'unlock',
+    )
+    expect(getLockToggleTarget({ name: 'A', status: 'offline', lastSeen: '' })).toBe('lock')
   })
 })
 

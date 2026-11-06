@@ -72,7 +72,9 @@ export type TimeUnit = 'minutes' | 'hours'
 
 export type SelectionState = 'all' | 'some' | 'none'
 
-export type BulkLockKind = 'lock' | 'unlock'
+export type PcLockAction = 'lock' | 'unlock'
+
+export type BulkLockKind = PcLockAction
 
 export interface Account {
   id: number

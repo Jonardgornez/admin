@@ -1,7 +1,14 @@
 import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
-import { getTimeLeftLabel, isPcActionable, isPcOff, isPcOnline } from '../../lib/pcs'
+import {
+  getLockToggleTarget,
+  getTimeLeftLabel,
+  isPcActionable,
+  isPcOff,
+  isPcOnline,
+} from '../../lib/pcs'
 import type { Pc } from '../../types'
+import { Badge } from '../ui/badge'
 import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
 import { Icon, type IconName } from '../ui/icon'
@@ -102,10 +109,11 @@ export function PcCard({
   onRemove,
 }: PcCardProps) {
   const isOff = isPcOff(pc)
-  const isInUse = pc.status === 'in-use'
+  const isOfflineLocked = pc.status === 'offline' && pc.isLocked === true
   const timeLeftLabel = getTimeLeftLabel(pc)
   const areActionsDisabled = areCommandsDisabled || isOff
-  const lockLabel = `${isInUse ? 'Lock' : 'Unlock'} ${pc.name}`
+  const lockAction = getLockToggleTarget(pc)
+  const lockLabel = `${lockAction === 'lock' ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
   const historyLabel = `View history of ${pc.name}`
   const editTimeLabel = `Edit time for ${pc.name}`
@@ -132,6 +140,11 @@ export function PcCard({
           </div>
           <div className="flex flex-wrap gap-2">
             <PcStatusBadge pc={pc} />
+            {isOfflineLocked && (
+              <Badge variant="frozen" icon="lock">
+                Locked
+              </Badge>
+            )}
             {pc.isOpenTime && <OpenTimeBadge />}
           </div>
         </div>
@@ -173,7 +186,7 @@ export function PcCard({
           disabled={!isPcOnline(pc) || isLockDisabled}
           onClick={onToggleLock}
         >
-          <Icon name={isInUse ? 'lock' : 'unlock'} />
+          <Icon name={lockAction} />
         </Button>
         <Button
           variant="secondary"

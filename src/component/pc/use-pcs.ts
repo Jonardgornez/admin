@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
-import { isPcOnline, toSortedRegisteredPcs } from '../../lib/pcs'
+import { getLockToggleTarget, isPcOnline, toSortedRegisteredPcs } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
 import type { BulkCommandResult } from '../../lib/pcs-api'
-import type { RegisteredPc, ServerPc } from '../../types'
+import type { PcLockAction, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 export const POLL_INTERVAL_MS = 5000
@@ -142,13 +142,13 @@ export function usePcs() {
   )
 
   // Resolves with null when the PC is offline or a lock command for it is already running.
-  const togglePcLock = useCallback(
-    async (pc: RegisteredPc): Promise<ApiResult<undefined> | null> => {
+  const runPcLockCommand = useCallback(
+    async (pc: RegisteredPc, action: PcLockAction): Promise<ApiResult<undefined> | null> => {
       if (!isPcOnline(pc) || lockingPcIdsInFlight.current.has(pc.id)) return null
       lockingPcIdsInFlight.current.add(pc.id)
       setLockingPcIds((current) => [...current, pc.id])
       try {
-        const command = pc.status === 'in-use' ? pcsApi.lockPc(pc.id) : pcsApi.unlockPc(pc.id)
+        const command = action === 'lock' ? pcsApi.lockPc(pc.id) : pcsApi.unlockPc(pc.id)
         return await runPcCommand(command)
       } finally {
         lockingPcIdsInFlight.current.delete(pc.id)
@@ -156,6 +156,21 @@ export function usePcs() {
       }
     },
     [runPcCommand],
+  )
+
+  const lockPc = useCallback(
+    (pc: RegisteredPc) => runPcLockCommand(pc, 'lock'),
+    [runPcLockCommand],
+  )
+
+  const unlockPc = useCallback(
+    (pc: RegisteredPc) => runPcLockCommand(pc, 'unlock'),
+    [runPcLockCommand],
+  )
+
+  const togglePcLock = useCallback(
+    (pc: RegisteredPc) => runPcLockCommand(pc, getLockToggleTarget(pc)),
+    [runPcLockCommand],
   )
 
   // Resolves with null when a bulk lock or unlock is already running.
@@ -194,6 +209,8 @@ export function usePcs() {
     isBulkLockBusy,
     retry,
     removePc,
+    lockPc,
+    unlockPc,
     togglePcLock,
     lockPcs,
     unlockPcs,
