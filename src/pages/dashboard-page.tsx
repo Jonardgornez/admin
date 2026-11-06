@@ -13,11 +13,11 @@ import { useNotify } from '../component/ui/notification-context'
 import { isSessionExpired } from '../lib/auth-state'
 import {
   countOnlinePcs,
-  countPcsToLock,
-  countPcsToUnlock,
   describeBulkLockResult,
   filterPcs,
   formatLastUpdate,
+  getPcIdsToLock,
+  getPcIdsToUnlock,
   getSelectionState,
   toggleSelectAll,
   toggleSelectedName,
@@ -41,8 +41,8 @@ export function DashboardPage() {
     retry,
     removePc,
     togglePcLock,
-    lockAll,
-    unlockAll,
+    lockPcs,
+    unlockPcs,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -56,6 +56,8 @@ export function DashboardPage() {
   const visiblePcNames = visiblePcs.map((pc) => pc.name)
   // Names of PCs that were removed drop out here, so the selection never points at a missing PC.
   const selectedPcNames = selectedNames.filter((name) => pcs.some((pc) => pc.name === name))
+  const lockPcIds = getPcIdsToLock(pcs, selectedPcNames)
+  const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcNames)
 
   function toggleSelectedPc(pcName: string) {
     setSelectedNames((current) => toggleSelectedName(current, pcName))
@@ -90,7 +92,8 @@ export function DashboardPage() {
   }
 
   async function confirmBulkLock(action: BulkLockAction) {
-    const result = action.kind === 'lock' ? await lockAll() : await unlockAll()
+    const result =
+      action.kind === 'lock' ? await lockPcs(action.pcIds) : await unlockPcs(action.pcIds)
     // Null means the same command is still running, which closes the dialog when it ends.
     if (!result) return
     setBulkLockAction(null)
@@ -142,16 +145,16 @@ export function DashboardPage() {
           <PcBulkToolbar
             hasVisiblePcs={visiblePcs.length > 0}
             areCommandsDisabled
-            pcsToLockCount={countPcsToLock(pcs)}
-            pcsToUnlockCount={countPcsToUnlock(pcs)}
-            isLockAllDisabled={isDisconnected || isBulkLockBusy}
+            lockSelectedCount={lockPcIds.length}
+            unlockSelectedCount={unlockPcIds.length}
+            isBulkLockDisabled={isDisconnected || isBulkLockBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
             note={COMMANDS_NOTE}
-            onUnlockAll={() => setBulkLockAction({ kind: 'unlock', count: countPcsToUnlock(pcs) })}
-            onLockAll={() => setBulkLockAction({ kind: 'lock', count: countPcsToLock(pcs) })}
+            onUnlockSelected={() => setBulkLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
+            onLockSelected={() => setBulkLockAction({ kind: 'lock', pcIds: lockPcIds })}
           />
         )}
       </div>

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
-import { listPcs, lockAllPcs, lockPc, removePc, unlockAllPcs, unlockPc } from './pcs-api'
+import { bulkLockPcs, bulkUnlockPcs, listPcs, lockPc, removePc, unlockPc } from './pcs-api'
 
 const serverPc = {
   id: 3,
@@ -173,38 +173,38 @@ describe('pcs api', () => {
     })
   })
 
-  describe('lockAllPcs and unlockAllPcs', () => {
-    it('returns how many PCs were locked', async () => {
-      const fetchMock = stubFetch(Response.json({ affected: 8 }))
-      expect(await lockAllPcs()).toEqual({ success: true, data: { affected: 8 } })
+  describe('bulkLockPcs and bulkUnlockPcs', () => {
+    it('posts the PC ids to the lock route and returns how many were locked', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 2 }))
+      expect(await bulkLockPcs([3, 7])).toEqual({ success: true, data: { affected: 2 } })
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/pcs/lock-all',
-        expect.objectContaining({ method: 'POST', body: '{}' }),
+        '/api/pcs/lock',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7]}' }),
       )
     })
 
-    it('returns how many PCs were unlocked', async () => {
+    it('posts the PC ids to the unlock route and returns how many were unlocked', async () => {
       const fetchMock = stubFetch(Response.json({ affected: 0 }))
-      expect(await unlockAllPcs()).toEqual({ success: true, data: { affected: 0 } })
+      expect(await bulkUnlockPcs([3])).toEqual({ success: true, data: { affected: 0 } })
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/pcs/unlock-all',
-        expect.objectContaining({ method: 'POST', body: '{}' }),
+        '/api/pcs/unlock',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3]}' }),
       )
     })
 
     it('fails on a count that is not a whole number of PCs', async () => {
       stubFetch(Response.json({ affected: -1 }))
-      expect(await unlockAllPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+      expect(await bulkUnlockPcs([3])).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
     it('fails when the response has no count', async () => {
       stubFetch(Response.json({ count: 3 }))
-      expect(await lockAllPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+      expect(await bulkLockPcs([3])).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
     it('returns the server message when the request fails', async () => {
       stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
-      expect(await lockAllPcs()).toEqual({ success: false, status: 401, error: 'Sign in again.' })
+      expect(await bulkLockPcs([3])).toEqual({ success: false, status: 401, error: 'Sign in again.' })
     })
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
-import type { Pc, ServerPc } from '../types'
+import type { Pc, RegisteredPc, ServerPc } from '../types'
 import {
   canTimeOutPc,
   comparePcNames,
@@ -8,9 +8,9 @@ import {
   formatTimeUsed,
   toRegisteredPc,
   toSortedRegisteredPcs,
+  canLockPc,
+  canUnlockPc,
   countOnlinePcs,
-  countPcsToLock,
-  countPcsToUnlock,
   describeBulkLockResult,
   describeTimeGrant,
   filterPcs,
@@ -18,6 +18,8 @@ import {
   formatPcCount,
   getLogsHref,
   getMessageRecipients,
+  getPcIdsToLock,
+  getPcIdsToUnlock,
   getScreenHref,
   getSelectionState,
   getTimeLeftLabel,
@@ -65,36 +67,72 @@ describe('isPcUnlockedWithoutUser', () => {
   })
 })
 
-describe('countPcsToLock', () => {
-  it('counts only the PCs that are in use', () => {
-    const list: Pc[] = [
-      { name: 'A', status: 'in-use', lastSeen: 'Now' },
-      { name: 'B', status: 'in-use', lastSeen: 'Now' },
-      { name: 'C', status: 'locked', lastSeen: 'Now' },
-      { name: 'D', status: 'offline', lastSeen: '09:00' },
-      { name: 'E', status: 'rebooting', lastSeen: '09:00' },
-    ]
-    expect(countPcsToLock(list)).toBe(2)
+describe('canLockPc', () => {
+  it('allows in-use PCs and PCs with no user', () => {
+    expect(canLockPc({ name: 'A', status: 'in-use', lastSeen: 'Now' })).toBe(true)
+    expect(canLockPc({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(true)
   })
 
-  it('returns 0 for an empty list', () => {
-    expect(countPcsToLock([])).toBe(0)
+  it('refuses frozen, offline and other PCs', () => {
+    for (const status of ['frozen', 'offline', 'shutdown', 'rebooting'] as const) {
+      expect(canLockPc({ name: 'A', status, lastSeen: 'Now' })).toBe(false)
+    }
   })
 })
 
-describe('countPcsToUnlock', () => {
-  it('counts only the locked PCs', () => {
-    const list: Pc[] = [
-      { name: 'A', status: 'in-use', lastSeen: 'Now' },
-      { name: 'B', status: 'locked', lastSeen: 'Now' },
-      { name: 'C', status: 'locked', lastSeen: 'Now' },
-      { name: 'D', status: 'shutdown', lastSeen: '09:00' },
-    ]
-    expect(countPcsToUnlock(list)).toBe(2)
+describe('canUnlockPc', () => {
+  it('allows frozen PCs and PCs with no user', () => {
+    expect(canUnlockPc({ name: 'A', status: 'frozen', lastSeen: 'Now' })).toBe(true)
+    expect(canUnlockPc({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(true)
   })
 
-  it('returns 0 for an empty list', () => {
-    expect(countPcsToUnlock([])).toBe(0)
+  it('refuses in-use, offline and other PCs', () => {
+    for (const status of ['in-use', 'offline', 'shutdown', 'rebooting'] as const) {
+      expect(canUnlockPc({ name: 'A', status, lastSeen: 'Now' })).toBe(false)
+    }
+  })
+})
+
+const bulkPcList: RegisteredPc[] = [
+  { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
+  { id: 2, name: 'PC-02', status: 'locked', lastSeen: 'Now' },
+  { id: 3, name: 'PC-03', status: 'frozen', isLocked: true, lastSeen: 'Now' },
+  { id: 4, name: 'PC-04', status: 'offline', isLocked: false, lastSeen: '09:00' },
+  { id: 5, name: 'PC-05', status: 'offline', isLocked: true, lastSeen: '09:00' },
+  { id: 6, name: 'PC-06', status: 'rebooting', lastSeen: 'Now' },
+]
+const allBulkNames = bulkPcList.map((pc) => pc.name)
+
+describe('getPcIdsToLock', () => {
+  it('returns the selected PCs that are not locked yet', () => {
+    expect(getPcIdsToLock(bulkPcList, allBulkNames)).toEqual([1, 2, 4])
+  })
+
+  it('includes offline PCs that are not locked', () => {
+    expect(getPcIdsToLock(bulkPcList, ['PC-04', 'PC-05'])).toEqual([4])
+  })
+
+  it('leaves out PCs that are not selected', () => {
+    expect(getPcIdsToLock(bulkPcList, ['PC-01'])).toEqual([1])
+  })
+
+  it('returns nothing when no selected PC can be locked', () => {
+    expect(getPcIdsToLock(bulkPcList, ['PC-03', 'PC-06'])).toEqual([])
+    expect(getPcIdsToLock(bulkPcList, [])).toEqual([])
+  })
+})
+
+describe('getPcIdsToUnlock', () => {
+  it('returns the selected frozen PCs and PCs with no user', () => {
+    expect(getPcIdsToUnlock(bulkPcList, allBulkNames)).toEqual([2, 3])
+  })
+
+  it('leaves out offline and in-use PCs even when selected', () => {
+    expect(getPcIdsToUnlock(bulkPcList, ['PC-01', 'PC-04', 'PC-05'])).toEqual([])
+  })
+
+  it('returns nothing when nothing is selected', () => {
+    expect(getPcIdsToUnlock(bulkPcList, [])).toEqual([])
   })
 })
 

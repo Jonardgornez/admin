@@ -174,9 +174,15 @@ export function usePcs() {
     [runPcCommand],
   )
 
-  const lockAll = useCallback(() => runBulkLockCommand(pcsApi.lockAllPcs), [runBulkLockCommand])
+  const lockPcs = useCallback(
+    (pcIds: number[]) => runBulkLockCommand(() => pcsApi.bulkLockPcs(pcIds)),
+    [runBulkLockCommand],
+  )
 
-  const unlockAll = useCallback(() => runBulkLockCommand(pcsApi.unlockAllPcs), [runBulkLockCommand])
+  const unlockPcs = useCallback(
+    (pcIds: number[]) => runBulkLockCommand(() => pcsApi.bulkUnlockPcs(pcIds)),
+    [runBulkLockCommand],
+  )
 
   return {
     pcs,
@@ -189,7 +195,7 @@ export function usePcs() {
     retry,
     removePc,
     togglePcLock,
-    lockAll,
-    unlockAll,
+    lockPcs,
+    unlockPcs,
   }
 }

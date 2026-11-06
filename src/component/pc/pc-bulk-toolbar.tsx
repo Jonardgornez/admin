@@ -11,14 +11,14 @@ interface PcBulkToolbarProps {
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
   areCommandsDisabled: boolean
-  pcsToLockCount?: number
-  pcsToUnlockCount?: number
-  isLockAllDisabled?: boolean
+  lockSelectedCount?: number
+  unlockSelectedCount?: number
+  isBulkLockDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
-  onUnlockAll?: () => void
-  onLockAll?: () => void
+  onUnlockSelected?: () => void
+  onLockSelected?: () => void
   onShutdownSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
@@ -36,14 +36,14 @@ export function PcBulkToolbar({
   restrictionTargetCount = 0,
   hasVisiblePcs,
   areCommandsDisabled,
-  pcsToLockCount = 0,
-  pcsToUnlockCount = 0,
-  isLockAllDisabled = false,
+  lockSelectedCount = 0,
+  unlockSelectedCount = 0,
+  isBulkLockDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
-  onUnlockAll,
-  onLockAll,
+  onUnlockSelected,
+  onLockSelected,
   onShutdownSelected,
   onSendMessage,
   onOpenRestrictions,
@@ -68,19 +68,19 @@ export function PcBulkToolbar({
       </label>
       <Button
         variant="primary"
-        disabled={isLockAllDisabled || pcsToUnlockCount === 0}
-        onClick={onUnlockAll}
+        disabled={isBulkLockDisabled || unlockSelectedCount === 0}
+        onClick={onUnlockSelected}
       >
         <Icon name="unlock" />
-        Unlock all
+        {`Unlock selected (${unlockSelectedCount})`}
       </Button>
       <Button
         variant="secondary"
-        disabled={isLockAllDisabled || pcsToLockCount === 0}
-        onClick={onLockAll}
+        disabled={isBulkLockDisabled || lockSelectedCount === 0}
+        onClick={onLockSelected}
       >
         <Icon name="lock" />
-        Lock all
+        {`Lock selected (${lockSelectedCount})`}
       </Button>
       <Button
         variant="danger"

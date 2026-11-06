@@ -56,18 +56,21 @@ export function unlockPc(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}/unlock`, { method: 'POST', body: COMMAND_BODY })
 }
 
-export async function lockAllPcs(): Promise<ApiResult<BulkCommandResult>> {
+async function postBulkCommand(
+  path: string,
+  ids: number[],
+): Promise<ApiResult<BulkCommandResult>> {
   return parseBody(
-    await apiRequest<unknown>('/api/pcs/lock-all', { method: 'POST', body: COMMAND_BODY }),
+    await apiRequest<unknown>(path, { method: 'POST', body: { ids } }),
     bulkCommandResultSchema,
     OK_STATUS,
   )
 }
 
-export async function unlockAllPcs(): Promise<ApiResult<BulkCommandResult>> {
-  return parseBody(
-    await apiRequest<unknown>('/api/pcs/unlock-all', { method: 'POST', body: COMMAND_BODY }),
-    bulkCommandResultSchema,
-    OK_STATUS,
-  )
+export function bulkLockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/lock', ids)
+}
+
+export function bulkUnlockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/unlock', ids)
 }

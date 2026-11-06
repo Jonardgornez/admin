@@ -164,13 +164,27 @@ export function rebootPc(pc: Pc): Pc {
   return { ...withoutSession(pc), status: 'rebooting' }
 }
 
-export function countPcsToLock(pcs: Pc[]): number {
-  return pcs.filter((pc) => pc.status === 'in-use').length
+export function canLockPc(pc: Pc): boolean {
+  return pc.status === 'in-use' || pc.status === 'locked'
 }
 
-// A locked PC is online with no session, so it is waiting to be unlocked.
-export function countPcsToUnlock(pcs: Pc[]): number {
-  return pcs.filter((pc) => pc.status === 'locked').length
+export function canUnlockPc(pc: Pc): boolean {
+  return pc.status === 'frozen' || pc.status === 'locked'
+}
+
+// Offline PCs that are not locked yet are included; they lock when they come back online.
+export function getPcIdsToLock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return pcs
+    .filter(
+      (pc) =>
+        selectedNames.includes(pc.name) &&
+        (canLockPc(pc) || (pc.status === 'offline' && !pc.isLocked)),
+    )
+    .map((pc) => pc.id)
+}
+
+export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && canUnlockPc(pc)).map((pc) => pc.id)
 }
 
 export function formatPcCount(count: number): string {

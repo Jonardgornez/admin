@@ -2,9 +2,10 @@ import { formatPcCount } from '../../lib/pcs'
 import type { BulkLockKind } from '../../types'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 
+// The PC ids are fixed when the dialog opens, so the confirmed count matches what was shown.
 export interface BulkLockAction {
   kind: BulkLockKind
-  count: number
+  pcIds: number[]
 }
 
 interface BulkLockDialogProps {
@@ -14,9 +15,14 @@ interface BulkLockDialogProps {
   onCancel: () => void
 }
 
+const LOCK_DESCRIPTION =
+  "They show the locked screen until you unlock them. Students' sessions are kept and their time is paused. Offline PCs lock when they come back."
+const UNLOCK_DESCRIPTION =
+  'Locked PCs go back to their session, and PCs with no session open without a login. Offline PCs are skipped.'
+
 export function BulkLockDialog({ action, isBusy, onConfirm, onCancel }: BulkLockDialogProps) {
   const isUnlock = action?.kind === 'unlock'
-  const pcCountText = formatPcCount(action?.count ?? 0)
+  const pcCountText = formatPcCount(action?.pcIds.length ?? 0)
 
   return (
     <ConfirmDialog
@@ -28,9 +34,7 @@ export function BulkLockDialog({ action, isBusy, onConfirm, onCancel }: BulkLock
       onConfirm={onConfirm}
       onCancel={onCancel}
     >
-      {isUnlock
-        ? 'They open without a login and stay open until someone locks them or logs out.'
-        : 'Anyone using them returns to the login screen.'}
+      {isUnlock ? UNLOCK_DESCRIPTION : LOCK_DESCRIPTION}
     </ConfirmDialog>
   )
 }
