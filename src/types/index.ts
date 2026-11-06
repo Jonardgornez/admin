@@ -74,6 +74,12 @@ export type SelectionState = 'all' | 'some' | 'none'
 
 export type PcLockAction = 'lock' | 'unlock'
 
+// The body of POST /api/pcs/{id}/time.
+export type PcTimeCommand =
+  | { action: 'add-time'; minutes: number }
+  | { action: 'open-time' }
+  | { action: 'time-out' }
+
 export type BulkLockKind = PcLockAction
 
 export interface Account {

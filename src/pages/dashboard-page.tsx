@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PageHeader } from '../component/layout/page-header'
+import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
@@ -14,9 +15,11 @@ import { useNotify } from '../component/ui/notification-context'
 import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
 import {
+  canEditPcTime,
   countOnlinePcs,
   countPcsHiddenFromView,
   describeBulkLockResult,
+  describeTimeEdit,
   filterPcs,
   formatLastUpdate,
   getLockToggleTarget,
@@ -25,8 +28,9 @@ import {
   getSelectionState,
   toggleSelectAll,
   toggleSelectedName,
+  toPcTimeCommand,
 } from '../lib/pcs'
-import type { PcLockAction, RegisteredPc } from '../types'
+import type { PcLockAction, PcTimeCommand, RegisteredPc } from '../types'
 
 const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
@@ -41,16 +45,19 @@ export function DashboardPage() {
     lastUpdatedAt,
     removingPcIds,
     lockingPcIds,
+    timeEditingPcIds,
     isBulkLockBusy,
     retry,
     removePc,
     lockPc,
     unlockPc,
     togglePcLock,
+    editPcTime,
     lockPcs,
     unlockPcs,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
+  const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
@@ -59,6 +66,11 @@ export function DashboardPage() {
 
   const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
+  // The PC is found by name, so each poll shows its latest state.
+  const timeEditPc = pcs.find((pc) => pc.name === timeEditPcName)
+  const editablePc = timeEditPc && canEditPcTime(timeEditPc) ? timeEditPc : undefined
+  // Closes the time dialog once its PC stops qualifying, so it cannot reopen by itself later.
+  if (timeEditPcName !== null && !editablePc) setTimeEditPcName(null)
   const visiblePcs = filterPcs(pcs, searchQuery)
   const visiblePcNames = visiblePcs.map((pc) => pc.name)
   // Names of PCs that were removed drop out here, so the selection never points at a missing PC.
@@ -68,6 +80,11 @@ export function DashboardPage() {
 
   function toggleSelectedPc(pcName: string) {
     setSelectedNames((current) => toggleSelectedName(current, pcName))
+  }
+
+  function isTimeEditDisabled(pcName: string): boolean {
+    const pc = pcs.find((candidate) => candidate.name === pcName)
+    return isDisconnected || (pc !== undefined && timeEditingPcIds.includes(pc.id))
   }
 
   function toggleSelectAllVisiblePcs() {
@@ -120,6 +137,18 @@ export function DashboardPage() {
     setBulkLockAction(null)
     if (result.success) {
       notify(describeBulkLockResult(action.kind, result.data.affected), action.kind)
+    } else if (!isSessionExpired(result)) {
+      notify(result.error, 'alert')
+    }
+  }
+
+  async function submitTimeEdit(pc: RegisteredPc, command: PcTimeCommand) {
+    const result = await editPcTime(pc, command)
+    // Null means the PC has no running session or the same edit is still running.
+    if (!result) return
+    if (result.success) {
+      setTimeEditPcName(null)
+      notify(describeTimeEdit(pc.name, command), 'clock')
     } else if (!isSessionExpired(result)) {
       notify(result.error, 'alert')
     }
@@ -216,10 +245,12 @@ export function DashboardPage() {
           areCommandsDisabled
           emptyMessage={`No PCs match "${searchQuery}".`}
           isLockDisabled={isLockDisabled}
+          isTimeEditDisabled={isTimeEditDisabled}
           isRemoveDisabled={isRemoveDisabled}
           onToggleSelect={toggleSelectedPc}
           onOpenDetail={setDetailPcName}
           onToggleLock={toggleLockOfPcNamed}
+          onAddTime={setTimeEditPcName}
           onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
         />
       )}
@@ -230,9 +261,21 @@ export function DashboardPage() {
           areCommandsDisabled
           viewMode={consoleDefaults.defaultViewMode}
           isLockDisabled={isLockDisabled(detailPc.name)}
+          isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
           onClose={() => setDetailPcName(null)}
           onLock={() => void lockOnePc(detailPc)}
           onUnlock={() => void unlockOnePc(detailPc)}
+          onAddTime={() => setTimeEditPcName(detailPc.name)}
+        />
+      )}
+
+      {editablePc && (
+        <AddTimeDialog
+          pc={editablePc}
+          isBusy={timeEditingPcIds.includes(editablePc.id)}
+          onConfirm={(choice) => void submitTimeEdit(editablePc, toPcTimeCommand(choice))}
+          onTimeOut={() => void submitTimeEdit(editablePc, { action: 'time-out' })}
+          onCancel={() => setTimeEditPcName(null)}
         />
       )}
 

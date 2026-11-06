@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { canLockPc, canUnlockPc, getTimeLeftLabel, isPcOff } from '../../lib/pcs'
+import { canEditPcTime, canLockPc, canUnlockPc, getTimeLeftLabel, isPcOff } from '../../lib/pcs'
 import { getRestrictionSummary } from '../../lib/restrictions'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
@@ -12,6 +12,7 @@ interface PcDetailDialogProps {
   pc: Pc
   areCommandsDisabled: boolean
   isLockDisabled?: boolean
+  isTimeEditDisabled?: boolean
   onClose: () => void
   onLock?: () => void
   onUnlock?: () => void
@@ -43,6 +44,7 @@ export function PcDetailDialog({
   pc,
   areCommandsDisabled,
   isLockDisabled = false,
+  isTimeEditDisabled = false,
   onClose,
   onLock,
   onUnlock,
@@ -91,7 +93,12 @@ export function PcDetailDialog({
           />
         </dl>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" disabled={isBusy} className="col-span-2" onClick={onAddTime}>
+          <Button
+            variant="secondary"
+            disabled={!canEditPcTime(pc) || isTimeEditDisabled}
+            className="col-span-2"
+            onClick={onAddTime}
+          >
             <Icon name="clock" />
             Edit time
           </Button>

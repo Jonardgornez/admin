@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { isSessionExpired } from '../../lib/auth-state'
-import { getLockToggleTarget, isPcOnline, toSortedRegisteredPcs } from '../../lib/pcs'
+import {
+  canEditPcTime,
+  getLockToggleTarget,
+  isPcOnline,
+  toSortedRegisteredPcs,
+} from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
 import type { BulkCommandResult } from '../../lib/pcs-api'
-import type { PcLockAction, RegisteredPc, ServerPc } from '../../types'
+import type { PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 export const POLL_INTERVAL_MS = 5000
@@ -26,10 +31,12 @@ export function usePcs() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [removingPcIds, setRemovingPcIds] = useState<number[]>([])
   const [lockingPcIds, setLockingPcIds] = useState<number[]>([])
+  const [timeEditingPcIds, setTimeEditingPcIds] = useState<number[]>([])
   const latestLoadId = useRef(0)
   const hasLoaded = useRef(false)
   // Checked synchronously so a double click cannot send the command twice.
   const lockingPcIdsInFlight = useRef(new Set<number>())
+  const timeEditingPcIdsInFlight = useRef(new Set<number>())
   const [isBulkLockBusy, setIsBulkLockBusy] = useState(false)
   const isBulkLockInFlight = useRef(false)
   const refreshNow = useRef<((isBackground: boolean) => Promise<void>) | null>(null)
@@ -173,6 +180,22 @@ export function usePcs() {
     [runPcLockCommand],
   )
 
+  // Resolves with null when the PC has no running session or a time edit for it is already running.
+  const editPcTime = useCallback(
+    async (pc: RegisteredPc, command: PcTimeCommand): Promise<ApiResult<undefined> | null> => {
+      if (!canEditPcTime(pc) || timeEditingPcIdsInFlight.current.has(pc.id)) return null
+      timeEditingPcIdsInFlight.current.add(pc.id)
+      setTimeEditingPcIds((current) => [...current, pc.id])
+      try {
+        return await runPcCommand(pcsApi.editPcTime(pc.id, command))
+      } finally {
+        timeEditingPcIdsInFlight.current.delete(pc.id)
+        setTimeEditingPcIds((current) => current.filter((id) => id !== pc.id))
+      }
+    },
+    [runPcCommand],
+  )
+
   // Resolves with null when a bulk lock or unlock is already running.
   const runBulkLockCommand = useCallback(
     async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
@@ -206,12 +229,14 @@ export function usePcs() {
     lastUpdatedAt,
     removingPcIds,
     lockingPcIds,
+    timeEditingPcIds,
     isBulkLockBusy,
     retry,
     removePc,
     lockPc,
     unlockPc,
     togglePcLock,
+    editPcTime,
     lockPcs,
     unlockPcs,
   }

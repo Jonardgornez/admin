@@ -4,6 +4,7 @@ import type {
   Pc,
   PcLockAction,
   PcStatus,
+  PcTimeCommand,
   RegisteredPc,
   SelectionState,
   ServerPc,
@@ -139,6 +140,11 @@ export function canTimeOutPc(pc: Pc): boolean {
   return pc.status === 'in-use'
 }
 
+// A frozen PC keeps its session, so its time can be edited while it is locked.
+export function canEditPcTime(pc: Pc): boolean {
+  return pc.status === 'in-use' || (pc.status === 'frozen' && pc.timeUsed !== undefined)
+}
+
 export function isPcUnlockedWithoutUser(pc: Pick<Pc, 'status' | 'user'>): boolean {
   return pc.status === 'in-use' && !pc.user
 }
@@ -151,10 +157,6 @@ function withoutSession(pc: Pc): Pc {
     isOpenTime: undefined,
     minutesLeft: undefined,
   }
-}
-
-export function unlockPc(pc: Pc): Pc {
-  return { ...pc, status: 'in-use', timeUsed: '00:00' }
 }
 
 export function shutDownPc(pc: Pc): Pc {
@@ -223,6 +225,16 @@ export function parseTimeAmount(amount: string, unit: TimeUnit): number | null {
   return minutes >= 1 && Number.isSafeInteger(minutes) ? minutes : null
 }
 
+const MAX_TIME_ENTRY_MINUTES = 24 * MINUTES_PER_HOUR
+
+// Only a single entry is checked here. The server decides the final limit of a session.
+export function getTimeAmountError(amount: string, unit: TimeUnit): string | undefined {
+  const minutes = parseTimeAmount(amount, unit)
+  if (minutes === null) return 'Enter a whole number of 1 or more.'
+  if (minutes > MAX_TIME_ENTRY_MINUTES) return 'Enter 24 hours or less.'
+  return undefined
+}
+
 export function formatMinutes(totalMinutes: number): string {
   const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR)
   const minutes = totalMinutes % MINUTES_PER_HOUR
@@ -235,18 +247,21 @@ export function getTimeLeftLabel(pc: Pc): string | undefined {
   return pc.minutesLeft === undefined ? undefined : formatMinutes(pc.minutesLeft)
 }
 
-export function grantPcTime(pc: Pc, choice: ApprovalChoice): Pc {
-  const session = pc.status === 'locked' ? unlockPc(pc) : pc
-  if (choice.mode === 'open-time') {
-    return { ...session, isOpenTime: true, minutesLeft: undefined }
-  }
-  const currentMinutes = pc.isOpenTime ? 0 : (pc.minutesLeft ?? 0)
-  return { ...session, isOpenTime: undefined, minutesLeft: currentMinutes + choice.minutes }
-}
-
 export function describeTimeGrant(pcName: string, choice: ApprovalChoice): string {
   if (choice.mode === 'open-time') return `${pcName} is now on open time.`
   return `Added ${formatMinutes(choice.minutes)} to ${pcName}.`
+}
+
+export function toPcTimeCommand(choice: ApprovalChoice): PcTimeCommand {
+  return choice.mode === 'open-time'
+    ? { action: 'open-time' }
+    : { action: 'add-time', minutes: choice.minutes }
+}
+
+export function describeTimeEdit(pcName: string, command: PcTimeCommand): string {
+  if (command.action === 'time-out') return `${pcName} timed out.`
+  if (command.action === 'open-time') return describeTimeGrant(pcName, { mode: 'open-time' })
+  return describeTimeGrant(pcName, { mode: 'time-limit', minutes: command.minutes })
 }
 
 export function getScreenHref(pcName: string, viewMode: ViewMode): string {

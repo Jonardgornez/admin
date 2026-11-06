@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
-import { bulkLockPcs, bulkUnlockPcs, listPcs, lockPc, removePc, unlockPc } from './pcs-api'
+import {
+  bulkLockPcs,
+  bulkUnlockPcs,
+  editPcTime,
+  listPcs,
+  lockPc,
+  removePc,
+  unlockPc,
+} from './pcs-api'
 
 const serverPc = {
   id: 3,
@@ -170,6 +178,56 @@ describe('pcs api', () => {
     it.each([404, 409])('returns the server message on %i', async (status) => {
       stubFetch(Response.json({ error: 'This PC is offline.' }, { status }))
       expect(await unlockPc(7)).toEqual({ success: false, status, error: 'This PC is offline.' })
+    })
+  })
+
+  describe('editPcTime', () => {
+    it('posts an add-time command with the minutes to the time route of the PC', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await editPcTime(7, { action: 'add-time', minutes: 90 })).toEqual({
+        success: true,
+        data: undefined,
+      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/time',
+        expect.objectContaining({
+          method: 'POST',
+          body: '{"action":"add-time","minutes":90}',
+        }),
+      )
+    })
+
+    it('posts an open-time command with no minutes', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await editPcTime(7, { action: 'open-time' })).toEqual({
+        success: true,
+        data: undefined,
+      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/time',
+        expect.objectContaining({ method: 'POST', body: '{"action":"open-time"}' }),
+      )
+    })
+
+    it('posts a time-out command', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await editPcTime(7, { action: 'time-out' })).toEqual({
+        success: true,
+        data: undefined,
+      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/time',
+        expect.objectContaining({ method: 'POST', body: '{"action":"time-out"}' }),
+      )
+    })
+
+    it.each([400, 404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'Enter 24 hours or less.' }, { status }))
+      expect(await editPcTime(7, { action: 'add-time', minutes: 1500 })).toEqual({
+        success: false,
+        status,
+        error: 'Enter 24 hours or less.',
+      })
     })
   })
 

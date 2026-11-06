@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { apiRequest, type ApiResult } from './api'
 import { approvalChoiceSchema, OK_STATUS, parseBody } from './accounts-api'
-import type { ServerPc } from '../types'
+import type { PcTimeCommand, ServerPc } from '../types'
 
 const bulkCommandResultSchema = z.object({ affected: z.number().int().nonnegative() })
 
@@ -54,6 +54,10 @@ export function lockPc(id: number): Promise<ApiResult<undefined>> {
 
 export function unlockPc(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}/unlock`, { method: 'POST', body: COMMAND_BODY })
+}
+
+export function editPcTime(id: number, command: PcTimeCommand): Promise<ApiResult<undefined>> {
+  return apiRequest(`/api/pcs/${id}/time`, { method: 'POST', body: command })
 }
 
 async function postBulkCommand(

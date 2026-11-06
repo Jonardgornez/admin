@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { pcs } from '../data/pcs'
 import type { Pc, RegisteredPc, ServerPc } from '../types'
 import {
+  canEditPcTime,
   canTimeOutPc,
   comparePcNames,
   formatLastUpdate,
@@ -12,6 +13,7 @@ import {
   canUnlockPc,
   countOnlinePcs,
   describeBulkLockResult,
+  describeTimeEdit,
   describeTimeGrant,
   filterPcs,
   formatMinutes,
@@ -21,11 +23,11 @@ import {
   getLockToggleTarget,
   getPcIdsToLock,
   getPcIdsToUnlock,
+  getTimeAmountError,
   countPcsHiddenFromView,
   getScreenHref,
   getSelectionState,
   getTimeLeftLabel,
-  grantPcTime,
   isPcActionable,
   isPcOff,
   isPcOnline,
@@ -35,7 +37,7 @@ import {
   shutDownPc,
   toggleSelectAll,
   toggleSelectedName,
-  unlockPc,
+  toPcTimeCommand,
   updateActionablePcs,
 } from './pcs'
 
@@ -62,10 +64,32 @@ describe('isPcUnlockedWithoutUser', () => {
     expect(isPcUnlockedWithoutUser({ status: 'locked' })).toBe(false)
     expect(isPcUnlockedWithoutUser({ status: 'offline' })).toBe(false)
   })
+})
 
-  it('applies to a PC unlocked by the admin', () => {
-    const locked: Pc = { name: 'PC-T', status: 'locked', lastSeen: 'Now' }
-    expect(isPcUnlockedWithoutUser(unlockPc(locked))).toBe(true)
+describe('canEditPcTime', () => {
+  it('allows an in-use PC, which has a running session', () => {
+    expect(canEditPcTime({ name: 'A', status: 'in-use', lastSeen: 'Now' })).toBe(true)
+    expect(canEditPcTime(inUsePc)).toBe(true)
+  })
+
+  it('allows a frozen PC that keeps its session', () => {
+    expect(canEditPcTime({ name: 'A', status: 'frozen', timeUsed: '00:30', lastSeen: 'Now' })).toBe(
+      true,
+    )
+  })
+
+  it('refuses a frozen PC with no session', () => {
+    expect(canEditPcTime({ name: 'A', status: 'frozen', lastSeen: 'Now' })).toBe(false)
+  })
+
+  it('refuses a locked PC, since it has no session', () => {
+    expect(canEditPcTime({ name: 'A', status: 'locked', lastSeen: 'Now' })).toBe(false)
+  })
+
+  it('refuses offline, shut down and rebooting PCs', () => {
+    for (const status of ['offline', 'shutdown', 'rebooting'] as const) {
+      expect(canEditPcTime({ name: 'A', status, timeUsed: '00:30', lastSeen: 'Now' })).toBe(false)
+    }
   })
 })
 
@@ -365,17 +389,6 @@ describe('isPcActionable', () => {
   })
 })
 
-describe('unlockPc', () => {
-  it('sets in-use with a fresh timer', () => {
-    expect(unlockPc({ name: 'A', status: 'locked', lastSeen: 'Now' })).toEqual({
-      name: 'A',
-      status: 'in-use',
-      timeUsed: '00:00',
-      lastSeen: 'Now',
-    })
-  })
-})
-
 describe('shutDownPc', () => {
   it('sets shutdown, clears the session and marks last seen as Now', () => {
     const result = shutDownPc({ ...inUsePc, lastSeen: '10:00' })
@@ -442,6 +455,25 @@ describe('parseTimeAmount', () => {
   })
 })
 
+describe('getTimeAmountError', () => {
+  it('is undefined for a whole amount from 1 to 24 hours', () => {
+    expect(getTimeAmountError('1', 'minutes')).toBeUndefined()
+    expect(getTimeAmountError('1440', 'minutes')).toBeUndefined()
+    expect(getTimeAmountError('24', 'hours')).toBeUndefined()
+  })
+
+  it('asks for a whole number of 1 or more when the amount is not one', () => {
+    expect(getTimeAmountError('', 'minutes')).toBe('Enter a whole number of 1 or more.')
+    expect(getTimeAmountError('0', 'hours')).toBe('Enter a whole number of 1 or more.')
+    expect(getTimeAmountError('1.5', 'hours')).toBe('Enter a whole number of 1 or more.')
+  })
+
+  it('asks for 24 hours or less when one entry is over 1440 minutes', () => {
+    expect(getTimeAmountError('1441', 'minutes')).toBe('Enter 24 hours or less.')
+    expect(getTimeAmountError('25', 'hours')).toBe('Enter 24 hours or less.')
+  })
+})
+
 describe('formatMinutes', () => {
   it('formats minutes, whole hours and mixed values', () => {
     expect(formatMinutes(45)).toBe('45m')
@@ -455,49 +487,6 @@ describe('getTimeLeftLabel', () => {
     expect(getTimeLeftLabel(inUsePc)).toBe('Open time')
     expect(getTimeLeftLabel({ ...inUsePc, isOpenTime: undefined, minutesLeft: 90 })).toBe('1h 30m')
     expect(getTimeLeftLabel({ name: 'A', status: 'locked', lastSeen: '' })).toBeUndefined()
-  })
-})
-
-describe('grantPcTime', () => {
-  const limitedPc: Pc = { ...inUsePc, isOpenTime: undefined, minutesLeft: 30 }
-  const lockedPc: Pc = { name: 'A', status: 'locked', lastSeen: 'Now' }
-
-  it('adds to the time left on a limited session', () => {
-    expect(grantPcTime(limitedPc, { mode: 'time-limit', minutes: 60 })).toMatchObject({
-      status: 'in-use',
-      timeUsed: '01:12',
-      minutesLeft: 90,
-    })
-  })
-
-  it('removes the limit when switching to open time', () => {
-    const result = grantPcTime(limitedPc, { mode: 'open-time' })
-    expect(result.isOpenTime).toBe(true)
-    expect(result.minutesLeft).toBeUndefined()
-  })
-
-  it('switches an open session to a limit of the given amount', () => {
-    const result = grantPcTime(inUsePc, { mode: 'time-limit', minutes: 45 })
-    expect(result.isOpenTime).toBeUndefined()
-    expect(result.minutesLeft).toBe(45)
-  })
-
-  it('unlocks a locked PC and starts a session', () => {
-    expect(grantPcTime(lockedPc, { mode: 'time-limit', minutes: 60 })).toMatchObject({
-      status: 'in-use',
-      timeUsed: '00:00',
-      minutesLeft: 60,
-    })
-    expect(grantPcTime(lockedPc, { mode: 'open-time' })).toMatchObject({
-      status: 'in-use',
-      timeUsed: '00:00',
-      isOpenTime: true,
-    })
-  })
-
-  it('does not mutate the input', () => {
-    grantPcTime(limitedPc, { mode: 'time-limit', minutes: 60 })
-    expect(limitedPc.minutesLeft).toBe(30)
   })
 })
 
@@ -515,6 +504,29 @@ describe('describeTimeGrant', () => {
       'Added 1h 30m to PC-05.',
     )
     expect(describeTimeGrant('PC-05', { mode: 'open-time' })).toBe('PC-05 is now on open time.')
+  })
+})
+
+describe('toPcTimeCommand', () => {
+  it('maps a time limit to add-time with its minutes', () => {
+    expect(toPcTimeCommand({ mode: 'time-limit', minutes: 90 })).toEqual({
+      action: 'add-time',
+      minutes: 90,
+    })
+  })
+
+  it('maps open time to open-time', () => {
+    expect(toPcTimeCommand({ mode: 'open-time' })).toEqual({ action: 'open-time' })
+  })
+})
+
+describe('describeTimeEdit', () => {
+  it('describes added time, open time and a time out', () => {
+    expect(describeTimeEdit('PC-05', { action: 'add-time', minutes: 90 })).toBe(
+      'Added 1h 30m to PC-05.',
+    )
+    expect(describeTimeEdit('PC-05', { action: 'open-time' })).toBe('PC-05 is now on open time.')
+    expect(describeTimeEdit('PC-05', { action: 'time-out' })).toBe('PC-05 timed out.')
   })
 })
 

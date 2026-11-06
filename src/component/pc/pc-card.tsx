@@ -1,6 +1,7 @@
 import { cva } from 'class-variance-authority'
 import pcMonitorImage from '../../assets/pc-monitor.png'
 import {
+  canEditPcTime,
   getLockToggleTarget,
   getTimeLeftLabel,
   isPcActionable,
@@ -63,6 +64,7 @@ interface PcCardProps {
   isSelected: boolean
   areCommandsDisabled: boolean
   isLockDisabled?: boolean
+  isTimeEditDisabled?: boolean
   isRemoveDisabled?: boolean
   historyHref: string
   onToggleSelect?: () => void
@@ -98,6 +100,7 @@ export function PcCard({
   isSelected,
   areCommandsDisabled,
   isLockDisabled = false,
+  isTimeEditDisabled = false,
   isRemoveDisabled = false,
   historyHref,
   onToggleSelect,
@@ -212,7 +215,7 @@ export function PcCard({
           isIconOnly
           title={editTimeLabel}
           aria-label={editTimeLabel}
-          disabled={areActionsDisabled || pc.status === 'rebooting'}
+          disabled={!canEditPcTime(pc) || isTimeEditDisabled}
           onClick={onAddTime}
         >
           <Icon name="clock" />
