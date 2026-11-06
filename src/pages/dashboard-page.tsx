@@ -14,6 +14,7 @@ import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
 import {
   countOnlinePcs,
+  countPcsHiddenFromView,
   describeBulkLockResult,
   filterPcs,
   formatLastUpdate,
@@ -234,6 +235,7 @@ export function DashboardPage() {
 
       <BulkLockDialog
         action={bulkLockAction}
+        hiddenPcCount={countPcsHiddenFromView(bulkLockAction?.pcIds ?? [], pcs, visiblePcNames)}
         isBusy={isBulkLockBusy}
         onConfirm={() => bulkLockAction && void confirmBulkLock(bulkLockAction)}
         onCancel={() => setBulkLockAction(null)}

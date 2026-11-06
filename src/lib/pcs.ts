@@ -174,6 +174,14 @@ export function canUnlockPc(pc: Pc): boolean {
 }
 
 // Offline PCs that are not locked yet are included; they lock when they come back online.
+export function countPcsHiddenFromView(
+  pcIds: number[],
+  pcs: RegisteredPc[],
+  visibleNames: string[],
+): number {
+  return pcs.filter((pc) => pcIds.includes(pc.id) && !visibleNames.includes(pc.name)).length
+}
+
 export function getPcIdsToLock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
   return pcs
     .filter(

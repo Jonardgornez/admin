@@ -21,6 +21,7 @@ import {
   getLockToggleTarget,
   getPcIdsToLock,
   getPcIdsToUnlock,
+  countPcsHiddenFromView,
   getScreenHref,
   getSelectionState,
   getTimeLeftLabel,
@@ -103,6 +104,22 @@ const bulkPcList: RegisteredPc[] = [
   { id: 6, name: 'PC-06', status: 'rebooting', lastSeen: 'Now' },
 ]
 const allBulkNames = bulkPcList.map((pc) => pc.name)
+
+describe('countPcsHiddenFromView', () => {
+  const all = [
+    { id: 1, name: 'PC-01' },
+    { id: 2, name: 'PC-02' },
+    { id: 3, name: 'PC-03' },
+  ] as RegisteredPc[]
+
+  it('counts the chosen PCs that are not on screen', () => {
+    expect(countPcsHiddenFromView([1, 2, 3], all, ['PC-01'])).toBe(2)
+  })
+
+  it('is zero when every chosen PC is on screen', () => {
+    expect(countPcsHiddenFromView([1], all, ['PC-01', 'PC-02'])).toBe(0)
+  })
+})
 
 describe('getPcIdsToLock', () => {
   it('returns the selected PCs that are not locked yet', () => {

@@ -10,6 +10,7 @@ export interface BulkLockAction {
 
 interface BulkLockDialogProps {
   action: BulkLockAction | null
+  hiddenPcCount: number
   isBusy: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -20,7 +21,13 @@ const LOCK_DESCRIPTION =
 const UNLOCK_DESCRIPTION =
   'Locked PCs go back to their session, and PCs with no session open without a login. Offline PCs are skipped.'
 
-export function BulkLockDialog({ action, isBusy, onConfirm, onCancel }: BulkLockDialogProps) {
+export function BulkLockDialog({
+  action,
+  hiddenPcCount,
+  isBusy,
+  onConfirm,
+  onCancel,
+}: BulkLockDialogProps) {
   const isUnlock = action?.kind === 'unlock'
   const pcCountText = formatPcCount(action?.pcIds.length ?? 0)
 
@@ -35,6 +42,7 @@ export function BulkLockDialog({ action, isBusy, onConfirm, onCancel }: BulkLock
       onCancel={onCancel}
     >
       {isUnlock ? UNLOCK_DESCRIPTION : LOCK_DESCRIPTION}
+      {hiddenPcCount > 0 && ` ${formatPcCount(hiddenPcCount)} hidden by your search included.`}
     </ConfirmDialog>
   )
 }
