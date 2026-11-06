@@ -38,8 +38,8 @@ export function ViewScreenPage() {
     mode: viewMode,
     onRefused: retry,
   })
-  // A paused screen is a protected one, so the last picture is not shown as if it were current.
-  const isFrameVisible = screen.hasFrame && !isOffline && screen.status.kind !== 'paused'
+  // The last picture is shown or saved only while the stream is live, never as if it were current.
+  const isFrameVisible = screen.hasFrame && !isOffline && screen.status.kind === 'live'
   const endedMessage = screen.status.kind === 'ended' ? screen.status.message : null
 
   useEffect(() => {

@@ -32,7 +32,7 @@ async function decodeFrame(frame: ArrayBuffer): Promise<ImageBitmap | null> {
 }
 
 // Opens one screen socket. Each binary frame is drawn once, then acknowledged. A frame that
-// fails to decode is still acknowledged so the stream never stalls.
+// fails to decode or draw is still acknowledged so the stream never stalls.
 export function openScreenConnection(options: ScreenConnectionOptions): ScreenConnection {
   const socket = new WebSocket(options.url)
   socket.binaryType = 'arraybuffer'
@@ -60,11 +60,14 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
 
   async function drawFrame(frame: ArrayBuffer) {
     const bitmap = await decodeFrame(frame)
-    if (bitmap) {
-      if (!isClosed) paintBitmap(bitmap)
-      bitmap.close()
+    try {
+      if (bitmap && !isClosed) paintBitmap(bitmap)
+    } catch {
+      // A frame that can't be drawn is skipped, like one that can't be decoded.
+    } finally {
+      bitmap?.close()
+      acknowledge()
     }
-    acknowledge()
   }
 
   const frames = new LatestFrameQueue<ArrayBuffer>(drawFrame, acknowledge)
