@@ -5,7 +5,6 @@ import { PcCard } from './pc-card'
 interface PcGridProps {
   pcs: Pc[]
   selectedNames?: string[]
-  areCommandsDisabled: boolean
   viewMode?: ViewMode
   emptyMessage: string
   isLockDisabled?: (pcName: string) => boolean
@@ -25,7 +24,6 @@ interface PcGridProps {
 export function PcGrid({
   pcs,
   selectedNames = [],
-  areCommandsDisabled,
   viewMode = 'notified',
   emptyMessage,
   isLockDisabled,
@@ -57,7 +55,6 @@ export function PcGrid({
               key={pc.name}
               pc={pc}
               isSelected={selectedNames.includes(pc.name)}
-              areCommandsDisabled={areCommandsDisabled}
               isLockDisabled={isLockDisabled?.(pc.name)}
               isTimeEditDisabled={isTimeEditDisabled?.(pc.name)}
               isRemoveDisabled={isRemoveDisabled?.(pc.name)}

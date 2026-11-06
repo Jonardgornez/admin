@@ -5,6 +5,7 @@ import {
   canRebootPc,
   canShutDownPc,
   canUnlockPc,
+  canViewPcScreen,
   getTimeLeftLabel,
   SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
@@ -19,7 +20,6 @@ import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 
 interface PcDetailDialogProps {
   pc: Pc
-  areCommandsDisabled: boolean
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isPowerDisabled?: boolean
@@ -52,7 +52,6 @@ function DetailRow({ label, value, isMono = false }: DetailRowProps) {
 
 export function PcDetailDialog({
   pc,
-  areCommandsDisabled,
   isLockDisabled = false,
   isTimeEditDisabled = false,
   isPowerDisabled = false,
@@ -68,6 +67,7 @@ export function PcDetailDialog({
 }: PcDetailDialogProps) {
   const titleId = useId()
   const viewModeName = `view-mode-${pc.name}`
+  const canViewScreen = canViewPcScreen(pc)
 
   return (
     <Modal isOpen size="sm" labelledBy={titleId} closesOnBackdropClick onClose={onClose}>
@@ -156,7 +156,7 @@ export function PcDetailDialog({
               name={viewModeName}
               value="notified"
               checked={viewMode === 'notified'}
-              disabled={areCommandsDisabled}
+              disabled={!canViewScreen}
               onChange={() => onViewModeChange?.('notified')}
             >
               Notified – the user sees a notice
@@ -165,12 +165,12 @@ export function PcDetailDialog({
               name={viewModeName}
               value="anonymous"
               checked={viewMode === 'anonymous'}
-              disabled={areCommandsDisabled}
+              disabled={!canViewScreen}
               onChange={() => onViewModeChange?.('anonymous')}
             >
               Anonymous – no sign on the PC
             </RadioOption>
-            {screenHref && !areCommandsDisabled ? (
+            {screenHref && canViewScreen ? (
               <ButtonLink to={screenHref} variant="secondary">
                 <Icon name="eye" />
                 View screen

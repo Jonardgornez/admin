@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-dialog'
@@ -33,12 +34,13 @@ import {
   getPcNamesToReboot,
   getPcNamesToShutDown,
   getSelectionState,
+  getScreenHref,
   getServerPcPowerNote,
   toggleSelectAll,
   toggleSelectedName,
   toPcTimeCommand,
 } from '../lib/pcs'
-import type { PcLockAction, PcTimeCommand, PowerCommand, RegisteredPc } from '../types'
+import type { PcLockAction, PcTimeCommand, PowerCommand, RegisteredPc, ViewMode } from '../types'
 
 const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
@@ -51,6 +53,7 @@ function getSelectedPowerPcIds(action: PowerAction | null): number[] {
 
 export function DashboardPage() {
   const notify = useNotify()
+  const navigate = useNavigate()
   const {
     pcs,
     loadState,
@@ -75,6 +78,8 @@ export function DashboardPage() {
     rebootPcs,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
+  // Null follows the saved default until the admin picks a mode in the detail dialog.
+  const [detailViewMode, setDetailViewMode] = useState<ViewMode | null>(null)
   const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
@@ -82,6 +87,7 @@ export function DashboardPage() {
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
+  const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
 
   const isLoaded = loadState.status === 'loaded'
   const detailPc = pcs.find((pc) => pc.name === detailPcName)
@@ -105,6 +111,11 @@ export function DashboardPage() {
     powerAction && 'pc' in powerAction
       ? powerPendingPcIds.includes(powerAction.pc.id)
       : isBulkCommandBusy
+
+  function closeDetail() {
+    setDetailPcName(null)
+    setDetailViewMode(null)
+  }
 
   function toggleSelectedPc(pcName: string) {
     setSelectedNames((current) => toggleSelectedName(current, pcName))
@@ -328,7 +339,7 @@ export function DashboardPage() {
         <PcGrid
           pcs={visiblePcs}
           selectedNames={selectedPcNames}
-          areCommandsDisabled
+          viewMode={consoleDefaults.defaultViewMode}
           emptyMessage={`No PCs match "${searchQuery}".`}
           isLockDisabled={isLockDisabled}
           isTimeEditDisabled={isTimeEditDisabled}
@@ -336,6 +347,7 @@ export function DashboardPage() {
           isPowerDisabled={isPowerDisabled}
           onToggleSelect={toggleSelectedPc}
           onOpenDetail={setDetailPcName}
+          onViewScreen={(href) => navigate(href)}
           onToggleLock={toggleLockOfPcNamed}
           onAddTime={setTimeEditPcName}
           onReboot={(pcName) => openPowerOfPcNamed('reboot', pcName)}
@@ -347,12 +359,13 @@ export function DashboardPage() {
       {detailPc && (
         <PcDetailDialog
           pc={detailPc}
-          areCommandsDisabled
-          viewMode={consoleDefaults.defaultViewMode}
+          viewMode={detailScreenMode}
+          onViewModeChange={setDetailViewMode}
+          screenHref={getScreenHref(detailPc.name, detailScreenMode)}
           isLockDisabled={isLockDisabled(detailPc.name)}
           isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
           isPowerDisabled={isPowerDisabled(detailPc.name)}
-          onClose={() => setDetailPcName(null)}
+          onClose={closeDetail}
           onLock={() => void lockOnePc(detailPc)}
           onUnlock={() => void unlockOnePc(detailPc)}
           onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}

@@ -4,6 +4,7 @@ import {
   canEditPcTime,
   canRebootPc,
   canShutDownPc,
+  canViewPcScreen,
   getLockToggleTarget,
   getTimeLeftLabel,
   isPcActionable,
@@ -66,7 +67,6 @@ const metaValueVariants = cva('m-0 min-w-0 break-words text-right', {
 interface PcCardProps {
   pc: Pc
   isSelected: boolean
-  areCommandsDisabled: boolean
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isRemoveDisabled?: boolean
@@ -104,7 +104,6 @@ function PcMetaRow({ icon, label, value, isOff }: PcMetaRowProps) {
 export function PcCard({
   pc,
   isSelected,
-  areCommandsDisabled,
   isLockDisabled = false,
   isTimeEditDisabled = false,
   isRemoveDisabled = false,
@@ -122,7 +121,6 @@ export function PcCard({
   const isOff = isPcOff(pc)
   const isOfflineLocked = pc.status === 'offline' && pc.isLocked === true
   const timeLeftLabel = getTimeLeftLabel(pc)
-  const areActionsDisabled = areCommandsDisabled || isOff
   const lockAction = getLockToggleTarget(pc)
   const lockLabel = `${lockAction === 'lock' ? 'Lock' : 'Unlock'} ${pc.name}`
   const viewLabel = `View screen of ${pc.name}`
@@ -207,7 +205,7 @@ export function PcCard({
           isIconOnly
           title={viewLabel}
           aria-label={viewLabel}
-          disabled={areActionsDisabled}
+          disabled={!canViewPcScreen(pc)}
           onClick={onViewScreen}
         >
           <Icon name="eye" />
