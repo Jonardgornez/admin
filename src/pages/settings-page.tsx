@@ -4,6 +4,7 @@ import { ChangePasswordForm } from '../component/settings/change-password-form'
 import { ConsoleSessionCard } from '../component/settings/console-session-card'
 import { LoginRequestsCard } from '../component/settings/login-requests-card'
 import { MonitoringNoticeCard } from '../component/settings/monitoring-notice-card'
+import { PcPowerCard } from '../component/settings/pc-power-card'
 import { ServerCard } from '../component/settings/server-card'
 import { SettingsCard } from '../component/settings/settings-card'
 import { useSettingsEditor } from '../component/settings/use-settings-editor'
@@ -74,6 +75,7 @@ export function SettingsPage() {
                 </Banner>
               )}
               <LoginRequestsCard />
+              <PcPowerCard />
               <MonitoringNoticeCard />
               <ConsoleSessionCard />
             </form>
