@@ -1,10 +1,12 @@
-export type PcStatus = 'locked' | 'in-use' | 'offline' | 'shutdown' | 'rebooting'
+// 'locked' is online with no user; 'frozen' is online and locked by the admin.
+export type PcStatus = 'locked' | 'frozen' | 'in-use' | 'offline' | 'shutdown' | 'rebooting'
 
 export type ViewMode = 'notified' | 'anonymous'
 
 export interface Pc {
   name: string
   status: PcStatus
+  isLocked?: boolean
   user?: string
   timeUsed?: string
   lastSeen: string
@@ -26,6 +28,7 @@ export interface ServerPc {
   id: number
   name: string
   isOnline: boolean
+  isLocked: boolean
   ipAddress: string | null
   registeredAt: string
   lastSeenAt: string

@@ -9,6 +9,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         locked: 'bg-st-locked-bg text-st-locked',
+        frozen: 'bg-st-frozen-bg text-st-frozen',
         'in-use': 'bg-st-inuse-bg text-st-inuse',
         offline: 'bg-st-offline-bg text-st-offline',
         shutdown: 'bg-st-shutdown-bg text-st-shutdown',

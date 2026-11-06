@@ -6,6 +6,7 @@ const serverPc = {
   id: 3,
   name: 'PC-03',
   isOnline: true,
+  isLocked: false,
   ipAddress: '192.168.1.13',
   registeredAt: '2026-11-01T08:00:00.000Z',
   lastSeenAt: '2026-11-05T10:00:00.000Z',
@@ -97,6 +98,17 @@ describe('pcs api', () => {
     it('fails when the session field is missing', async () => {
       const { session: _session, ...withoutSession } = serverPc
       stubFetch(Response.json([withoutSession]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
+    it('keeps the lock flag of a locked PC', async () => {
+      stubFetch(Response.json([{ ...serverPc, isLocked: true }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, isLocked: true }] })
+    })
+
+    it('fails when the lock flag is missing', async () => {
+      const { isLocked: _isLocked, ...withoutLockFlag } = serverPc
+      stubFetch(Response.json([withoutLockFlag]))
       expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 

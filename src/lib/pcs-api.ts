@@ -18,6 +18,7 @@ const serverPcSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   isOnline: z.boolean(),
+  isLocked: z.boolean(),
   ipAddress: z.string().nullable(),
   registeredAt: z.string(),
   lastSeenAt: z.string(),

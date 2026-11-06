@@ -38,7 +38,7 @@ describe('canTimeOutPc', () => {
   it('allows only PCs that are in use', () => {
     const base: Pc = { name: 'PC-T', status: 'in-use', lastSeen: 'Now' }
     expect(canTimeOutPc(base)).toBe(true)
-    ;(['locked', 'offline', 'shutdown', 'rebooting'] as const).forEach((status) => {
+    ;(['locked', 'frozen', 'offline', 'shutdown', 'rebooting'] as const).forEach((status) => {
       expect(canTimeOutPc({ ...base, status })).toBe(false)
     })
   })
@@ -118,11 +118,11 @@ describe('describeBulkLockResult', () => {
 })
 
 describe('isPcOnline', () => {
-  it('is true only for locked and in-use PCs', () => {
-    const onlineByStatus = (['locked', 'in-use', 'offline', 'shutdown', 'rebooting'] as const).map(
-      (status) => isPcOnline({ name: 'A', status, lastSeen: 'Now' }),
-    )
-    expect(onlineByStatus).toEqual([true, true, false, false, false])
+  it('is true only for locked, frozen and in-use PCs', () => {
+    const onlineByStatus = (
+      ['locked', 'frozen', 'in-use', 'offline', 'shutdown', 'rebooting'] as const
+    ).map((status) => isPcOnline({ name: 'A', status, lastSeen: 'Now' }))
+    expect(onlineByStatus).toEqual([true, true, true, false, false, false])
   })
 })
 
@@ -132,10 +132,15 @@ describe('getMessageRecipients', () => {
     { name: 'B', status: 'in-use', lastSeen: 'Now' },
     { name: 'C', status: 'offline', lastSeen: '09:00' },
     { name: 'D', status: 'rebooting', lastSeen: '10:00' },
+    { name: 'E', status: 'frozen', lastSeen: 'Now' },
   ]
 
   it('returns the selected online PCs', () => {
     expect(getMessageRecipients(list, ['B'])).toEqual(['B'])
+  })
+
+  it('includes a frozen PC because it is online', () => {
+    expect(getMessageRecipients(list, ['E'])).toEqual(['E'])
   })
 
   it('leaves out selected PCs that are not online', () => {
@@ -195,15 +200,16 @@ describe('countOnlinePcs', () => {
     expect(countOnlinePcs(pcs)).toBe(40)
   })
 
-  it('counts only locked and in-use', () => {
+  it('counts locked, frozen and in-use PCs', () => {
     const list: Pc[] = [
       { name: 'A', status: 'locked', lastSeen: 'Now' },
       { name: 'B', status: 'in-use', lastSeen: 'Now' },
       { name: 'C', status: 'offline', lastSeen: '09:00' },
       { name: 'D', status: 'shutdown', lastSeen: '09:00' },
       { name: 'E', status: 'rebooting', lastSeen: '09:00' },
+      { name: 'F', status: 'frozen', lastSeen: 'Now' },
     ]
-    expect(countOnlinePcs(list)).toBe(2)
+    expect(countOnlinePcs(list)).toBe(3)
   })
 
   it('returns 0 for an empty list', () => {
@@ -258,8 +264,9 @@ const inUsePc: Pc = {
 }
 
 describe('isPcActionable', () => {
-  it('is true only for locked and in-use PCs', () => {
+  it('is true for locked, frozen and in-use PCs', () => {
     expect(isPcActionable({ name: 'A', status: 'locked', lastSeen: '' })).toBe(true)
+    expect(isPcActionable({ name: 'A', status: 'frozen', lastSeen: '' })).toBe(true)
     expect(isPcActionable(inUsePc)).toBe(true)
     expect(isPcActionable({ name: 'A', status: 'offline', lastSeen: '' })).toBe(false)
     expect(isPcActionable({ name: 'A', status: 'shutdown', lastSeen: '' })).toBe(false)
@@ -434,6 +441,7 @@ const serverPc: ServerPc = {
   registeredAt: '2026-11-01T08:00:00.000Z',
   lastSeenAt: '2026-11-05T10:00:00.000Z',
   session: null,
+  isLocked: false,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -560,9 +568,43 @@ describe('toRegisteredPc', () => {
       id: 9,
       name: 'PC-09',
       status: 'locked',
+      isLocked: false,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
+  })
+
+  it('shows a locked online PC as frozen, with no user when it has no session', () => {
+    const pc = toRegisteredPc({ ...serverPc, isLocked: true }, now)
+    expect(pc).toMatchObject({ status: 'frozen', isLocked: true, lastSeen: 'Now' })
+    expect(pc.user).toBeUndefined()
+  })
+
+  it('keeps the user and time of a frozen session', () => {
+    const pc = toRegisteredPc(
+      {
+        ...serverPc,
+        isLocked: true,
+        session: {
+          username: 'maria',
+          startedAt,
+          time: { mode: 'time-limit', minutes: 60 },
+          secondsRemaining: 1800,
+        },
+      },
+      secondsAfterStart(60),
+    )
+    expect(pc).toMatchObject({
+      status: 'frozen',
+      user: 'maria',
+      timeUsed: '00:01',
+      minutesLeft: 30,
+    })
+  })
+
+  it('shows an offline locked PC as offline with the lock flag', () => {
+    const pc = toRegisteredPc({ ...serverPc, isOnline: false, isLocked: true }, now)
+    expect(pc).toMatchObject({ status: 'offline', isLocked: true })
   })
 
   it('shows an offline PC with its last seen date and time', () => {

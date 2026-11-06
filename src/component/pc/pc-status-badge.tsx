@@ -10,6 +10,7 @@ interface StatusDisplay {
 
 const STATUS_DISPLAY: Record<PcStatus, StatusDisplay> = {
   locked: { label: 'Online – No user', icon: 'monitor' },
+  frozen: { label: 'Online – Locked', icon: 'lock' },
   'in-use': { label: 'Online – In Use', icon: 'user' },
   offline: { label: 'Offline', icon: 'plug' },
   shutdown: { label: 'Shutdown', icon: 'power' },

@@ -2,6 +2,7 @@ import type {
   ApprovalChoice,
   BulkLockKind,
   Pc,
+  PcStatus,
   RegisteredPc,
   SelectionState,
   ServerPc,
@@ -35,10 +36,9 @@ function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
   const timeUsed = formatTimeUsed(session.startedAt, now)
   const user = session.username ?? undefined
   if (session.time.mode === 'open-time') {
-    return { status: 'in-use', user, timeUsed, isOpenTime: true }
+    return { user, timeUsed, isOpenTime: true }
   }
   return {
-    status: 'in-use',
     user,
     timeUsed,
     minutesLeft:
@@ -48,13 +48,21 @@ function toSessionFields(session: ServerPcSession, now: Date): Partial<Pc> {
   }
 }
 
-// An online PC with a live session is in use; online without one is waiting for a user.
+// Locked online PCs are frozen, even with a paused session. Other online PCs are in use with a
+// session, or waiting for a user without one.
+function toPcStatus(serverPc: ServerPc): PcStatus {
+  if (!serverPc.isOnline) return 'offline'
+  if (serverPc.isLocked) return 'frozen'
+  return serverPc.session ? 'in-use' : 'locked'
+}
+
 export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
   const session = serverPc.isOnline && serverPc.session ? serverPc.session : null
   return {
     id: serverPc.id,
     name: serverPc.name,
-    status: serverPc.isOnline ? 'locked' : 'offline',
+    status: toPcStatus(serverPc),
+    isLocked: serverPc.isLocked,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -76,7 +84,7 @@ export function formatLastUpdate(updatedAt: Date): string {
 }
 
 export function isPcOnline(pc: Pc): boolean {
-  return pc.status === 'locked' || pc.status === 'in-use'
+  return pc.status === 'locked' || pc.status === 'frozen' || pc.status === 'in-use'
 }
 
 export function countOnlinePcs(pcs: Pc[]): number {
