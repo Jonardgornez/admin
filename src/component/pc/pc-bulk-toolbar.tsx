@@ -10,6 +10,7 @@ interface PcBulkToolbarProps {
   rebootSelectedCount?: number
   cancelSelectedCount?: number
   messageRecipientCount?: number
+  isSendMessageDisabled?: boolean
   restrictionTargetCount?: number
   hasVisiblePcs: boolean
   areCommandsDisabled: boolean
@@ -40,6 +41,7 @@ export function PcBulkToolbar({
   rebootSelectedCount = 0,
   cancelSelectedCount = 0,
   messageRecipientCount = 0,
+  isSendMessageDisabled = false,
   restrictionTargetCount = 0,
   hasVisiblePcs,
   areCommandsDisabled,
@@ -121,7 +123,7 @@ export function PcBulkToolbar({
       )}
       <Button
         variant="secondary"
-        disabled={areCommandsDisabled || messageRecipientCount === 0}
+        disabled={isSendMessageDisabled || messageRecipientCount === 0}
         onClick={onSendMessage}
       >
         <Icon name="message" />

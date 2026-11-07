@@ -101,10 +101,16 @@ export function countOnlinePcs(pcs: Pc[]): number {
   return pcs.filter(isPcOnline).length
 }
 
-export function getMessageRecipients(pcs: Pc[], selectedNames: string[]): string[] {
-  return pcs
-    .filter((pc) => isPcOnline(pc) && selectedNames.includes(pc.name))
-    .map((pc) => pc.name)
+export interface MessageTargets {
+  recipients: RegisteredPc[]
+  offlineCount: number
+}
+
+// Only online PCs can receive a message. Selected offline PCs are counted so the dialog can say so.
+export function getMessageTargets(pcs: RegisteredPc[], selectedNames: string[]): MessageTargets {
+  const selectedPcs = pcs.filter((pc) => selectedNames.includes(pc.name))
+  const recipients = selectedPcs.filter(isPcOnline)
+  return { recipients, offlineCount: selectedPcs.length - recipients.length }
 }
 
 export function getSelectionState(visibleNames: string[], selectedNames: string[]): SelectionState {

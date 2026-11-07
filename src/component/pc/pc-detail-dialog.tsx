@@ -9,6 +9,7 @@ import {
   canViewPcScreen,
   getCancelPowerLabel,
   getTimeLeftLabel,
+  isPcOnline,
   isPowerCancelButtonShown,
   SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
@@ -33,6 +34,8 @@ interface PcDetailDialogProps {
   onShutdown?: () => void
   onCancelPower?: () => void
   onAddTime?: () => void
+  isSendMessageDisabled?: boolean
+  onSendMessage?: () => void
   viewMode?: ViewMode
   onViewModeChange?: (viewMode: ViewMode) => void
   screenHref?: string
@@ -66,6 +69,8 @@ export function PcDetailDialog({
   onShutdown,
   onCancelPower,
   onAddTime,
+  isSendMessageDisabled = false,
+  onSendMessage,
   viewMode = 'notified',
   onViewModeChange,
   screenHref,
@@ -116,6 +121,15 @@ export function PcDetailDialog({
           >
             <Icon name="clock" />
             Edit time
+          </Button>
+          <Button
+            variant="secondary"
+            className="col-span-2"
+            disabled={!isPcOnline(pc) || isSendMessageDisabled}
+            onClick={onSendMessage}
+          >
+            <Icon name="message" />
+            Send message
           </Button>
           <Button
             variant="secondary"

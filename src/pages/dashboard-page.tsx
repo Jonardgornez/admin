@@ -8,6 +8,7 @@ import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
+import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
@@ -34,6 +35,7 @@ import {
   getPcIdsToReboot,
   getPcIdsToShutDown,
   getPcIdsToUnlock,
+  getMessageTargets,
   getPcNamesToReboot,
   getPcNamesToShutDown,
   getSelectionState,
@@ -42,6 +44,7 @@ import {
   toggleSelectAll,
   toggleSelectedName,
   toPcTimeCommand,
+  type MessageTargets,
 } from '../lib/pcs'
 import type { PcLockAction, PcTimeCommand, PowerCommand, RegisteredPc, ViewMode } from '../types'
 
@@ -80,6 +83,7 @@ export function DashboardPage() {
     rebootPcs,
     cancelPcPower,
     cancelPcsPower,
+    sendMessage,
   } = usePcs()
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   // Null follows the saved default until the admin picks a mode in the detail dialog.
@@ -89,6 +93,7 @@ export function DashboardPage() {
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
+  const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
   const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
@@ -111,6 +116,7 @@ export function DashboardPage() {
   const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
   const rebootPcNames = getPcNamesToReboot(pcs, selectedPcNames)
   const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcNames)
+  const selectedMessageTargets = getMessageTargets(pcs, selectedPcNames)
   const selectedServerPc = pcs.find((pc) => pc.isServerPc && selectedPcNames.includes(pc.name))
   const isPowerBusy =
     powerAction && 'pc' in powerAction
@@ -306,6 +312,9 @@ export function DashboardPage() {
             shutdownSelectedCount={shutDownPcIds.length}
             rebootSelectedCount={rebootPcIds.length}
             cancelSelectedCount={cancelPowerPcIds.length}
+            messageRecipientCount={selectedMessageTargets.recipients.length}
+            isSendMessageDisabled={isDisconnected}
+            onSendMessage={() => setMessageTargets(selectedMessageTargets)}
             isBulkPowerDisabled={isDisconnected || isBulkCommandBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             searchQuery={searchQuery}
@@ -400,6 +409,10 @@ export function DashboardPage() {
           onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
           onCancelPower={() => void cancelOnePcPower(detailPc)}
           onAddTime={() => setTimeEditPcName(detailPc.name)}
+          isSendMessageDisabled={isDisconnected}
+          onSendMessage={() =>
+            setMessageTargets(getMessageTargets([detailPc], [detailPc.name]))
+          }
         />
       )}
 
@@ -434,6 +447,15 @@ export function DashboardPage() {
         onConfirm={() => powerAction && void confirmPowerAction(powerAction)}
         onCancel={() => setPowerAction(null)}
       />
+
+      {messageTargets && (
+        <SendMessageDialog
+          recipients={messageTargets.recipients}
+          offlineCount={messageTargets.offlineCount}
+          onSend={(text) => sendMessage(messageTargets.recipients.map((pc) => pc.id), text)}
+          onClose={() => setMessageTargets(null)}
+        />
+      )}
 
       <RemovePcDialog
         pc={pcToRemove}

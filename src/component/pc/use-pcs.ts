@@ -11,6 +11,7 @@ import {
   toSortedRegisteredPcs,
 } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
+import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
 import type { BulkCommandResult } from '../../lib/pcs-api'
 import type { Pc, PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
@@ -279,6 +280,13 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  // Messages do not change a PC's state, so the list is not re-read afterwards.
+  const sendMessage = useCallback(
+    (pcIds: number[], text: string): Promise<ApiResult<PcMessageDelivery[]>> =>
+      request(sendPcMessage(pcIds, text)),
+    [request],
+  )
+
   return {
     pcs,
     loadState,
@@ -303,5 +311,6 @@ export function usePcs() {
     rebootPcs,
     cancelPcPower,
     cancelPcsPower,
+    sendMessage,
   }
 }

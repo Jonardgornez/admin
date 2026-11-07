@@ -25,7 +25,7 @@ import {
   formatMinutes,
   formatPcCount,
   getLogsHref,
-  getMessageRecipients,
+  getMessageTargets,
   getLockToggleTarget,
   getPcIdsToLock,
   getPcIdsToUnlock,
@@ -238,38 +238,40 @@ describe('isPcOnline', () => {
   })
 })
 
-describe('getMessageRecipients', () => {
-  const list: Pc[] = [
-    { name: 'A', status: 'locked', lastSeen: 'Now' },
-    { name: 'B', status: 'in-use', lastSeen: 'Now' },
-    { name: 'C', status: 'offline', lastSeen: '09:00' },
-    { name: 'D', status: 'rebooting', lastSeen: '10:00' },
-    { name: 'E', status: 'frozen', lastSeen: 'Now' },
+describe('getMessageTargets', () => {
+  const list: RegisteredPc[] = [
+    { id: 1, name: 'A', status: 'locked', lastSeen: 'Now' },
+    { id: 2, name: 'B', status: 'in-use', lastSeen: 'Now' },
+    { id: 3, name: 'C', status: 'offline', lastSeen: '09:00' },
+    { id: 4, name: 'D', status: 'rebooting', lastSeen: '10:00' },
+    { id: 5, name: 'E', status: 'frozen', lastSeen: 'Now' },
   ]
 
-  it('returns the selected online PCs', () => {
-    expect(getMessageRecipients(list, ['B'])).toEqual(['B'])
+  it('returns the selected online PCs as recipients', () => {
+    expect(getMessageTargets(list, ['B'])).toEqual({ recipients: [list[1]], offlineCount: 0 })
   })
 
   it('includes a frozen PC because it is online', () => {
-    expect(getMessageRecipients(list, ['E'])).toEqual(['E'])
+    expect(getMessageTargets(list, ['E']).recipients).toEqual([list[4]])
   })
 
-  it('leaves out selected PCs that are not online', () => {
-    expect(getMessageRecipients(list, ['A', 'C', 'D'])).toEqual(['A'])
+  it('counts selected PCs that are not online as offline', () => {
+    expect(getMessageTargets(list, ['A', 'C', 'D'])).toEqual({
+      recipients: [list[0]],
+      offlineCount: 2,
+    })
   })
 
-  it('returns nothing when nothing is selected', () => {
-    expect(getMessageRecipients(list, [])).toEqual([])
+  it('returns no recipients and no offline count when nothing is selected', () => {
+    expect(getMessageTargets(list, [])).toEqual({ recipients: [], offlineCount: 0 })
   })
 
-  it('returns nothing when no selected PC is online', () => {
-    expect(getMessageRecipients(list, ['C', 'D'])).toEqual([])
+  it('returns no recipients when every selected PC is offline', () => {
+    expect(getMessageTargets(list, ['C', 'D'])).toEqual({ recipients: [], offlineCount: 2 })
   })
 
-  it('returns nothing when no PC is online', () => {
-    const offlineList: Pc[] = [{ name: 'C', status: 'offline', lastSeen: '09:00' }]
-    expect(getMessageRecipients(offlineList, ['C'])).toEqual([])
+  it('ignores selected names that are not in the list', () => {
+    expect(getMessageTargets(list, ['Z'])).toEqual({ recipients: [], offlineCount: 0 })
   })
 })
 
