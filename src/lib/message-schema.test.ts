@@ -74,17 +74,17 @@ describe('sendMessageSchema', () => {
   })
 
   it.each([
-    ['ARABIC LETTER MARK', '؜'],
-    ['ZERO WIDTH SPACE', '​'],
-    ['LEFT-TO-RIGHT MARK', '‎'],
-    ['RIGHT-TO-LEFT MARK', '‏'],
-    ['LEFT-TO-RIGHT EMBEDDING', '‪'],
-    ['RIGHT-TO-LEFT OVERRIDE', '‮'],
-    ['LEFT-TO-RIGHT ISOLATE', '⁦'],
-    ['POP DIRECTIONAL ISOLATE', '⁩'],
-    ['LINE SEPARATOR', ' '],
-    ['PARAGRAPH SEPARATOR', ' '],
-    ['BYTE ORDER MARK', '﻿'],
+    ['ARABIC LETTER MARK', '\u061c'],
+    ['ZERO WIDTH SPACE', '\u200b'],
+    ['LEFT-TO-RIGHT MARK', '\u200e'],
+    ['RIGHT-TO-LEFT MARK', '\u200f'],
+    ['LEFT-TO-RIGHT EMBEDDING', '\u202a'],
+    ['RIGHT-TO-LEFT OVERRIDE', '\u202e'],
+    ['LEFT-TO-RIGHT ISOLATE', '\u2066'],
+    ['POP DIRECTIONAL ISOLATE', '\u2069'],
+    ['LINE SEPARATOR', '\u2028'],
+    ['PARAGRAPH SEPARATOR', '\u2029'],
+    ['BYTE ORDER MARK', '\ufeff'],
   ])('rejects a direction or invisible character (%s)', (_label, character) => {
     expect(errorFor(`safe${character}text`)).toBe(
       "The message can't contain direction or invisible formatting characters.",
@@ -92,11 +92,11 @@ describe('sendMessageSchema', () => {
   })
 
   it('accepts a zero width joiner inside an emoji sequence', () => {
-    expect(parseText('family \u{1F468}‍\u{1F469}‍\u{1F467}').success).toBe(true)
+    expect(parseText('family \u{1F468}\u200d\u{1F469}\u200d\u{1F467}').success).toBe(true)
   })
 
   it('accepts a zero width non-joiner', () => {
-    expect(parseText('a‌b').success).toBe(true)
+    expect(parseText('a\u200cb').success).toBe(true)
   })
 
   it('rejects an unpaired high surrogate', () => {
