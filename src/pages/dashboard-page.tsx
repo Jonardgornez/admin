@@ -45,7 +45,6 @@ import {
 } from '../lib/pcs'
 import type { PcLockAction, PcTimeCommand, PowerCommand, RegisteredPc, ViewMode } from '../types'
 
-const COMMANDS_NOTE = "Other PC commands aren't connected yet."
 const NO_PCS_MESSAGE =
   'No PCs registered yet. Install the client on a PC and register it to see it here.'
 const POWER_NOTICE_ICON: Record<PowerCommand, IconName> = { shutdown: 'power', reboot: 'refresh' }
@@ -312,7 +311,6 @@ export function DashboardPage() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
-            note={COMMANDS_NOTE}
             serverPcNote={selectedServerPc && getServerPcPowerNote(selectedServerPc.name)}
             onUnlockSelected={() => setBulkLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
             onLockSelected={() => setBulkLockAction({ kind: 'lock', pcIds: lockPcIds })}

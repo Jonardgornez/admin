@@ -27,7 +27,6 @@ interface PcBulkToolbarProps {
   onCancelSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
-  note?: string
   serverPcNote?: string
 }
 
@@ -58,7 +57,6 @@ export function PcBulkToolbar({
   onCancelSelected,
   onSendMessage,
   onOpenRestrictions,
-  note,
   serverPcNote,
 }: PcBulkToolbarProps) {
   return (
@@ -137,9 +135,6 @@ export function PcBulkToolbar({
         <Icon name="shield" />
         {withCount('Restrictions', restrictionTargetCount)}
       </Button>
-      {areCommandsDisabled && note && (
-        <span className="self-center px-2 text-xs text-ink-muted">{note}</span>
-      )}
       <Field label="Search PCs" htmlFor="pc-search" className="w-full sm:ml-auto sm:w-60">
         <TextInput
           id="pc-search"
