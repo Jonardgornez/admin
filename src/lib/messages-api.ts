@@ -6,11 +6,14 @@ const DELIVERY_STATUSES = ['delivered', 'failed', 'offline', 'not-found', 'busy'
 
 export type PcMessageStatus = (typeof DELIVERY_STATUSES)[number]
 
-const pcMessageDeliverySchema = z.object({
-  pcId: z.number().int(),
-  pcName: z.string(),
-  status: z.enum(DELIVERY_STATUSES),
-})
+// The server has no name for a PC that no longer exists (not-found), so it sends null there.
+const pcMessageDeliverySchema = z
+  .object({
+    pcId: z.number().int(),
+    pcName: z.string().nullable(),
+    status: z.enum(DELIVERY_STATUSES),
+  })
+  .transform((delivery) => ({ ...delivery, pcName: delivery.pcName ?? `PC #${delivery.pcId}` }))
 
 const sendMessageResponseSchema = z.object({
   results: z.array(pcMessageDeliverySchema),

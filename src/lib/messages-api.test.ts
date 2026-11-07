@@ -41,6 +41,18 @@ describe('messages api', () => {
       expect(await sendPcMessage([1, 3, 5], 'Hi')).toEqual({ success: true, data: results })
     })
 
+    it('names a removed PC by its id when the server has no name for it', async () => {
+      stubFetch(
+        Response.json({
+          results: [delivery, { pcId: 7, pcName: null, status: 'not-found' }],
+        }),
+      )
+      expect(await sendPcMessage([1, 7], 'Hi')).toEqual({
+        success: true,
+        data: [delivery, { pcId: 7, pcName: 'PC #7', status: 'not-found' }],
+      })
+    })
+
     it('accepts every status the server can report', async () => {
       const statuses = ['delivered', 'failed', 'offline', 'not-found', 'busy']
       const results = statuses.map((status, index) => ({
