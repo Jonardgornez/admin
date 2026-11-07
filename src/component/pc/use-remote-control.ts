@@ -31,6 +31,8 @@ import type { ScreenSocketEvent, ScreenStream } from './use-screen-stream'
 
 // The server gives up after 5 s. The admin waits a little longer, then stops on its own side too.
 const CONTROL_REQUEST_TIMEOUT_MS = 8000
+// The server drops a control on that arrives within 1 s of the previous one, so a restart waits a little longer.
+const CONTROL_RESTART_COOLDOWN_MS = 1100
 
 interface UseRemoteControlOptions {
   screen: Pick<ScreenStream, 'canvasRef' | 'status' | 'sendMessage' | 'subscribe'>
@@ -39,6 +41,7 @@ interface UseRemoteControlOptions {
 
 export interface RemoteControl {
   state: RemoteControlState
+  isCoolingDown: boolean
   start: () => void
   stop: () => void
 }
@@ -54,9 +57,12 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
   const { canvasRef, status, sendMessage, subscribe } = screen
   const [state, setState] = useState<RemoteControlState>(CONTROL_OFF_STATE)
   const [trackedStatusKind, setTrackedStatusKind] = useState(status.kind)
+  const [trackedControlKind, setTrackedControlKind] = useState(state.kind)
+  const [isCoolingDown, setIsCoolingDown] = useState(false)
   const isOn = state.kind === 'on'
   const isRequesting = state.kind === 'requesting'
   const isActiveRef = useRef(false)
+  const startRequestedRef = useRef(false)
   const reportReleaseShortcut = useEffectEvent(onReleaseShortcut)
 
   // A picture that stops being live ends control on this side. The socket may still be open
@@ -67,6 +73,22 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
       setState((previous) => endControl(previous, getScreenEndReason(status.kind)))
     }
   }
+
+  // Any end of control starts the restart cooldown.
+  if (state.kind !== trackedControlKind) {
+    setTrackedControlKind(state.kind)
+    if (state.kind === 'off') setIsCoolingDown(true)
+  }
+
+  useEffect(() => {
+    if (!isCoolingDown) return
+    const timeout = window.setTimeout(() => setIsCoolingDown(false), CONTROL_RESTART_COOLDOWN_MS)
+    return () => window.clearTimeout(timeout)
+  }, [isCoolingDown])
+
+  useEffect(() => {
+    startRequestedRef.current = false
+  }, [state.kind])
 
   const handleSocketEvent = useEffectEvent((event: ScreenSocketEvent) => {
     if (event.kind === 'control') {
@@ -116,8 +138,8 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     const controller = new AbortController()
     const { signal } = controller
     const heldButtons = new Set<RemoteMouseButton>()
-    // The KeyX key-down of the release shortcut was swallowed, so its key-up must not reach the PC.
-    let isReleaseKeyHeld = false
+    // Set by the release shortcut. Key events stay ignored until the screen is focused again.
+    let isKeyInputPaused = false
 
     const moves = createFrameCoalescer<FramePoint>({
       merge: keepLatest,
@@ -184,9 +206,14 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
       syncButtons(event)
     }
 
+    function rearmKeyInput() {
+      isKeyInputPaused = false
+    }
+
     function handlePointerDown(event: PointerEvent) {
       // Browser mousedown focus is suppressed, so the screen takes focus here for keys.
       canvas.focus()
+      rearmKeyInput()
       canvas.setPointerCapture(event.pointerId)
       syncButtons(event)
     }
@@ -206,25 +233,23 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
 
     function handleKeyDown(event: KeyboardEvent) {
       event.preventDefault()
+      if (isKeyInputPaused) return
       if (isReleaseShortcut(event)) {
-        // The Ctrl, Alt and Shift key-downs were already sent to the PC. This release lets go of
-        // them with everything else the PC holds.
-        isReleaseKeyHeld = true
+        // The Ctrl, Alt and Shift key-downs already reached the PC. This release lets go of them
+        // with everything else it holds. The shortcut's own key-up and any auto-repeat are then
+        // ignored, so the modifiers are not pressed again on the PC.
+        isKeyInputPaused = true
         sendRelease()
         reportReleaseShortcut()
         return
       }
-      if (event.code === 'KeyX') isReleaseKeyHeld = false
       const message = buildKeyMessage(event.code, true)
       if (message) sendMessage(message)
     }
 
     function handleKeyUp(event: KeyboardEvent) {
       event.preventDefault()
-      if (event.code === 'KeyX' && isReleaseKeyHeld) {
-        isReleaseKeyHeld = false
-        return
-      }
+      if (isKeyInputPaused) return
       const message = buildKeyMessage(event.code, false)
       if (message) sendMessage(message)
     }
@@ -250,6 +275,7 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     canvas.addEventListener('wheel', handleWheel, { passive: false, signal })
     canvas.addEventListener('keydown', handleKeyDown, { signal })
     canvas.addEventListener('keyup', handleKeyUp, { signal })
+    canvas.addEventListener('focus', rearmKeyInput, { signal })
     canvas.addEventListener('blur', sendRelease, { signal })
     document.addEventListener('visibilitychange', handleVisibilityChange, { signal })
 
@@ -260,9 +286,13 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     }
   }, [isOn, canvasRef, sendMessage])
 
+  // Only one start per off state, so a double click sends one control on.
   function start() {
-    if (state.kind !== 'off' || status.kind !== 'live') return
+    if (state.kind !== 'off' || status.kind !== 'live' || isCoolingDown) return
+    if (startRequestedRef.current) return
+    startRequestedRef.current = true
     if (!sendMessage(buildControlMessage(true))) {
+      startRequestedRef.current = false
       setState({ kind: 'off', reason: 'connection' })
       return
     }
@@ -277,5 +307,5 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     setState(endControl(state, 'stopped'))
   }
 
-  return { state, start, stop }
+  return { state, isCoolingDown, start, stop }
 }

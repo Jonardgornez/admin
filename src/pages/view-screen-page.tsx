@@ -192,6 +192,7 @@ export function ViewScreenPage() {
         pc={pc}
         control={control.state}
         takeControlBlockMessage={takeControlBlockMessage}
+        isCoolingDown={control.isCoolingDown}
         stopButtonRef={panelStopButtonRef}
         onStartControl={startControl}
         onStopControl={control.stop}

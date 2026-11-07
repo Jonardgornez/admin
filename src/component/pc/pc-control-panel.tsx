@@ -16,6 +16,7 @@ interface PcControlPanelProps {
   control: RemoteControlState
   // Null when Take control is allowed. Otherwise it explains what the admin must change.
   takeControlBlockMessage: string | null
+  isCoolingDown: boolean
   stopButtonRef: RefObject<HTMLButtonElement | null>
   onStartControl: () => void
   onStopControl: () => void
@@ -25,6 +26,7 @@ export function PcControlPanel({
   pc,
   control,
   takeControlBlockMessage,
+  isCoolingDown,
   stopButtonRef,
   onStartControl,
   onStopControl,
@@ -85,7 +87,7 @@ export function PcControlPanel({
         {!isOn && !isRequesting && (
           <Button
             variant="primary"
-            disabled={takeControlBlockMessage !== null}
+            disabled={takeControlBlockMessage !== null || isCoolingDown}
             aria-describedby={descriptionId}
             onClick={() => setIsConfirming(true)}
           >
