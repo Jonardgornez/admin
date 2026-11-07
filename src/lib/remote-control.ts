@@ -3,8 +3,11 @@ import { isPcActionable } from './pcs'
 import type { ControlOffReason, ServerControlMessage } from './remote-input'
 import type { ScreenStreamStatus } from './screen-stream'
 
+// Local-only reasons (never sent on the wire) are added to the server's off reasons.
+export type RemoteControlEndReason = ControlOffReason | 'paused'
+
 export type RemoteControlState =
-  | { kind: 'off'; reason: ControlOffReason | null }
+  | { kind: 'off'; reason: RemoteControlEndReason | null }
   | { kind: 'requesting' }
   | { kind: 'on' }
 
@@ -14,7 +17,7 @@ export const REQUIRED_CLIENT_VERSION = '0.10.0'
 const SERVER_PC_MESSAGE = "You can't control the server's own PC."
 const LIVE_PICTURE_MESSAGE = 'Wait for the live picture before taking control.'
 
-const CONTROL_END_MESSAGES: Record<ControlOffReason, string | null> = {
+const CONTROL_END_MESSAGES: Record<RemoteControlEndReason, string | null> = {
   stopped: null,
   anonymous: 'Remote control needs Notified view.',
   'server-pc': SERVER_PC_MESSAGE,
@@ -22,6 +25,7 @@ const CONTROL_END_MESSAGES: Record<ControlOffReason, string | null> = {
   unsupported: `This PC's client is too old for remote control. Update it to ${REQUIRED_CLIENT_VERSION}.`,
   connection: 'The connection to the PC dropped, so control stopped.',
   'pc-ended': 'The PC ended remote control.',
+  paused: "The PC's screen paused (for example a UAC prompt), so control stopped.",
 }
 
 export function startControl(state: RemoteControlState): RemoteControlState {
@@ -30,12 +34,19 @@ export function startControl(state: RemoteControlState): RemoteControlState {
 
 export function endControl(
   state: RemoteControlState,
-  reason: ControlOffReason,
+  reason: RemoteControlEndReason,
 ): RemoteControlState {
   return state.kind === 'off' ? state : { kind: 'off', reason }
 }
 
-// Messages for a PC that is no longer waiting for the server, so an old "off" never overrides a new request.
+// The PC never confirmed in time, so the request ends as unsupported. A request that already
+// turned on is left alone.
+export function timeOutControlRequest(state: RemoteControlState): RemoteControlState {
+  return state.kind === 'requesting' ? { kind: 'off', reason: 'unsupported' } : state
+}
+
+// Server messages only move a request or a session forward. An off message while already off
+// changes nothing, so a late reply never overrides a newer state.
 export function applyServerControlMessage(
   state: RemoteControlState,
   message: ServerControlMessage,

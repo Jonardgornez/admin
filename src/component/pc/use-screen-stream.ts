@@ -23,10 +23,11 @@ interface UseScreenStreamOptions {
   onRefused: () => void
 }
 
-// Control messages and server states, delivered as they arrive on the socket.
+// Control messages, server states and closes, delivered as they happen on the socket.
 export type ScreenSocketEvent =
   | { kind: 'server-state'; state: ServerScreenState }
   | { kind: 'control'; message: ServerControlMessage }
+  | { kind: 'closed' }
 
 export type ScreenSocketListener = (event: ScreenSocketEvent) => void
 
@@ -95,6 +96,7 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
     }
 
     function handleClose(code: number, wasOpen: boolean) {
+      notifyListeners({ kind: 'closed' })
       if (!wasOpen) {
         // The server refused the upgrade. Browsers hide why, so the page checks the PC list.
         setState((previous) => withStatus(previous, REFUSED_STATUS))

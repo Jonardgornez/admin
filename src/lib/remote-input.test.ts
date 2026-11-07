@@ -5,13 +5,15 @@ import {
   buildKeyMessage,
   buildMoveMessage,
   buildWheelMessage,
-  createMoveCoalescer,
+  createFrameCoalescer,
   getDrawnImageRect,
+  getPressedButtons,
   isReleaseShortcut,
+  keepLatest,
   mapPointerToFrame,
+  mergeWheelUnits,
   parseServerControlMessage,
   RELEASE_MESSAGE,
-  toRemoteButton,
   toWheelUnits,
 } from './remote-input'
 
@@ -41,7 +43,9 @@ describe('getDrawnImageRect', () => {
 
   it('returns null when the element or the frame has no size', () => {
     expect(getDrawnImageRect({ left: 0, top: 0, width: 0, height: 100 }, FRAME)).toBeNull()
-    expect(getDrawnImageRect({ left: 0, top: 0, width: 100, height: 100 }, { width: 0, height: 0 })).toBeNull()
+    expect(
+      getDrawnImageRect({ left: 0, top: 0, width: 100, height: 100 }, { width: 0, height: 0 }),
+    ).toBeNull()
   })
 })
 
@@ -110,49 +114,60 @@ describe('mapPointerToFrame', () => {
   })
 })
 
-describe('toRemoteButton', () => {
-  it('passes the browser buttons 0 to 4 through', () => {
-    expect([0, 1, 2, 3, 4].map(toRemoteButton)).toEqual([0, 1, 2, 3, 4])
+describe('getPressedButtons', () => {
+  it('maps each PointerEvent.buttons bit to the protocol button', () => {
+    expect(getPressedButtons(1)).toEqual([0])
+    expect(getPressedButtons(2)).toEqual([2])
+    expect(getPressedButtons(4)).toEqual([1])
+    expect(getPressedButtons(8)).toEqual([3])
+    expect(getPressedButtons(16)).toEqual([4])
   })
 
-  it('rejects other buttons', () => {
-    expect(toRemoteButton(-1)).toBeNull()
-    expect(toRemoteButton(5)).toBeNull()
-    expect(toRemoteButton(1.5)).toBeNull()
+  it('lists every chorded button and ignores bits it does not know', () => {
+    expect(getPressedButtons(1 | 2 | 4)).toEqual([0, 2, 1])
+    expect(getPressedButtons(32)).toEqual([])
+    expect(getPressedButtons(0)).toEqual([])
   })
 })
 
 describe('toWheelUnits', () => {
   it('converts pixels to Windows units at about 120 per 100 pixels', () => {
-    expect(toWheelUnits(100, DOM_DELTA_PIXEL)).toBe(120)
-    expect(toWheelUnits(-100, DOM_DELTA_PIXEL)).toBe(-120)
+    expect(toWheelUnits({ deltaX: 0, deltaY: 100, deltaMode: DOM_DELTA_PIXEL })).toEqual({
+      dx: 0,
+      dy: 120,
+    })
   })
 
   it('converts lines and pages to units', () => {
-    expect(toWheelUnits(3, DOM_DELTA_LINE)).toBe(360)
-    expect(toWheelUnits(1, DOM_DELTA_PAGE)).toBe(1200)
+    expect(toWheelUnits({ deltaX: 0, deltaY: 3, deltaMode: DOM_DELTA_LINE }).dy).toBe(360)
+    expect(toWheelUnits({ deltaX: 1, deltaY: 0, deltaMode: DOM_DELTA_PAGE }).dx).toBe(1200)
   })
 
-  it('clamps to plus or minus 1200', () => {
-    expect(toWheelUnits(5000, DOM_DELTA_PIXEL)).toBe(1200)
-    expect(toWheelUnits(-5000, DOM_DELTA_PIXEL)).toBe(-1200)
+  it('keeps fractional units so small deltas add up within a frame', () => {
+    expect(toWheelUnits({ deltaX: 0, deltaY: 1, deltaMode: DOM_DELTA_PIXEL }).dy).toBeCloseTo(1.2)
   })
+})
 
-  it('rounds tiny deltas to zero without producing negative zero', () => {
-    expect(toWheelUnits(0.2, DOM_DELTA_PIXEL)).toBe(0)
-    expect(toWheelUnits(-0.2, DOM_DELTA_PIXEL)).toBe(0)
+describe('mergeWheelUnits', () => {
+  it('sums the deltas of one frame', () => {
+    const first = { dx: 10, dy: 100 }
+    expect(mergeWheelUnits(null, first)).toEqual(first)
+    expect(mergeWheelUnits(first, { dx: -4, dy: 20 })).toEqual({ dx: 6, dy: 120 })
   })
 })
 
 describe('buildWheelMessage', () => {
   it('builds a wheel message with the browser sign for dy', () => {
-    expect(
-      buildWheelMessage({ deltaX: 0, deltaY: 100, deltaMode: DOM_DELTA_PIXEL }),
-    ).toBe('{"t":"wheel","dx":0,"dy":120}')
+    expect(buildWheelMessage({ dx: 0, dy: 120 })).toBe('{"t":"wheel","dx":0,"dy":120}')
   })
 
-  it('sends nothing when both deltas round to zero', () => {
-    expect(buildWheelMessage({ deltaX: 0.1, deltaY: 0.1, deltaMode: DOM_DELTA_PIXEL })).toBeNull()
+  it('clamps the summed units to plus or minus 1200', () => {
+    expect(buildWheelMessage({ dx: 5000, dy: -5000 })).toBe('{"t":"wheel","dx":1200,"dy":-1200}')
+  })
+
+  it('rounds and never writes negative zero', () => {
+    expect(buildWheelMessage({ dx: -0.4, dy: 0.2 })).toBeNull()
+    expect(buildWheelMessage({ dx: 0, dy: 0 })).toBeNull()
   })
 })
 
@@ -243,7 +258,7 @@ describe('parseServerControlMessage', () => {
   })
 })
 
-describe('createMoveCoalescer', () => {
+describe('createFrameCoalescer', () => {
   function createFakeScheduler() {
     const callbacks = new Map<number, () => void>()
     let nextId = 1
@@ -265,19 +280,20 @@ describe('createMoveCoalescer', () => {
     }
   }
 
-  function createRecorder() {
+  function createMoveRecorder() {
     const scheduler = createFakeScheduler()
     const sent: { x: number; y: number }[] = []
-    const coalescer = createMoveCoalescer({
-      send: (point) => sent.push(point),
+    const coalescer = createFrameCoalescer({
+      merge: keepLatest,
+      send: (point: { x: number; y: number }) => sent.push(point),
       requestFrame: scheduler.requestFrame,
       cancelFrame: scheduler.cancelFrame,
     })
     return { coalescer, sent, scheduler }
   }
 
-  it('sends only the latest point on the next frame', () => {
-    const { coalescer, sent, scheduler } = createRecorder()
+  it('sends only the latest move on the next frame', () => {
+    const { coalescer, sent, scheduler } = createMoveRecorder()
     coalescer.push({ x: 1, y: 1 })
     coalescer.push({ x: 2, y: 2 })
     coalescer.push({ x: 3, y: 3 })
@@ -287,28 +303,28 @@ describe('createMoveCoalescer', () => {
   })
 
   it('keeps at most one frame requested while one is pending', () => {
-    const { coalescer, scheduler } = createRecorder()
+    const { coalescer, scheduler } = createMoveRecorder()
     coalescer.push({ x: 1, y: 1 })
     coalescer.push({ x: 2, y: 2 })
     expect(scheduler.pendingFrameCount()).toBe(1)
   })
 
-  it('flush sends the pending point at once and cancels the frame', () => {
-    const { coalescer, sent, scheduler } = createRecorder()
+  it('flush sends the pending item at once and cancels the frame', () => {
+    const { coalescer, sent, scheduler } = createMoveRecorder()
     coalescer.push({ x: 4, y: 4 })
     coalescer.flush()
     expect(sent).toEqual([{ x: 4, y: 4 }])
     expect(scheduler.pendingFrameCount()).toBe(0)
   })
 
-  it('flush sends nothing when no point is pending', () => {
-    const { coalescer, sent } = createRecorder()
+  it('flush sends nothing when nothing is pending', () => {
+    const { coalescer, sent } = createMoveRecorder()
     coalescer.flush()
     expect(sent).toEqual([])
   })
 
-  it('cancel drops the pending point', () => {
-    const { coalescer, sent, scheduler } = createRecorder()
+  it('cancel drops the pending item', () => {
+    const { coalescer, sent, scheduler } = createMoveRecorder()
     coalescer.push({ x: 5, y: 5 })
     coalescer.cancel()
     scheduler.runFrame()
@@ -316,7 +332,7 @@ describe('createMoveCoalescer', () => {
   })
 
   it('schedules a new frame after the previous one ran', () => {
-    const { coalescer, sent, scheduler } = createRecorder()
+    const { coalescer, sent, scheduler } = createMoveRecorder()
     coalescer.push({ x: 1, y: 1 })
     scheduler.runFrame()
     coalescer.push({ x: 2, y: 2 })
@@ -325,5 +341,24 @@ describe('createMoveCoalescer', () => {
       { x: 1, y: 1 },
       { x: 2, y: 2 },
     ])
+  })
+
+  it('sums wheel deltas within one frame into a single send', () => {
+    const scheduler = createFakeScheduler()
+    const sent: string[] = []
+    const coalescer = createFrameCoalescer({
+      merge: mergeWheelUnits,
+      send: (units: { dx: number; dy: number }) => {
+        const message = buildWheelMessage(units)
+        if (message) sent.push(message)
+      },
+      requestFrame: scheduler.requestFrame,
+      cancelFrame: scheduler.cancelFrame,
+    })
+    coalescer.push({ dx: 0, dy: 60 })
+    coalescer.push({ dx: 0, dy: 60 })
+    coalescer.push({ dx: 0, dy: 1500 })
+    scheduler.runFrame()
+    expect(sent).toEqual(['{"t":"wheel","dx":0,"dy":1200}'])
   })
 })

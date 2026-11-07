@@ -51,6 +51,12 @@ export interface WheelDeltas {
   deltaMode: number
 }
 
+// Wheel amounts in Windows units. They are not rounded, so small deltas add up within a frame.
+export interface WheelUnits {
+  dx: number
+  dy: number
+}
+
 export interface ShortcutKeyEvent {
   code: string
   ctrlKey: boolean
@@ -60,7 +66,14 @@ export interface ShortcutKeyEvent {
 
 export const FRAME_COORDINATE_MAX = 65535
 
-const REMOTE_BUTTONS: readonly RemoteMouseButton[] = [0, 1, 2, 3, 4]
+// PointerEvent.buttons bits, mapped to the protocol's MouseEvent.button values.
+const BUTTON_BITS: readonly { bit: number; button: RemoteMouseButton }[] = [
+  { bit: 1, button: 0 },
+  { bit: 2, button: 2 },
+  { bit: 4, button: 1 },
+  { bit: 8, button: 3 },
+  { bit: 16, button: 4 },
+]
 const WHEEL_UNIT = 120
 const WHEEL_MAX_UNITS = 1200
 const PIXEL_TO_WHEEL_UNITS = WHEEL_UNIT / 100
@@ -113,8 +126,9 @@ export function mapPointerToFrame(
   }
 }
 
-export function toRemoteButton(button: number): RemoteMouseButton | null {
-  return REMOTE_BUTTONS.find((candidate) => candidate === button) ?? null
+// The buttons held in a PointerEvent.buttons bitmask, as protocol button values.
+export function getPressedButtons(buttonsBitmask: number): RemoteMouseButton[] {
+  return BUTTON_BITS.filter(({ bit }) => (buttonsBitmask & bit) !== 0).map(({ button }) => button)
 }
 
 function getWheelUnitsPerDelta(deltaMode: number): number {
@@ -124,14 +138,22 @@ function getWheelUnitsPerDelta(deltaMode: number): number {
 }
 
 // Browser deltas keep their sign (positive is down), which is what the protocol expects.
-export function toWheelUnits(delta: number, deltaMode: number): number {
-  const units = Math.round(delta * getWheelUnitsPerDelta(deltaMode)) || 0
-  return clamp(units, -WHEEL_MAX_UNITS, WHEEL_MAX_UNITS)
+export function toWheelUnits(deltas: WheelDeltas): WheelUnits {
+  const unitsPerDelta = getWheelUnitsPerDelta(deltas.deltaMode)
+  return { dx: deltas.deltaX * unitsPerDelta, dy: deltas.deltaY * unitsPerDelta }
 }
 
-export function buildWheelMessage(deltas: WheelDeltas): string | null {
-  const dx = toWheelUnits(deltas.deltaX, deltas.deltaMode)
-  const dy = toWheelUnits(deltas.deltaY, deltas.deltaMode)
+export function mergeWheelUnits(pending: WheelUnits | null, next: WheelUnits): WheelUnits {
+  return { dx: (pending?.dx ?? 0) + next.dx, dy: (pending?.dy ?? 0) + next.dy }
+}
+
+function toClampedWheelUnit(units: number): number {
+  return clamp(Math.round(units) || 0, -WHEEL_MAX_UNITS, WHEEL_MAX_UNITS)
+}
+
+export function buildWheelMessage(units: WheelUnits): string | null {
+  const dx = toClampedWheelUnit(units.dx)
+  const dy = toClampedWheelUnit(units.dy)
   if (dx === 0 && dy === 0) return null
   return JSON.stringify({ t: 'wheel', dx, dy })
 }
@@ -184,32 +206,39 @@ export function parseServerControlMessage(text: string): ServerControlMessage | 
   return result.success ? result.data : null
 }
 
-export interface MoveCoalescer {
-  push: (point: FramePoint) => void
-  // Sends the pending point now, so an input message that follows is never overtaken by a move.
+export function keepLatest<Item>(_pending: Item | null, next: Item): Item {
+  return next
+}
+
+export interface FrameCoalescer<Item> {
+  push: (item: Item) => void
+  // Sends the pending item now, so an input message that follows is never overtaken by it.
   flush: () => void
   cancel: () => void
 }
 
-interface MoveCoalescerOptions {
-  send: (point: FramePoint) => void
+interface FrameCoalescerOptions<Item> {
+  // Combines an item with the one still pending, for example by keeping the latest or summing.
+  merge: (pending: Item | null, next: Item) => Item
+  send: (item: Item) => void
   requestFrame: (callback: () => void) => number
   cancelFrame: (frameId: number) => void
 }
 
-// Keeps only the latest pointer position and sends it at most once per animation frame.
-export function createMoveCoalescer({
+// Holds merged input and sends it at most once per animation frame.
+export function createFrameCoalescer<Item>({
+  merge,
   send,
   requestFrame,
   cancelFrame,
-}: MoveCoalescerOptions): MoveCoalescer {
-  let pending: FramePoint | null = null
+}: FrameCoalescerOptions<Item>): FrameCoalescer<Item> {
+  let pending: Item | null = null
   let frameId: number | null = null
 
   function sendPending() {
-    const point = pending
+    const item = pending
     pending = null
-    if (point) send(point)
+    if (item !== null) send(item)
   }
 
   function cancelScheduledFrame() {
@@ -218,8 +247,8 @@ export function createMoveCoalescer({
   }
 
   return {
-    push(point) {
-      pending = point
+    push(item) {
+      pending = merge(pending, item)
       if (frameId === null) {
         frameId = requestFrame(() => {
           frameId = null

@@ -9,6 +9,7 @@ import { Icon } from '../ui/icon'
 const CONTROL_NOTICE = 'The administrator is controlling this PC'
 const DEFAULT_DESCRIPTION = 'Use your mouse and keyboard on this PC. The user is always notified.'
 const CONTROLLING_DESCRIPTION = 'Your mouse and keyboard control this PC until you stop.'
+const REQUESTING_DESCRIPTION = 'Starting control… Waiting for the PC to confirm.'
 
 interface PcControlPanelProps {
   pc: Pc
@@ -39,7 +40,7 @@ export function PcControlPanel({
 
   function getDescription(): string {
     if (isOn) return CONTROLLING_DESCRIPTION
-    if (isRequesting) return 'Waiting for the PC to confirm.'
+    if (isRequesting) return REQUESTING_DESCRIPTION
     return takeControlBlockMessage ?? DEFAULT_DESCRIPTION
   }
 
@@ -76,9 +77,9 @@ export function PcControlPanel({
           </Button>
         )}
         {isRequesting && (
-          <Button variant="primary" disabled>
-            <Icon name="monitor" />
-            Starting control…
+          <Button variant="secondary" onClick={onStopControl}>
+            <Icon name="x" />
+            Cancel
           </Button>
         )}
         {!isOn && !isRequesting && (

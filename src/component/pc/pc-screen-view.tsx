@@ -85,10 +85,10 @@ export function PcScreenView({
     }
   }, [isFullView])
 
-  // Keys go to the PC only while the screen has focus.
+  // Keys go to the PC only while the screen has focus. Entering or leaving full view moves focus, so it is restored.
   useEffect(() => {
     if (isControlling) canvasRef.current?.focus()
-  }, [isControlling, canvasRef])
+  }, [isControlling, isFullView, canvasRef])
 
   // Chromium locks the keyboard only in full view, so Alt+Tab and similar keys reach the PC.
   useEffect(() => {

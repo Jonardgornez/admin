@@ -7,6 +7,7 @@ import {
   getControlEndMessage,
   getTakeControlBlockMessage,
   startControl,
+  timeOutControlRequest,
   type RemoteControlState,
 } from './remote-control'
 import type { ServerControlMessage } from './remote-input'
@@ -78,7 +79,24 @@ describe('endControl', () => {
   })
 })
 
+describe('timeOutControlRequest', () => {
+  it('ends a request nobody confirmed as unsupported', () => {
+    expect(timeOutControlRequest(REQUESTING)).toEqual({ kind: 'off', reason: 'unsupported' })
+  })
+
+  it('leaves a session that already turned on alone', () => {
+    expect(timeOutControlRequest(ON)).toBe(ON)
+    expect(timeOutControlRequest(CONTROL_OFF_STATE)).toBe(CONTROL_OFF_STATE)
+  })
+})
+
 describe('getControlEndMessage', () => {
+  it('explains a screen that paused without blaming the connection', () => {
+    expect(getControlEndMessage(endControl(ON, 'paused'))).toBe(
+      "The PC's screen paused (for example a UAC prompt), so control stopped.",
+    )
+  })
+
   it('explains each refusal and end reason', () => {
     expect(getControlEndMessage({ kind: 'off', reason: 'anonymous' })).toBe(
       'Remote control needs Notified view.',
