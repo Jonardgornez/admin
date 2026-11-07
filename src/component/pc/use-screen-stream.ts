@@ -9,10 +9,12 @@ import {
   SCREEN_REFUSED_MESSAGE,
   type ScreenSize,
   type ScreenStreamStatus,
+  type ServerScreenState,
 } from '../../lib/screen-stream'
 import type { ViewMode } from '../../types'
 import { useAuth } from '../auth/auth-context'
-import { openScreenConnection } from './screen-connection'
+import type { ServerControlMessage } from '../../lib/remote-input'
+import { openScreenConnection, type ScreenConnection } from './screen-connection'
 
 interface UseScreenStreamOptions {
   // Null means no PC is being viewed, so no socket is open.
@@ -21,11 +23,21 @@ interface UseScreenStreamOptions {
   onRefused: () => void
 }
 
+// Control messages and server states, delivered as they arrive on the socket.
+export type ScreenSocketEvent =
+  | { kind: 'server-state'; state: ServerScreenState }
+  | { kind: 'control'; message: ServerControlMessage }
+
+export type ScreenSocketListener = (event: ScreenSocketEvent) => void
+
 export interface ScreenStream {
   canvasRef: RefObject<HTMLCanvasElement | null>
   status: ScreenStreamStatus
   hasFrame: boolean
   reconnect: () => void
+  // Resolves false when the socket is not open, so nothing was sent.
+  sendMessage: (message: string) => boolean
+  subscribe: (listener: ScreenSocketListener) => () => void
 }
 
 interface ScreenStreamState {
@@ -57,6 +69,8 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
   const [attempt, setAttempt] = useState(0)
   const target = pcId === null ? null : `${pcId}:${mode}`
   const [trackedTarget, setTrackedTarget] = useState(target)
+  const [socketListeners] = useState(() => new Set<ScreenSocketListener>())
+  const connectionRef = useRef<ScreenConnection | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const automaticRetriesRef = useRef(0)
   const retriesTargetRef = useRef<string | null>(null)
@@ -102,24 +116,32 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
       retryTimerRef.current = setTimeout(() => setAttempt((current) => current + 1), delay)
     }
 
+    function notifyListeners(event: ScreenSocketEvent) {
+      socketListeners.forEach((listener) => listener(event))
+    }
+
     const connection = openScreenConnection({
       url: buildScreenStreamUrl(window.location, pcId, mode),
       getCanvas: () => canvasRef.current,
-      onServerState: (serverState) => {
+      onServerState: (serverState: ServerScreenState) => {
         // Only a live PC proves the connection is healthy. Every new socket starts with "waiting",
         // so counting that as healthy would let a failing view retry forever.
         if (serverState === 'live') automaticRetriesRef.current = 0
         setState((previous) => withStatus(previous, { kind: serverState }))
+        notifyListeners({ kind: 'server-state', state: serverState })
       },
+      onControlMessage: (message) => notifyListeners({ kind: 'control', message }),
       onFrameDrawn: (size) => setState((previous) => ({ ...previous, size })),
       onClose: handleClose,
     })
+    connectionRef.current = connection
 
     return () => {
       clearTimeout(retryTimerRef.current)
+      connectionRef.current = null
       connection.close()
     }
-  }, [pcId, mode, attempt])
+  }, [pcId, mode, attempt, socketListeners])
 
   const reconnect = useCallback(() => {
     automaticRetriesRef.current = 0
@@ -127,10 +149,27 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
     setAttempt((current) => current + 1)
   }, [])
 
+  const sendMessage = useCallback(
+    (message: string) => connectionRef.current?.send(message) ?? false,
+    [],
+  )
+
+  const subscribe = useCallback(
+    (listener: ScreenSocketListener) => {
+      socketListeners.add(listener)
+      return () => {
+        socketListeners.delete(listener)
+      }
+    },
+    [socketListeners],
+  )
+
   return {
     canvasRef,
     status: state.status,
     hasFrame: state.size !== null,
     reconnect,
+    sendMessage,
+    subscribe,
   }
 }

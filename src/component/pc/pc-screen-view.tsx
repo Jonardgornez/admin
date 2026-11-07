@@ -4,6 +4,10 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Icon } from '../ui/icon'
 import { useNotify } from '../ui/notification-context'
+import { getKeyboardLock } from '../../lib/keyboard-lock'
+
+const RELEASE_HINT = 'Press Ctrl+Alt+Shift+X to release the keyboard.'
+const STOP_HINT = 'Stop control is focused. Press Enter to stop control.'
 
 const containerVariants = cva('flex flex-col', {
   variants: {
@@ -19,7 +23,7 @@ const screenVariants = cva(
   {
     variants: {
       isControlling: {
-        true: 'border-2 border-brand cursor-none',
+        true: 'border-2 border-brand',
         false: 'border border-border-strong',
       },
       isFullView: {
@@ -34,11 +38,13 @@ interface PcScreenViewProps {
   pcName: string
   isOffline: boolean
   isControlling: boolean
+  isStopHintShown: boolean
   isFrameVisible: boolean
   placeholderText: string
   viewModeLabel: string
   captionText?: string
   canvasRef: RefObject<HTMLCanvasElement | null>
+  stopButtonRef: RefObject<HTMLButtonElement | null>
   onStopControl: () => void
 }
 
@@ -46,11 +52,13 @@ export function PcScreenView({
   pcName,
   isOffline,
   isControlling,
+  isStopHintShown,
   isFrameVisible,
   placeholderText,
   viewModeLabel,
   captionText,
   canvasRef,
+  stopButtonRef,
   onStopControl,
 }: PcScreenViewProps) {
   const notify = useNotify()
@@ -76,6 +84,19 @@ export function PcScreenView({
       fullViewButtonRef.current?.focus()
     }
   }, [isFullView])
+
+  // Keys go to the PC only while the screen has focus.
+  useEffect(() => {
+    if (isControlling) canvasRef.current?.focus()
+  }, [isControlling, canvasRef])
+
+  // Chromium locks the keyboard only in full view, so Alt+Tab and similar keys reach the PC.
+  useEffect(() => {
+    if (!isControlling || !isFullView) return
+    const keyboard = getKeyboardLock(navigator)
+    void keyboard?.lock().catch(() => undefined)
+    return () => keyboard?.unlock()
+  }, [isControlling, isFullView])
 
   async function enterFullView() {
     try {
@@ -107,7 +128,7 @@ export function PcScreenView({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isControlling && (
-              <Button variant="secondary" onClick={stopControl}>
+              <Button ref={stopButtonRef} variant="secondary" onClick={stopControl}>
                 <Icon name="x" />
                 Stop control
               </Button>
@@ -127,10 +148,15 @@ export function PcScreenView({
         {/* The canvas stays mounted so its last frame survives a placeholder. */}
         <canvas
           ref={canvasRef}
-          role="img"
-          aria-label={`Live screen of ${pcName}`}
+          role={isControlling ? 'application' : 'img'}
+          aria-label={
+            isControlling
+              ? `Remote control of ${pcName}. Your keyboard and mouse control this PC.`
+              : `Live screen of ${pcName}`
+          }
+          tabIndex={isControlling ? 0 : undefined}
           hidden={!isFrameVisible}
-          className="size-full object-contain"
+          className="size-full object-contain focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         {isOffline && <p className="m-0 p-4">This PC is offline, so its screen can't be viewed.</p>}
         {!isOffline && !isFrameVisible && (
@@ -139,6 +165,11 @@ export function PcScreenView({
           </p>
         )}
       </div>
+      {isControlling && (
+        <p role="status" className="m-0 text-sm text-ink-muted">
+          {isStopHintShown ? STOP_HINT : RELEASE_HINT}
+        </p>
+      )}
       {!isFullView && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {!isOffline && (

@@ -1,3 +1,4 @@
+import { parseServerControlMessage, type ServerControlMessage } from '../../lib/remote-input'
 import {
   LatestFrameQueue,
   parseScreenStateMessage,
@@ -13,6 +14,7 @@ export interface ScreenConnectionOptions {
   url: string
   getCanvas: () => HTMLCanvasElement | null
   onServerState: (state: ServerScreenState) => void
+  onControlMessage: (message: ServerControlMessage) => void
   // Called only when the frame size changes.
   onFrameDrawn: (size: ScreenSize) => void
   // wasOpen is false when the server refused the upgrade (for example 401, 403, 404 or 409).
@@ -21,6 +23,8 @@ export interface ScreenConnectionOptions {
 
 export interface ScreenConnection {
   close: () => void
+  // Returns false and sends nothing unless the socket is open.
+  send: (message: string) => boolean
 }
 
 async function decodeFrame(frame: ArrayBuffer): Promise<ImageBitmap | null> {
@@ -79,7 +83,12 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
   socket.addEventListener('message', (event: MessageEvent<unknown>) => {
     if (typeof event.data === 'string') {
       const state = parseScreenStateMessage(event.data)
-      if (state) options.onServerState(state)
+      if (state) {
+        options.onServerState(state)
+        return
+      }
+      const control = parseServerControlMessage(event.data)
+      if (control) options.onControlMessage(control)
       return
     }
     if (event.data instanceof ArrayBuffer) frames.push(event.data)
@@ -96,6 +105,11 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
       if (isClosed) return
       isClosed = true
       socket.close(NORMAL_CLOSE_CODE)
+    },
+    send(message) {
+      if (socket.readyState !== WebSocket.OPEN) return false
+      socket.send(message)
+      return true
     },
   }
 }

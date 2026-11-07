@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackToDashboardLink } from '../component/layout/back-link'
 import { useNavigationLock } from '../component/layout/navigation-lock-context'
@@ -10,6 +10,7 @@ import { saveCanvasAsPng } from '../component/pc/screen-screenshot'
 import { ScreenEndedBanner } from '../component/pc/screen-ended-banner'
 import { ScreenStatusBadge } from '../component/pc/screen-status-badge'
 import { usePcs } from '../component/pc/use-pcs'
+import { useRemoteControl } from '../component/pc/use-remote-control'
 import { useScreenStream } from '../component/pc/use-screen-stream'
 import { Badge } from '../component/ui/badge'
 import { Banner } from '../component/ui/banner'
@@ -17,6 +18,7 @@ import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import { canViewPcScreen } from '../lib/pcs'
+import { getTakeControlBlockMessage } from '../lib/remote-control'
 import { buildScreenshotFilename, getScreenPlaceholderText } from '../lib/screen-stream'
 import type { ViewMode } from '../types'
 
@@ -26,9 +28,10 @@ export function ViewScreenPage() {
   const navigate = useNavigate()
   const notify = useNotify()
   const { pcs, loadState, retry } = usePcs()
-  const [isControlling, setIsControlling] = useState(false)
   const { setIsNavigationLocked } = useNavigationLock()
-  const navigationBlocker = useBlocker(isControlling)
+  const panelStopButtonRef = useRef<HTMLButtonElement>(null)
+  const screenStopButtonRef = useRef<HTMLButtonElement>(null)
+  const [hasUsedReleaseShortcut, setHasUsedReleaseShortcut] = useState(false)
 
   const pc = pcs.find((candidate) => candidate.name === pcName)
   const isOffline = pc !== undefined && !canViewPcScreen(pc)
@@ -38,14 +41,26 @@ export function ViewScreenPage() {
     mode: viewMode,
     onRefused: retry,
   })
+
+  function focusStopControl() {
+    setHasUsedReleaseShortcut(true)
+    const stopButton = screenStopButtonRef.current ?? panelStopButtonRef.current
+    stopButton?.focus()
+  }
+
+  const control = useRemoteControl({ screen, onReleaseShortcut: focusStopControl })
+  const isControlling = control.state.kind === 'on'
+  const isControlActive = isControlling || control.state.kind === 'requesting'
+  const navigationBlocker = useBlocker(isControlActive)
+
   // The last picture is shown or saved only while the stream is live, never as if it were current.
   const isFrameVisible = screen.hasFrame && !isOffline && screen.status.kind === 'live'
   const endedMessage = screen.status.kind === 'ended' ? screen.status.message : null
 
   useEffect(() => {
-    setIsNavigationLocked(isControlling)
+    setIsNavigationLocked(isControlActive)
     return () => setIsNavigationLocked(false)
-  }, [isControlling, setIsNavigationLocked])
+  }, [isControlActive, setIsNavigationLocked])
 
   useEffect(() => {
     if (navigationBlocker.state !== 'blocked') return
@@ -91,6 +106,7 @@ export function ViewScreenPage() {
 
   const viewModeLabel = viewMode === 'notified' ? 'Notified view' : 'Anonymous view'
   const captionText = pc.user ? `User ${pc.user}` : undefined
+  const takeControlBlockMessage = getTakeControlBlockMessage(pc, viewMode, screen.status)
 
   const saveScreenshot = async () => {
     const canvas = screen.canvasRef.current
@@ -98,6 +114,11 @@ export function ViewScreenPage() {
       canvas !== null && (await saveCanvasAsPng(canvas, buildScreenshotFilename(pc.name, new Date())))
     if (isSaved) notify(`Screenshot of ${pc.name} saved.`, 'download')
     else notify("Couldn't save the screenshot.", 'alert')
+  }
+
+  function startControl() {
+    setHasUsedReleaseShortcut(false)
+    control.start()
   }
 
   return (
@@ -128,7 +149,7 @@ export function ViewScreenPage() {
           <Icon name="download" />
           Save screenshot
         </Button>
-        <Button variant="ghost" disabled={isControlling} onClick={() => navigate('/dashboard')}>
+        <Button variant="ghost" disabled={isControlActive} onClick={() => navigate('/dashboard')}>
           <Icon name="x" />
           Close view
         </Button>
@@ -146,12 +167,14 @@ export function ViewScreenPage() {
         pcName={pc.name}
         isOffline={isOffline}
         isControlling={isControlling}
+        isStopHintShown={isControlling && hasUsedReleaseShortcut}
         isFrameVisible={isFrameVisible}
         placeholderText={getScreenPlaceholderText(screen.status)}
         viewModeLabel={viewModeLabel}
         captionText={captionText}
         canvasRef={screen.canvasRef}
-        onStopControl={() => setIsControlling(false)}
+        stopButtonRef={screenStopButtonRef}
+        onStopControl={control.stop}
       />
 
       {!isControlling && viewMode === 'notified' && (
@@ -167,9 +190,11 @@ export function ViewScreenPage() {
 
       <PcControlPanel
         pc={pc}
-        isControlling={isControlling}
-        onStartControl={() => setIsControlling(true)}
-        onStopControl={() => setIsControlling(false)}
+        control={control.state}
+        takeControlBlockMessage={takeControlBlockMessage}
+        stopButtonRef={panelStopButtonRef}
+        onStartControl={startControl}
+        onStopControl={control.stop}
       />
     </>
   )
