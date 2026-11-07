@@ -73,6 +73,32 @@ describe('sendMessageSchema', () => {
     expect(errorFor(text)).toBe('Remove tabs and other special characters.')
   })
 
+  it.each([
+    ['ARABIC LETTER MARK', '؜'],
+    ['ZERO WIDTH SPACE', '​'],
+    ['LEFT-TO-RIGHT MARK', '‎'],
+    ['RIGHT-TO-LEFT MARK', '‏'],
+    ['LEFT-TO-RIGHT EMBEDDING', '‪'],
+    ['RIGHT-TO-LEFT OVERRIDE', '‮'],
+    ['LEFT-TO-RIGHT ISOLATE', '⁦'],
+    ['POP DIRECTIONAL ISOLATE', '⁩'],
+    ['LINE SEPARATOR', ' '],
+    ['PARAGRAPH SEPARATOR', ' '],
+    ['BYTE ORDER MARK', '﻿'],
+  ])('rejects a direction or invisible character (%s)', (_label, character) => {
+    expect(errorFor(`safe${character}text`)).toBe(
+      "The message can't contain direction or invisible formatting characters.",
+    )
+  })
+
+  it('accepts a zero width joiner inside an emoji sequence', () => {
+    expect(parseText('family \u{1F468}‍\u{1F469}‍\u{1F467}').success).toBe(true)
+  })
+
+  it('accepts a zero width non-joiner', () => {
+    expect(parseText('a‌b').success).toBe(true)
+  })
+
   it('rejects an unpaired high surrogate', () => {
     expect(errorFor('a\uD83Db')).toBe('Remove tabs and other special characters.')
   })

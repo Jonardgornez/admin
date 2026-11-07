@@ -10,8 +10,9 @@ import {
 } from '../../lib/message-schema'
 import {
   describeDeliverySummary,
-  describeOfflineExclusion,
   describeMessageStatus,
+  describeOfflineExclusion,
+  getRecipientLimitError,
   getUndeliveredResults,
 } from '../../lib/messages'
 import type { PcMessageDelivery } from '../../lib/messages-api'
@@ -65,6 +66,7 @@ export function SendMessageDialog({
       if (result.success) setDeliveries(result.data)
       else if (isSessionExpired(result)) return
       else if (result.status === BAD_REQUEST_STATUS) setError('text', { message: result.error })
+      // Other failures, such as 429 while another message is still being sent, go in the banner.
       else setError('root', { message: result.error })
     } finally {
       isSubmittingRef.current = false
@@ -77,6 +79,7 @@ export function SendMessageDialog({
 
   const recipientNames = recipients.map((pc) => pc.name).join(', ')
   const offlineNote = describeOfflineExclusion(offlineCount)
+  const recipientLimitError = getRecipientLimitError(recipients.length)
 
   if (deliveries !== null) {
     const undelivered = getUndeliveredResults(deliveries)
@@ -92,7 +95,7 @@ export function SendMessageDialog({
           {undelivered.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="m-0 text-xs font-semibold tracking-label text-ink-muted">
-                Not delivered
+                Not received
               </p>
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {undelivered.map((result) => (
@@ -136,6 +139,11 @@ export function SendMessageDialog({
             </span>
           </p>
           {offlineNote && <p className="m-0 text-sm text-ink-muted">{offlineNote}</p>}
+          {recipientLimitError && (
+            <p role="alert" className="m-0 text-sm font-semibold text-danger">
+              {recipientLimitError}
+            </p>
+          )}
           {errors.root && (
             <Banner variant="danger" icon="alert" role="alert">
               {errors.root.message}
@@ -165,7 +173,11 @@ export function SendMessageDialog({
           <Button variant="secondary" disabled={isSubmitting} onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting || !isValid}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={isSubmitting || !isValid || recipientLimitError !== undefined}
+          >
             {isSubmitting ? 'Sending…' : 'Send'}
           </Button>
         </div>

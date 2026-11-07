@@ -2,6 +2,14 @@ import { z } from 'zod'
 
 export const MAX_MESSAGE_LENGTH = 500
 export const MAX_MESSAGE_LINES = 10
+export const MAX_MESSAGE_RECIPIENTS = 100
+
+// Bidi controls and invisible formatting characters that can disguise a message. ZWJ and ZWNJ
+// are left out on purpose, because emoji sequences need ZWJ. Matches the server's list.
+const DIRECTION_OR_INVISIBLE_CHARACTERS = new Set([
+  0x061c, 0x200b, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2028, 0x2029, 0x2066,
+  0x2067, 0x2068, 0x2069, 0xfeff,
+])
 
 const NEWLINE = 0x0a
 const LAST_CONTROL_CHARACTER = 0x1f
@@ -37,6 +45,14 @@ function hasUnsupportedCharacter(text: string): boolean {
   return false
 }
 
+// Every character in the set is in the Basic Multilingual Plane, so one code unit each is enough.
+function hasDirectionOrInvisibleCharacter(text: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    if (DIRECTION_OR_INVISIBLE_CHARACTERS.has(text.charCodeAt(index))) return true
+  }
+  return false
+}
+
 export function countMessageLines(text: string): number {
   return text.split('\n').length
 }
@@ -57,6 +73,10 @@ const messageTextSchema = z
       .refine(
         (text) => !hasUnsupportedCharacter(text),
         'Remove tabs and other special characters.',
+      )
+      .refine(
+        (text) => !hasDirectionOrInvisibleCharacter(text),
+        "The message can't contain direction or invisible formatting characters.",
       ),
   )
 

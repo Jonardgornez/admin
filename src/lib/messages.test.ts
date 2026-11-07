@@ -4,6 +4,7 @@ import {
   describeDeliverySummary,
   describeMessageStatus,
   describeOfflineExclusion,
+  getRecipientLimitError,
   getUndeliveredResults,
 } from './messages'
 
@@ -16,6 +17,7 @@ const results: PcMessageDelivery[] = [
 describe('messages', () => {
   describe('describeMessageStatus', () => {
     it.each([
+      ['delivered', 'Received by the PC'],
       ['failed', "Didn't confirm — the PC may need client 0.12.0"],
       ['offline', 'Offline'],
       ['not-found', 'No longer registered'],
@@ -36,12 +38,27 @@ describe('messages', () => {
   })
 
   describe('describeDeliverySummary', () => {
-    it('counts delivered PCs out of all results', () => {
-      expect(describeDeliverySummary(results)).toBe('Delivered to 2 of 3 PCs.')
+    it('counts the PCs that received the message', () => {
+      expect(describeDeliverySummary(results)).toBe('Received by 2 PCs.')
     })
 
     it('uses the singular for one PC', () => {
-      expect(describeDeliverySummary([results[0]])).toBe('Delivered to 1 of 1 PC.')
+      expect(describeDeliverySummary([results[0]])).toBe('Received by 1 PC.')
+    })
+
+    it('reports zero when no PC received it', () => {
+      expect(describeDeliverySummary([results[1]])).toBe('Received by 0 PCs.')
+    })
+  })
+
+  describe('getRecipientLimitError', () => {
+    it('allows up to 100 recipients', () => {
+      expect(getRecipientLimitError(1)).toBeUndefined()
+      expect(getRecipientLimitError(100)).toBeUndefined()
+    })
+
+    it('rejects 101 recipients', () => {
+      expect(getRecipientLimitError(101)).toBe('Select at most 100 PCs.')
     })
   })
 
