@@ -317,6 +317,7 @@ export function DashboardPage() {
             onSendMessage={() => setMessageTargets(selectedMessageTargets)}
             isBulkPowerDisabled={isDisconnected || isBulkCommandBusy}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
+            selectedCount={selectedPcNames.length}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
