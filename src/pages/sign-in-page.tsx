@@ -54,7 +54,7 @@ export function SignInPage() {
       >
         <div className="flex flex-col gap-1">
           <img src={lykantraMark} alt="" width={96} height={96} className="size-24 self-center" />
-          <span className="text-sm font-semibold text-brand">Lykantra Admin Console</span>
+          <span className="text-center text-sm font-semibold text-brand">Lykantra Admin Console</span>
           <h1 className="m-0 text-2xl font-semibold">Sign in</h1>
         </div>
         {notice && (
