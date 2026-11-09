@@ -20,7 +20,7 @@ function buildHeaders(hasBody: boolean, isBackground: boolean): Record<string, s
   return Object.keys(headers).length === 0 ? undefined : headers
 }
 
-async function readJson(response: Response): Promise<unknown> {
+export async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
   } catch {
@@ -28,7 +28,7 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function readErrorMessage(body: unknown): string {
+export function readErrorMessage(body: unknown): string {
   if (typeof body === 'object' && body !== null && 'error' in body) {
     const { error } = body
     if (typeof error === 'string' && error.trim() !== '') return error

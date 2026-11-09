@@ -135,14 +135,43 @@ export interface LoginRequest {
   reason?: LoginRequestReason
 }
 
+export const SESSION_LOG_SOURCES = ['account', 'admin-unlock', 'login-request'] as const
+
+export type SessionLogSource = (typeof SESSION_LOG_SOURCES)[number]
+
+// Why a session ended. 'unknown' stands in for any reason this console does not know.
+export const SESSION_LOG_END_REASONS = [
+  'logout',
+  'time-expired',
+  'account-disabled',
+  'account-deleted',
+  'replaced',
+  'pc-removed',
+  'connection-lost',
+  'shutdown',
+  'reboot',
+  'unknown',
+] as const
+
+export type SessionLogEndReason = (typeof SESSION_LOG_END_REASONS)[number]
+
 export interface SessionLog {
-  id: string
+  id: number
   pcName: string
   userOrSource: string
+  source: SessionLogSource
   startedAt: string
+  // Null while the session is still running.
   endedAt: string | null
   durationMinutes: number
-  endedBy: string | null
+  endReason: SessionLogEndReason | null
+}
+
+export interface SessionLogPage {
+  items: SessionLog[]
+  totalItems: number
+  page: number
+  pageSize: number
 }
 
 export type ApprovalChoice = { mode: 'time-limit'; minutes: number } | { mode: 'open-time' }
