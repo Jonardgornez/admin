@@ -99,7 +99,7 @@ describe('getControlEndMessage', () => {
 
   it('explains each refusal and end reason', () => {
     expect(getControlEndMessage({ kind: 'off', reason: 'anonymous' })).toBe(
-      'Remote control needs Notified view.',
+      'This server only allows control in Notified view. Restart it with the latest version.',
     )
     expect(getControlEndMessage({ kind: 'off', reason: 'server-pc' })).toBe(
       "You can't control the server's own PC.",
@@ -129,40 +129,28 @@ describe('getControlEndMessage', () => {
 })
 
 describe('getTakeControlBlockMessage', () => {
-  it('allows Take control for a notified, live, actionable PC', () => {
-    expect(getTakeControlBlockMessage(pcWith(), 'notified', LIVE)).toBeNull()
-  })
-
-  it('asks for Notified view in the anonymous view', () => {
-    expect(getTakeControlBlockMessage(pcWith(), 'anonymous', LIVE)).toBe(
-      'Switch to Notified view to take control.',
-    )
+  it('allows Take control for a live, actionable PC ', () => {
+    expect(getTakeControlBlockMessage(pcWith(), LIVE)).toBeNull()
   })
 
   it("refuses the server's own PC", () => {
-    expect(getTakeControlBlockMessage(pcWith({ isServerPc: true }), 'notified', LIVE)).toBe(
+    expect(getTakeControlBlockMessage(pcWith({ isServerPc: true }), LIVE)).toBe(
       "You can't control the server's own PC.",
     )
   })
 
   it('refuses a PC that is off or rebooting', () => {
-    expect(getTakeControlBlockMessage(pcWith({ status: 'offline' }), 'notified', LIVE)).toBe(
+    expect(getTakeControlBlockMessage(pcWith({ status: 'offline' }), LIVE)).toBe(
       'Remote control is unavailable while this PC is off or rebooting.',
     )
-    expect(getTakeControlBlockMessage(pcWith({ status: 'rebooting' }), 'notified', LIVE)).toBe(
+    expect(getTakeControlBlockMessage(pcWith({ status: 'rebooting' }), LIVE)).toBe(
       'Remote control is unavailable while this PC is off or rebooting.',
     )
   })
 
   it('waits for the live picture', () => {
-    expect(getTakeControlBlockMessage(pcWith(), 'notified', { kind: 'waiting' })).toBe(
+    expect(getTakeControlBlockMessage(pcWith(), { kind: 'waiting' })).toBe(
       'Wait for the live picture before taking control.',
     )
-  })
-
-  it('checks the view before the PC state', () => {
-    expect(
-      getTakeControlBlockMessage(pcWith({ isServerPc: true }), 'anonymous', LIVE),
-    ).toBe('Switch to Notified view to take control.')
   })
 })

@@ -106,7 +106,7 @@ export function ViewScreenPage() {
 
   const viewModeLabel = viewMode === 'notified' ? 'Notified view' : 'Anonymous view'
   const captionText = pc.user ? `User ${pc.user}` : undefined
-  const takeControlBlockMessage = getTakeControlBlockMessage(pc, viewMode, screen.status)
+  const takeControlBlockMessage = getTakeControlBlockMessage(pc, screen.status)
 
   const saveScreenshot = async () => {
     const canvas = screen.canvasRef.current
@@ -184,7 +184,8 @@ export function ViewScreenPage() {
       )}
       {!isControlling && viewMode === 'anonymous' && (
         <Banner variant="neutral" icon="eye" title="Anonymous view">
-          {pc.name} shows no sign that you are viewing its screen.
+          {pc.name} shows no sign that you are viewing its screen. If you take control, it shows a
+          notice that the administrator is controlling it until you stop.
         </Banner>
       )}
 

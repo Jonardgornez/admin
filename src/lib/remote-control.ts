@@ -1,4 +1,4 @@
-import type { Pc, ViewMode } from '../types'
+import type { Pc } from '../types'
 import { isPcActionable } from './pcs'
 import type { ControlOffReason, ServerControlMessage } from './remote-input'
 import type { ScreenStreamStatus } from './screen-stream'
@@ -19,7 +19,8 @@ const LIVE_PICTURE_MESSAGE = 'Wait for the live picture before taking control.'
 
 const CONTROL_END_MESSAGES: Record<RemoteControlEndReason, string | null> = {
   stopped: null,
-  anonymous: 'Remote control needs Notified view.',
+  // Only an older server sends this reason; the current one allows control in either view.
+  anonymous: 'This server only allows control in Notified view. Restart it with the latest version.',
   'server-pc': SERVER_PC_MESSAGE,
   waiting: LIVE_PICTURE_MESSAGE,
   unsupported: `This PC's client is too old for remote control. Update it to ${REQUIRED_CLIENT_VERSION}.`,
@@ -68,10 +69,8 @@ export function getControlEndMessage(state: RemoteControlState): string | null {
 // The first unmet requirement, in the order the admin can fix them. Null means Take control is allowed.
 export function getTakeControlBlockMessage(
   pc: Pc,
-  viewMode: ViewMode,
   streamStatus: ScreenStreamStatus,
 ): string | null {
-  if (viewMode === 'anonymous') return 'Switch to Notified view to take control.'
   if (pc.isServerPc) return SERVER_PC_MESSAGE
   if (!isPcActionable(pc)) return 'Remote control is unavailable while this PC is off or rebooting.'
   if (streamStatus.kind !== 'live') return LIVE_PICTURE_MESSAGE
