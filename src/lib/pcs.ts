@@ -79,14 +79,9 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
   }
 }
 
-export function comparePcNames(first: string, second: string): number {
-  return first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' })
-}
-
-export function toSortedRegisteredPcs(serverPcs: ServerPc[], now: Date): RegisteredPc[] {
-  return serverPcs
-    .map((serverPc) => toRegisteredPc(serverPc, now))
-    .sort((first, second) => comparePcNames(first.name, second.name))
+// Keeps the server's order, which is registration order, so a newly added PC appears last.
+export function toRegisteredPcs(serverPcs: ServerPc[], now: Date): RegisteredPc[] {
+  return serverPcs.map((serverPc) => toRegisteredPc(serverPc, now))
 }
 
 export function formatLastUpdate(updatedAt: Date): string {

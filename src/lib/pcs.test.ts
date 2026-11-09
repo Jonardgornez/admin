@@ -10,11 +10,10 @@ import {
   isPowerCancelButtonShown,
   canEditPcTime,
   canTimeOutPc,
-  comparePcNames,
   formatLastUpdate,
   formatTimeUsed,
   toRegisteredPc,
-  toSortedRegisteredPcs,
+  toRegisteredPcs,
   canLockPc,
   canUnlockPc,
   countOnlinePcs,
@@ -1039,23 +1038,15 @@ describe('toRegisteredPc', () => {
   })
 })
 
-describe('comparePcNames', () => {
-  it('orders numbers inside names by value', () => {
-    expect(comparePcNames('PC-2', 'PC-10')).toBeLessThan(0)
-    expect(comparePcNames('PC-10', 'PC-2')).toBeGreaterThan(0)
-    expect(comparePcNames('PC-2', 'PC-2')).toBe(0)
-  })
-})
-
-describe('toSortedRegisteredPcs', () => {
-  it('converts and sorts by name numerically without changing the input', () => {
+describe('toRegisteredPcs', () => {
+  it('keeps the server order, so a newly added PC stays last', () => {
     const input = ['PC-10', 'PC-2', 'PC-1'].map((name, index) => ({ ...serverPc, id: index, name }))
-    expect(toSortedRegisteredPcs(input, now).map((pc) => pc.name)).toEqual(['PC-1', 'PC-2', 'PC-10'])
+    expect(toRegisteredPcs(input, now).map((pc) => pc.name)).toEqual(['PC-10', 'PC-2', 'PC-1'])
     expect(input.map((pc) => pc.name)).toEqual(['PC-10', 'PC-2', 'PC-1'])
   })
 
   it('returns an empty list for no PCs', () => {
-    expect(toSortedRegisteredPcs([], now)).toEqual([])
+    expect(toRegisteredPcs([], now)).toEqual([])
   })
 })
 

@@ -137,7 +137,7 @@ export function PcCard({
   const shutdownTitle = pc.isServerPc ? SERVER_PC_SHUT_DOWN_TITLE : shutdownLabel
   const cancelLabel = getCancelPowerLabel(pc)
   const removeLabel = `Remove ${pc.name}`
-  const canRemove = onRemove !== undefined && pc.status === 'offline'
+  const canRemove = onRemove !== undefined && isOff
 
   return (
     <article className={cardVariants({ isSelected, isOff })}>

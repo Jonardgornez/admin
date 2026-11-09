@@ -8,7 +8,7 @@ import {
   canShutDownPc,
   getLockToggleTarget,
   isPcOnline,
-  toSortedRegisteredPcs,
+  toRegisteredPcs,
 } from '../../lib/pcs'
 import * as pcsApi from '../../lib/pcs-api'
 import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
@@ -62,7 +62,7 @@ export function usePcs() {
     if (result.success) {
       hasLoaded.current = true
       const now = new Date()
-      setPcs(toSortedRegisteredPcs(result.data, now))
+      setPcs(toRegisteredPcs(result.data, now))
       setLoadState({ status: 'loaded' })
       setIsDisconnected(false)
       setLastUpdatedAt(now)
