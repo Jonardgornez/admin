@@ -122,7 +122,7 @@ describe('login requests api', () => {
     })
 
     it('still fails on a status it does not know', async () => {
-      stubFetch(Response.json({ pending: [], history: [{ ...deniedEntry, status: 'expired' }] }))
+      stubFetch(Response.json({ pending: [], history: [{ ...deniedEntry, status: 'archived' }] }))
       expect(await listLoginRequests()).toMatchObject({ success: false })
     })
 

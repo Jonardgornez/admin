@@ -16,6 +16,8 @@ export default defineConfig({
   server: { proxy: apiProxy },
   preview: { proxy: apiProxy },
   test: {
-    include: ['src/**/*.test.ts'],
+    // Node is the default environment. Rendered tests opt into jsdom with a per-file docblock.
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/setup.ts'],
   },
 })

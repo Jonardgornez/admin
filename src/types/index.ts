@@ -120,6 +120,7 @@ export const LOGIN_REQUEST_REASONS = [
   'pc-unknown',
   'logged-in',
   'cancelled-by-pc',
+  'expired',
 ] as const
 
 export type LoginRequestReason = (typeof LOGIN_REQUEST_REASONS)[number]

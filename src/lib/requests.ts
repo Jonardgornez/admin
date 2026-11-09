@@ -21,6 +21,7 @@ const REASON_LABELS: Record<LoginRequestReason, string> = {
   'pc-unknown': 'Sent by an older client',
   'logged-in': 'Student logged in',
   'cancelled-by-pc': 'Cancelled by the student',
+  expired: 'Expired after 10 minutes',
 }
 
 function parseTimestamp(timestamp: string): Date | null {

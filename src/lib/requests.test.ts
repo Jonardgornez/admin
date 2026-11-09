@@ -126,6 +126,12 @@ describe('formatDecision', () => {
     )
   })
 
+  it('says a request expired after ten minutes', () => {
+    expect(formatDecision({ status: 'cancelled', reason: 'expired' })).toBe(
+      'Cancelled: Expired after 10 minutes',
+    )
+  })
+
   it('shows just the status when there is no reason', () => {
     expect(formatDecision({ status: 'cancelled', reason: undefined })).toBe('Cancelled')
   })
