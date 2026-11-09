@@ -1,18 +1,32 @@
 import { useId, useState, type RefObject } from 'react'
 import { getControlEndMessage, type RemoteControlState } from '../../lib/remote-control'
-import type { Pc } from '../../types'
+import type { Pc, ViewMode } from '../../types'
 import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { Icon } from '../ui/icon'
 
 const CONTROL_NOTICE = 'The administrator is controlling this PC'
-const DEFAULT_DESCRIPTION = 'Use your mouse and keyboard on this PC. The user is always notified.'
+
+// What the PC shows while it is controlled. An anonymous view stays silent; a notified view shows the controlling notice.
+const CONTROL_TEXT: Record<ViewMode, { idle: string; on: string; confirm: string }> = {
+  notified: {
+    idle: 'Use your mouse and keyboard on this PC. The user is notified.',
+    on: `Your mouse and keyboard control this PC. It shows “${CONTROL_NOTICE}” until control ends.`,
+    confirm: `shows “${CONTROL_NOTICE}” until control ends.`,
+  },
+  anonymous: {
+    idle: 'Use your mouse and keyboard on this PC. Anonymous view shows nothing on the PC.',
+    on: 'Your mouse and keyboard control this PC. It shows no notice, but the user can see the mouse and typing.',
+    confirm: 'shows no notice, but the user can see the mouse move and typing appear.',
+  },
+}
 const CONTROLLING_DESCRIPTION = 'Your mouse and keyboard control this PC until you stop.'
 const REQUESTING_DESCRIPTION = 'Starting control… Waiting for the PC to confirm.'
 
 interface PcControlPanelProps {
   pc: Pc
+  viewMode: ViewMode
   control: RemoteControlState
   // Null when Take control is allowed. Otherwise it explains what the admin must change.
   takeControlBlockMessage: string | null
@@ -24,6 +38,7 @@ interface PcControlPanelProps {
 
 export function PcControlPanel({
   pc,
+  viewMode,
   control,
   takeControlBlockMessage,
   isCoolingDown,
@@ -36,6 +51,7 @@ export function PcControlPanel({
   const endMessage = getControlEndMessage(control)
   const isOn = control.kind === 'on'
   const isRequesting = control.kind === 'requesting'
+  const controlText = CONTROL_TEXT[viewMode]
   const signedInText = pc.user
     ? `${pc.user} is signed in and will be interrupted.`
     : 'No user is signed in.'
@@ -43,7 +59,7 @@ export function PcControlPanel({
   function getDescription(): string {
     if (isOn) return CONTROLLING_DESCRIPTION
     if (isRequesting) return REQUESTING_DESCRIPTION
-    return takeControlBlockMessage ?? DEFAULT_DESCRIPTION
+    return takeControlBlockMessage ?? controlText.idle
   }
 
   function confirmControl() {
@@ -55,7 +71,7 @@ export function PcControlPanel({
     <section aria-labelledby="remote-control-title" className="flex flex-col gap-3">
       {isOn && (
         <Banner variant="warning" icon="alert" role="status" title={`Controlling ${pc.name}`}>
-          Your mouse and keyboard control this PC. It shows “{CONTROL_NOTICE}” until control ends.
+          {controlText.on}
         </Banner>
       )}
       {endMessage && (
@@ -107,7 +123,7 @@ export function PcControlPanel({
         onConfirm={confirmControl}
         onCancel={() => setIsConfirming(false)}
       >
-        {signedInText} {pc.name} shows “{CONTROL_NOTICE}” until control ends.
+        {signedInText} {pc.name} {controlText.confirm}
       </ConfirmDialog>
     </section>
   )

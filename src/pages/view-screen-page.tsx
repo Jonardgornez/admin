@@ -184,13 +184,14 @@ export function ViewScreenPage() {
       )}
       {!isControlling && viewMode === 'anonymous' && (
         <Banner variant="neutral" icon="eye" title="Anonymous view">
-          {pc.name} shows no sign that you are viewing its screen. If you take control, it shows a
-          notice that the administrator is controlling it until you stop.
+          {pc.name} shows no sign that you are viewing or controlling it. If you take control, the
+          user can still see the mouse move and typing appear.
         </Banner>
       )}
 
       <PcControlPanel
         pc={pc}
+        viewMode={viewMode}
         control={control.state}
         takeControlBlockMessage={takeControlBlockMessage}
         isCoolingDown={control.isCoolingDown}
