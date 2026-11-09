@@ -290,4 +290,9 @@ describe('parseExportFilename', () => {
   it('keeps an undecodable filename as it was sent', () => {
     expect(parseExportFilename("attachment; filename*=UTF-8''%E0%A4%A.csv")).toBe('%E0%A4%A.csv')
   })
+
+  it('falls back to the default name for a dot-only filename', () => {
+    expect(parseExportFilename('attachment; filename="."')).toBe('session-logs.csv')
+    expect(parseExportFilename('attachment; filename=".."')).toBe('session-logs.csv')
+  })
 })

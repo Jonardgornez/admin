@@ -77,7 +77,7 @@ export function parseExportFilename(contentDisposition: string | null): string {
   const rawName = match?.[1]
   if (!rawName) return DEFAULT_EXPORT_FILENAME
   const name = safeDecode(rawName).split(/[\\/]/).pop()?.trim() ?? ''
-  return name === '' ? DEFAULT_EXPORT_FILENAME : name
+  return name === '' || name === '.' || name === '..' ? DEFAULT_EXPORT_FILENAME : name
 }
 
 function safeDecode(value: string): string {

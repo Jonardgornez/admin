@@ -40,8 +40,8 @@ describe('describeEndReason', () => {
     expect(describeEndReason(makeLog({ endedAt: null, endReason: null }))).toBe('Running')
   })
 
-  it('shows a dash for an ended session with no reason', () => {
-    expect(describeEndReason(makeLog({ endReason: null }))).toBe('—')
+  it('shows Other for an ended session with no reason, matching the CSV export', () => {
+    expect(describeEndReason(makeLog({ endReason: null }))).toBe('Other')
   })
 })
 

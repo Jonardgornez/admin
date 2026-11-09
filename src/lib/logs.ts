@@ -29,11 +29,11 @@ const END_REASON_LABELS: Record<SessionLogEndReason, string> = {
 }
 
 const RUNNING_LABEL = 'Running'
-const NO_VALUE_LABEL = '—'
 
 export function describeEndReason(log: Pick<SessionLog, 'endedAt' | 'endReason'>): string {
   if (log.endedAt === null) return RUNNING_LABEL
-  return log.endReason === null ? NO_VALUE_LABEL : END_REASON_LABELS[log.endReason]
+  // An ended session with no recorded reason reads as "Other", matching the CSV export.
+  return END_REASON_LABELS[log.endReason ?? 'unknown']
 }
 
 // The server sends an ISO string with an offset. Converting it to the browser's time zone gives server time,
