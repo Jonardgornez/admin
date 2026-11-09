@@ -27,6 +27,9 @@ const serverPcSchema = z.object({
     .enum(['shutting-down', 'shutdown', 'restarting', 'rebooting', 'cancelling'])
     .nullable(),
   isServerPc: z.boolean(),
+  // An older server omits these fields, so they default to the state of a PC with no block.
+  internetBlocked: z.boolean().default(false),
+  internetBlockApplied: z.boolean().nullable().default(null),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)

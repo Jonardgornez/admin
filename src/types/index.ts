@@ -18,6 +18,9 @@ export interface Pc {
   isOpenTime?: boolean
   minutesLeft?: number
   restrictions?: PcRestrictions
+  internetBlocked?: boolean
+  // Null when the PC has not reported, e.g. a client older than 0.16.0.
+  internetBlockApplied?: boolean | null
 }
 
 export interface ServerPcSession {
@@ -46,6 +49,8 @@ export interface ServerPc {
   session: ServerPcSession | null
   shutdownState: ServerPcShutdownState | null
   isServerPc: boolean
+  internetBlocked: boolean
+  internetBlockApplied: boolean | null
 }
 
 export interface RegisteredPc extends Pc {
@@ -94,6 +99,12 @@ export type PcTimeCommand =
   | { action: 'time-out' }
 
 export type BulkLockKind = PcLockAction
+
+// The internet block is set on PCs in bulk or one at a time from the detail dialog.
+export interface InternetAction {
+  blocked: boolean
+  pcIds: number[]
+}
 
 export interface Account {
   id: number

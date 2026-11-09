@@ -769,6 +769,8 @@ const serverPc: ServerPc = {
   isLocked: false,
   shutdownState: null,
   isServerPc: false,
+  internetBlocked: false,
+  internetBlockApplied: null,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -900,6 +902,8 @@ describe('toRegisteredPc', () => {
       isRestarting: false,
       isCancelling: false,
       isServerPc: false,
+      internetBlocked: false,
+      internetBlockApplied: null,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })

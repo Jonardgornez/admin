@@ -10,9 +10,9 @@ import {
   isPcOnline,
   toRegisteredPcs,
 } from '../../lib/pcs'
+import * as internetApi from '../../lib/internet-api'
 import * as pcsApi from '../../lib/pcs-api'
 import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
-import type { BulkCommandResult } from '../../lib/pcs-api'
 import type { Pc, PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
@@ -239,9 +239,9 @@ export function usePcs() {
     [runPcPowerCommand],
   )
 
-  // Resolves with null when a bulk lock, unlock, shutdown, reboot or cancel is already running.
+  // Resolves with null when a bulk lock, unlock, shutdown, reboot, cancel or internet change is already running.
   const runBulkCommand = useCallback(
-    async (command: () => Promise<ApiResult<BulkCommandResult>>) => {
+    async <T,>(command: () => Promise<ApiResult<T>>): Promise<ApiResult<T> | null> => {
       if (isBulkCommandInFlight.current) return null
       isBulkCommandInFlight.current = true
       setIsBulkCommandBusy(true)
@@ -280,6 +280,12 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const setPcsInternetBlocked = useCallback(
+    (pcIds: number[], blocked: boolean) =>
+      runBulkCommand(() => internetApi.setPcsInternetBlocked(pcIds, blocked)),
+    [runBulkCommand],
+  )
+
   // Messages do not change a PC's state, so the list is not re-read afterwards.
   const sendMessage = useCallback(
     (pcIds: number[], text: string): Promise<ApiResult<PcMessageDelivery[]>> =>
@@ -311,6 +317,7 @@ export function usePcs() {
     rebootPcs,
     cancelPcPower,
     cancelPcsPower,
+    setPcsInternetBlocked,
     sendMessage,
   }
 }

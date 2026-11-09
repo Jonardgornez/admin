@@ -73,6 +73,8 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     isRestarting: serverPc.shutdownState === 'restarting',
     isCancelling: serverPc.shutdownState === 'cancelling',
     isServerPc: serverPc.isServerPc,
+    internetBlocked: serverPc.internetBlocked,
+    internetBlockApplied: serverPc.internetBlockApplied,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),

@@ -1,6 +1,7 @@
+import { getInternetStatus, getInternetStatusLabel, type InternetStatus } from '../../lib/internet'
 import { isPcUnlockedWithoutUser } from '../../lib/pcs'
 import type { Pc, PcStatus } from '../../types'
-import { Badge } from '../ui/badge'
+import { Badge, type BadgeVariant } from '../ui/badge'
 import type { IconName } from '../ui/icon'
 
 interface StatusDisplay {
@@ -58,6 +59,33 @@ export function OpenTimeBadge() {
   return (
     <Badge variant="open-time" icon="clock">
       Open time
+    </Badge>
+  )
+}
+
+// The card badge only flags an internet block that is set or still being applied.
+interface InternetBadgeDisplay {
+  variant: BadgeVariant
+  icon: IconName
+}
+
+const INTERNET_BADGES: Partial<Record<InternetStatus, InternetBadgeDisplay>> = {
+  off: { variant: 'no-internet', icon: 'plug' },
+  'turning-off': { variant: 'internet-changing', icon: 'plug' },
+  'turning-on': { variant: 'internet-changing', icon: 'plug' },
+}
+
+interface InternetBadgeProps {
+  pc: Pc
+}
+
+export function InternetBadge({ pc }: InternetBadgeProps) {
+  const status = getInternetStatus(pc)
+  const display = INTERNET_BADGES[status]
+  if (!display) return null
+  return (
+    <Badge variant={display.variant} icon={display.icon}>
+      {getInternetStatusLabel(status)}
     </Badge>
   )
 }

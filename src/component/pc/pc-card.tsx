@@ -21,7 +21,7 @@ import { Badge } from '../ui/badge'
 import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
 import { Icon, type IconName } from '../ui/icon'
-import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
+import { InternetBadge, OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 
 const cardVariants = cva('flex flex-col gap-3 rounded-lg border p-4 text-ink', {
   variants: {
@@ -164,6 +164,7 @@ export function PcCard({
               </Badge>
             )}
             {pc.isOpenTime && <OpenTimeBadge />}
+            <InternetBadge pc={pc} />
           </div>
         </div>
         <div className="flex flex-none items-start gap-2">

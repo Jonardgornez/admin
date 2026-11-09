@@ -15,6 +15,8 @@ const badgeVariants = cva(
         shutdown: 'bg-st-shutdown-bg text-st-shutdown',
         rebooting: 'bg-st-reboot-bg text-st-reboot',
         'open-time': 'bg-st-open-bg text-st-open',
+        'no-internet': 'bg-st-open-bg text-st-open',
+        'internet-changing': 'bg-st-reboot-bg text-st-reboot',
       },
     },
     defaultVariants: {
@@ -22,6 +24,8 @@ const badgeVariants = cva(
     },
   },
 )
+
+export type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>
 
 interface BadgeProps
   extends HTMLAttributes<HTMLSpanElement>,

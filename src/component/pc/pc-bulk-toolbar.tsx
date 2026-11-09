@@ -20,6 +20,9 @@ interface PcBulkToolbarProps {
   unlockSelectedCount?: number
   isBulkLockDisabled?: boolean
   isBulkPowerDisabled?: boolean
+  internetOffSelectedCount?: number
+  internetOnSelectedCount?: number
+  isBulkInternetDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
@@ -28,6 +31,8 @@ interface PcBulkToolbarProps {
   onRebootSelected?: () => void
   onShutdownSelected?: () => void
   onCancelSelected?: () => void
+  onInternetOffSelected?: () => void
+  onInternetOnSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
   serverPcNote?: string
@@ -70,6 +75,9 @@ export function PcBulkToolbar({
   unlockSelectedCount = 0,
   isBulkLockDisabled = false,
   isBulkPowerDisabled = false,
+  internetOffSelectedCount = 0,
+  internetOnSelectedCount = 0,
+  isBulkInternetDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
@@ -78,6 +86,8 @@ export function PcBulkToolbar({
   onRebootSelected,
   onShutdownSelected,
   onCancelSelected,
+  onInternetOffSelected,
+  onInternetOnSelected,
   onSendMessage,
   onOpenRestrictions,
   serverPcNote,
@@ -138,6 +148,27 @@ export function PcBulkToolbar({
           >
             <Icon name="lock" />
             {withCount('Lock', lockSelectedCount)}
+          </Button>
+        </ToolbarGroup>
+
+        <ToolbarGroup label="Internet">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isBulkInternetDisabled || internetOffSelectedCount === 0}
+            onClick={onInternetOffSelected}
+          >
+            <Icon name="plug" />
+            {withCount('Internet off', internetOffSelectedCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isBulkInternetDisabled || internetOnSelectedCount === 0}
+            onClick={onInternetOnSelected}
+          >
+            <Icon name="plug" />
+            {withCount('Internet on', internetOnSelectedCount)}
           </Button>
         </ToolbarGroup>
 

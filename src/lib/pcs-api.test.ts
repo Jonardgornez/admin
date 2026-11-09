@@ -27,6 +27,8 @@ const serverPc = {
   session: null,
   shutdownState: null,
   isServerPc: false,
+  internetBlocked: false,
+  internetBlockApplied: null,
 }
 
 function stubFetch(response: Response | Error) {
@@ -143,6 +145,26 @@ describe('pcs api', () => {
     it('keeps the server PC flag', async () => {
       stubFetch(Response.json([{ ...serverPc, isServerPc: true }]))
       expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, isServerPc: true }] })
+    })
+
+    it('keeps the internet block flag and the client report', async () => {
+      const blocked = { ...serverPc, internetBlocked: true, internetBlockApplied: true }
+      stubFetch(Response.json([blocked]))
+      expect(await listPcs()).toEqual({ success: true, data: [blocked] })
+    })
+
+    it('defaults the internet fields when an older server omits them', async () => {
+      const { internetBlocked: _blocked, internetBlockApplied: _applied, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc]))
+      expect(await listPcs()).toEqual({
+        success: true,
+        data: [{ ...olderServerPc, internetBlocked: false, internetBlockApplied: null }],
+      })
+    })
+
+    it('fails when the internet block flag is not a boolean', async () => {
+      stubFetch(Response.json([{ ...serverPc, internetBlocked: 'yes' }]))
+      expect(await listPcs()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
     })
 
     it('fails on an unknown shutdown state', async () => {
