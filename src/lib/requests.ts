@@ -18,6 +18,7 @@ const REASON_LABELS: Record<LoginRequestReason, string> = {
   'pc-locked': 'PC was locked',
   'pc-in-use': 'PC was in use',
   'pc-removed': 'PC was removed',
+  'pc-unknown': 'Sent by an older client',
   'logged-in': 'Student logged in',
   'cancelled-by-pc': 'Cancelled by the student',
 }

@@ -117,6 +117,7 @@ export const LOGIN_REQUEST_REASONS = [
   'pc-locked',
   'pc-in-use',
   'pc-removed',
+  'pc-unknown',
   'logged-in',
   'cancelled-by-pc',
 ] as const

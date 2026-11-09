@@ -112,6 +112,9 @@ describe('formatDecision', () => {
     expect(formatDecision({ status: 'denied', reason: 'pc-removed' })).toBe(
       'Denied: PC was removed',
     )
+    expect(formatDecision({ status: 'denied', reason: 'pc-unknown' })).toBe(
+      'Denied: Sent by an older client',
+    )
   })
 
   it('adds the reason to a cancellation', () => {
