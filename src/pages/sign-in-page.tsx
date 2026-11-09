@@ -99,9 +99,6 @@ export function SignInPage() {
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Logging in...' : 'Log in'}
         </Button>
-        <p className="m-0 text-sm text-ink-muted">
-          Forgot the password? Reset it from the server program on this PC.
-        </p>
       </form>
       <p className="m-0 flex items-center gap-2 text-xs text-ink-subtle">
         <Icon name="monitor" />
