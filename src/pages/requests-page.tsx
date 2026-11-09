@@ -24,7 +24,7 @@ const historyColumns: DataTableColumn<LoginRequest>[] = [
     label: 'Requested',
     render: (entry) => formatRequestDateTime(entry.requestedAt),
   },
-  { key: 'decision', label: 'Decision', render: (entry) => formatDecision(entry.status) },
+  { key: 'decision', label: 'Decision', render: (entry) => formatDecision(entry) },
   { key: 'time', label: 'Time given', render: (entry) => formatTimeGiven(entry) },
   {
     key: 'decidedAt',
@@ -59,10 +59,11 @@ export function RequestsPage() {
     if (!result.success && !isSessionExpired(result)) notify(result.error, 'alert')
   }
 
+  // A refused approval is shown on the request's card, so it is not repeated as a toast.
   async function approveRequest(request: LoginRequest, choice: ApprovalChoice) {
     const result = await approve(request, choice)
     if (result.success) notify(`Request from ${request.pcName} approved.`)
-    else notifyFailure(result)
+    return result
   }
 
   async function denyRequest(request: LoginRequest) {

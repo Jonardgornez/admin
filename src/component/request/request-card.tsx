@@ -1,6 +1,8 @@
 import { useId, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
+import type { ApiResult } from '../../lib/api'
+import { isSessionExpired } from '../../lib/auth-state'
 import {
   approvalFormSchema,
   buildApprovalChoice,
@@ -15,12 +17,14 @@ import { RadioOption } from '../ui/choice'
 import { TextInput } from '../ui/field'
 import { Icon } from '../ui/icon'
 
+const SERVER_ERROR_PATH = 'root.serverError'
+
 interface RequestCardProps {
   request: LoginRequest
   now: Date
   isBusy: boolean
   defaultApproval: DefaultApproval
-  onApprove: (approval: ApprovalChoice) => Promise<void>
+  onApprove: (approval: ApprovalChoice) => Promise<ApiResult<unknown>>
   onDeny: () => void
 }
 
@@ -39,6 +43,8 @@ export function RequestCard({
     register,
     handleSubmit,
     control,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<ApprovalFormValues>({
     resolver: zodResolver(approvalFormSchema),
@@ -49,14 +55,20 @@ export function RequestCard({
   const isTimeLimit = approvalMode === 'time-limit'
   // The minutes are ignored for open time, so an old error about them is not shown.
   const minutesError = isTimeLimit ? errors.minutes?.message : undefined
+  const serverError = errors.root?.serverError?.message
 
   async function approve(values: ApprovalFormValues) {
     if (isSubmittingRef.current) return
     const choice = buildApprovalChoice(values)
     if (choice === null) return
     isSubmittingRef.current = true
+    clearErrors(SERVER_ERROR_PATH)
     try {
-      await onApprove(choice)
+      const result = await onApprove(choice)
+      // An expired session is handled by the sign-out redirect, so the card says nothing.
+      if (!result.success && !isSessionExpired(result)) {
+        setError(SERVER_ERROR_PATH, { type: 'server', message: result.error })
+      }
     } finally {
       isSubmittingRef.current = false
     }
@@ -123,6 +135,11 @@ export function RequestCard({
             Deny
           </Button>
         </div>
+        {serverError && (
+          <p role="alert" className="m-0 basis-full text-sm font-semibold text-danger">
+            {serverError}
+          </p>
+        )}
       </form>
     </article>
   )

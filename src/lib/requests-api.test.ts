@@ -29,6 +29,14 @@ const deniedEntry = {
   decidedAt: '2026-11-05T10:06:00.000Z',
 }
 
+const cancelledEntry = {
+  ...pendingEntry,
+  id: 6,
+  status: 'cancelled',
+  reason: 'logged-in',
+  decidedAt: '2026-11-05T10:07:00.000Z',
+}
+
 function stubFetch(response: Response | Error) {
   const fetchMock = vi.fn(() =>
     response instanceof Error ? Promise.reject(response) : Promise.resolve(response),
@@ -76,6 +84,55 @@ describe('login requests api', () => {
         Response.json({ pending: [], history: [{ ...approvedEntry, time: { mode: 'forever' } }] }),
       )
       expect(await listLoginRequests()).toMatchObject({ success: false })
+    })
+
+    it('accepts a cancelled request with a known reason', async () => {
+      stubFetch(Response.json({ pending: [], history: [cancelledEntry] }))
+      expect(await listLoginRequests()).toEqual({
+        success: true,
+        data: { pending: [], history: [cancelledEntry] },
+      })
+    })
+
+    it('keeps a known reason on a denied request', async () => {
+      const offlineEntry = { ...deniedEntry, reason: 'pc-offline' }
+      stubFetch(Response.json({ pending: [], history: [offlineEntry] }))
+      const result = await listLoginRequests()
+      expect(result).toEqual({ success: true, data: { pending: [], history: [offlineEntry] } })
+    })
+
+    it('drops a reason it does not know without failing the list', async () => {
+      stubFetch(
+        Response.json({
+          pending: [],
+          history: [{ ...deniedEntry, reason: 'pc-on-fire' }, cancelledEntry],
+        }),
+      )
+      const result = await listLoginRequests()
+      expect(result.success).toBe(true)
+      if (!result.success) return
+      expect(result.data.history[0]?.reason).toBeUndefined()
+      expect(result.data.history[1]).toEqual(cancelledEntry)
+    })
+
+    it('drops a null reason', async () => {
+      stubFetch(Response.json({ pending: [], history: [{ ...deniedEntry, reason: null }] }))
+      const result = await listLoginRequests()
+      expect(result).toEqual({ success: true, data: { pending: [], history: [deniedEntry] } })
+    })
+
+    it('still fails on a status it does not know', async () => {
+      stubFetch(Response.json({ pending: [], history: [{ ...deniedEntry, status: 'expired' }] }))
+      expect(await listLoginRequests()).toMatchObject({ success: false })
+    })
+
+    it('sends the background header only when polling', async () => {
+      const fetchMock = stubFetch(Response.json({ pending: [], history: [] }))
+      await listLoginRequests({ isBackground: true })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/login-requests',
+        expect.objectContaining({ headers: { 'X-Background-Refresh': '1' } }),
+      )
     })
 
     it('strips fields the schema does not name', async () => {
@@ -137,6 +194,16 @@ describe('login requests api', () => {
         success: false,
         status: 409,
         error: 'Already decided.',
+      })
+    })
+
+    it('returns the server message when the PC is offline', async () => {
+      const message = 'That PC is offline, so the request was closed.'
+      stubFetch(Response.json({ error: message }, { status: 409 }))
+      expect(await approveLoginRequest(4, { mode: 'open-time' })).toEqual({
+        success: false,
+        status: 409,
+        error: message,
       })
     })
   })

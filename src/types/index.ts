@@ -109,7 +109,19 @@ export interface TimeChoiceValues {
   timeUnit: TimeUnit
 }
 
-export type LoginRequestStatus = 'pending' | 'approved' | 'denied'
+export type LoginRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled'
+
+// Why a request was denied or cancelled. The server may send other strings, which are ignored.
+export const LOGIN_REQUEST_REASONS = [
+  'pc-offline',
+  'pc-locked',
+  'pc-in-use',
+  'pc-removed',
+  'logged-in',
+  'cancelled-by-pc',
+] as const
+
+export type LoginRequestReason = (typeof LOGIN_REQUEST_REASONS)[number]
 
 export interface LoginRequest {
   id: number
@@ -118,6 +130,7 @@ export interface LoginRequest {
   status: LoginRequestStatus
   time?: ApprovalChoice
   decidedAt: string | null
+  reason?: LoginRequestReason
 }
 
 export interface SessionLog {

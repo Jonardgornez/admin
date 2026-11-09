@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { addToHistory, removeRequests } from '../../lib/requests'
 import * as requestsApi from '../../lib/requests-api'
+import { startPollLoop } from '../../lib/poll-loop'
 import type { ApprovalChoice, LoginRequest } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 const NOT_FOUND_STATUS = 404
 const CONFLICT_STATUS = 409
+const POLL_INTERVAL_MS = 3000
 
 export type LoginRequestsLoadState =
   | { status: 'loading' }
@@ -29,11 +31,14 @@ export function useLoginRequests() {
   const latestLoadId = useRef(0)
 
   // Resolves with null when a newer load or a change started since, so the answer is stale.
-  const fetchLists = useCallback(async (): Promise<ListsResult | null> => {
-    const loadId = ++latestLoadId.current
-    const result = await request(requestsApi.listLoginRequests())
-    return loadId === latestLoadId.current ? result : null
-  }, [request])
+  const fetchLists = useCallback(
+    async (isBackground: boolean): Promise<ListsResult | null> => {
+      const loadId = ++latestLoadId.current
+      const result = await request(requestsApi.listLoginRequests({ isBackground }))
+      return loadId === latestLoadId.current ? result : null
+    },
+    [request],
+  )
 
   const applyLists = useCallback((result: ListsResult | null) => {
     if (!result?.success) return
@@ -57,14 +62,14 @@ export function useLoginRequests() {
 
   const reload = useCallback(async () => {
     setLoadState({ status: 'loading' })
-    applyInitialLoad(await fetchLists())
+    applyInitialLoad(await fetchLists(false))
   }, [fetchLists, applyInitialLoad])
 
   // The list stays visible while this runs, and a failure leaves it as it was.
   const refresh = useCallback(async (): Promise<ApiResult<unknown>> => {
     setIsRefreshing(true)
     try {
-      const result = await fetchLists()
+      const result = await fetchLists(false)
       applyLists(result)
       return result ?? NO_FAILURE
     } finally {
@@ -72,9 +77,23 @@ export function useLoginRequests() {
     }
   }, [fetchLists, applyLists])
 
+  // The first run is the normal load and later runs are background polls. A failed poll
+  // is quiet, so the list keeps what it had until the next poll.
   useEffect(() => {
-    void fetchLists().then(applyInitialLoad)
-  }, [fetchLists, applyInitialLoad])
+    const loop = { isFirstRun: true, isActive: true }
+    const stopPolling = startPollLoop(async () => {
+      const isInitialLoad = loop.isFirstRun
+      loop.isFirstRun = false
+      const result = await fetchLists(!isInitialLoad)
+      if (!loop.isActive) return
+      if (isInitialLoad) applyInitialLoad(result)
+      else applyLists(result)
+    }, POLL_INTERVAL_MS)
+    return () => {
+      loop.isActive = false
+      stopPolling()
+    }
+  }, [fetchLists, applyInitialLoad, applyLists])
 
   // A list response requested before a change would undo that change on screen.
   const discardLoadsInFlight = useCallback(() => {
@@ -87,7 +106,7 @@ export function useLoginRequests() {
       const isChangedElsewhere =
         !result.success &&
         (result.status === NOT_FOUND_STATUS || result.status === CONFLICT_STATUS)
-      if (isChangedElsewhere) void fetchLists().then(applyLists)
+      if (isChangedElsewhere) void fetchLists(false).then(applyLists)
     },
     [fetchLists, applyLists],
   )
@@ -124,12 +143,13 @@ export function useLoginRequests() {
       runForRequests([id], async () => {
         const result = await request(pendingDecision)
         if (result.success) moveToHistory([result.data])
-        refreshIfChangedElsewhere(result)
         return result
       }),
-    [runForRequests, request, moveToHistory, refreshIfChangedElsewhere],
+    [runForRequests, request, moveToHistory],
   )
 
+  // A refused approval is not re-read here. The card keeps the server's message, and the next
+  // poll moves the request to history.
   const approve = useCallback(
     (loginRequest: LoginRequest, time: ApprovalChoice) =>
       decide(loginRequest.id, requestsApi.approveLoginRequest(loginRequest.id, time)),
@@ -137,9 +157,12 @@ export function useLoginRequests() {
   )
 
   const deny = useCallback(
-    (loginRequest: LoginRequest) =>
-      decide(loginRequest.id, requestsApi.denyLoginRequest(loginRequest.id)),
-    [decide],
+    async (loginRequest: LoginRequest) => {
+      const result = await decide(loginRequest.id, requestsApi.denyLoginRequest(loginRequest.id))
+      refreshIfChangedElsewhere(result)
+      return result
+    },
+    [decide, refreshIfChangedElsewhere],
   )
 
   const denyAll = useCallback(
@@ -151,7 +174,7 @@ export function useLoginRequests() {
           if (result.success) {
             moveToHistory(result.data)
             // Some were already decided elsewhere, so the screen may be out of date.
-            if (result.data.length < ids.length) void fetchLists().then(applyLists)
+            if (result.data.length < ids.length) void fetchLists(false).then(applyLists)
           }
           return result
         })

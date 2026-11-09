@@ -1,15 +1,21 @@
 import { z } from 'zod'
 import { apiRequest, type ApiResult } from './api'
 import { approvalChoiceSchema, OK_STATUS, parseBody } from './accounts-api'
-import type { ApprovalChoice, LoginRequest } from '../types'
+import {
+  LOGIN_REQUEST_REASONS,
+  type ApprovalChoice,
+  type LoginRequest,
+} from '../types'
 
 const loginRequestSchema = z.object({
   id: z.number().int(),
   pcName: z.string(),
   requestedAt: z.string(),
-  status: z.enum(['pending', 'approved', 'denied']),
+  status: z.enum(['pending', 'approved', 'denied', 'cancelled']),
   time: approvalChoiceSchema.optional(),
   decidedAt: z.string().nullable(),
+  // A reason this console does not know is dropped, so the rest of the list still loads.
+  reason: z.enum(LOGIN_REQUEST_REASONS).optional().catch(undefined),
 })
 
 const loginRequestListsSchema = z.object({
@@ -24,8 +30,18 @@ export interface LoginRequestLists {
   history: LoginRequest[]
 }
 
-export async function listLoginRequests(): Promise<ApiResult<LoginRequestLists>> {
-  return parseBody(await apiRequest<unknown>('/api/login-requests'), loginRequestListsSchema, OK_STATUS)
+interface ListLoginRequestsOptions {
+  isBackground?: boolean
+}
+
+export async function listLoginRequests({
+  isBackground = false,
+}: ListLoginRequestsOptions = {}): Promise<ApiResult<LoginRequestLists>> {
+  return parseBody(
+    await apiRequest<unknown>('/api/login-requests', { isBackground }),
+    loginRequestListsSchema,
+    OK_STATUS,
+  )
 }
 
 async function requestDecision(

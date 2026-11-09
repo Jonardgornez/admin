@@ -4,6 +4,7 @@ import {
   addToHistory,
   describeDenyAll,
   formatDecision,
+  formatLoginRequestsAriaLabel,
   formatRequestDateTime,
   formatRequestedAgo,
   formatRequestTime,
@@ -92,9 +93,45 @@ describe('formatRequestedAgo', () => {
 
 describe('formatDecision', () => {
   it('labels every status', () => {
-    expect(formatDecision('approved')).toBe('Approved')
-    expect(formatDecision('denied')).toBe('Denied')
-    expect(formatDecision('pending')).toBe('Pending')
+    expect(formatDecision({ status: 'approved' })).toBe('Approved')
+    expect(formatDecision({ status: 'denied' })).toBe('Denied')
+    expect(formatDecision({ status: 'pending' })).toBe('Pending')
+    expect(formatDecision({ status: 'cancelled' })).toBe('Cancelled')
+  })
+
+  it('says just Denied for a plain admin denial with no reason', () => {
+    expect(formatDecision(makeRequest(1, { status: 'denied' }))).toBe('Denied')
+  })
+
+  it('adds the reason to a denial', () => {
+    expect(formatDecision({ status: 'denied', reason: 'pc-offline' })).toBe(
+      'Denied: PC was offline',
+    )
+    expect(formatDecision({ status: 'denied', reason: 'pc-locked' })).toBe('Denied: PC was locked')
+    expect(formatDecision({ status: 'denied', reason: 'pc-in-use' })).toBe('Denied: PC was in use')
+    expect(formatDecision({ status: 'denied', reason: 'pc-removed' })).toBe(
+      'Denied: PC was removed',
+    )
+  })
+
+  it('adds the reason to a cancellation', () => {
+    expect(formatDecision({ status: 'cancelled', reason: 'logged-in' })).toBe(
+      'Cancelled: Student logged in',
+    )
+    expect(formatDecision({ status: 'cancelled', reason: 'cancelled-by-pc' })).toBe(
+      'Cancelled: Cancelled by the student',
+    )
+  })
+
+  it('shows just the status when there is no reason', () => {
+    expect(formatDecision({ status: 'cancelled', reason: undefined })).toBe('Cancelled')
+  })
+})
+
+describe('formatLoginRequestsAriaLabel', () => {
+  it('names the count of pending requests', () => {
+    expect(formatLoginRequestsAriaLabel(3)).toBe('Login requests, 3 pending')
+    expect(formatLoginRequestsAriaLabel(1)).toBe('Login requests, 1 pending')
   })
 })
 

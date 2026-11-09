@@ -1,4 +1,4 @@
-import type { LoginRequest, LoginRequestStatus } from '../types'
+import type { LoginRequest, LoginRequestReason, LoginRequestStatus } from '../types'
 import { formatDefaultTime } from './accounts'
 
 const MS_PER_MINUTE = 60_000
@@ -10,6 +10,16 @@ const DECISION_LABELS: Record<LoginRequestStatus, string> = {
   pending: 'Pending',
   approved: 'Approved',
   denied: 'Denied',
+  cancelled: 'Cancelled',
+}
+
+const REASON_LABELS: Record<LoginRequestReason, string> = {
+  'pc-offline': 'PC was offline',
+  'pc-locked': 'PC was locked',
+  'pc-in-use': 'PC was in use',
+  'pc-removed': 'PC was removed',
+  'logged-in': 'Student logged in',
+  'cancelled-by-pc': 'Cancelled by the student',
 }
 
 function parseTimestamp(timestamp: string): Date | null {
@@ -45,8 +55,14 @@ export function formatRequestedAgo(requestedAt: string, now: Date): string {
   return formatAgo(Math.floor(hours / HOURS_PER_DAY), 'day')
 }
 
-export function formatDecision(status: LoginRequestStatus): string {
-  return DECISION_LABELS[status]
+// A plain admin denial has no reason, so it reads just "Denied".
+export function formatDecision(request: Pick<LoginRequest, 'status' | 'reason'>): string {
+  const label = DECISION_LABELS[request.status]
+  return request.reason ? `${label}: ${REASON_LABELS[request.reason]}` : label
+}
+
+export function formatLoginRequestsAriaLabel(pendingCount: number): string {
+  return `Login requests, ${pendingCount} pending`
 }
 
 export function formatTimeGiven(request: Pick<LoginRequest, 'time'>): string {
