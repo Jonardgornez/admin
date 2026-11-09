@@ -12,7 +12,8 @@ interface CheckboxGroupProps<T extends string> {
   legend: string
   options: CheckboxGroupOption<T>[]
   selectedValues: T[]
-  onChange: (values: T[]) => void
+  onChange?: (values: T[]) => void
+  disabled?: boolean
   className?: string
 }
 
@@ -21,6 +22,7 @@ export function CheckboxGroup<T extends string>({
   options,
   selectedValues,
   onChange,
+  disabled = false,
   className,
 }: CheckboxGroupProps<T>) {
   const allValues = options.map((option) => option.value)
@@ -36,7 +38,8 @@ export function CheckboxGroup<T extends string>({
           <label key={option.value} className="flex items-center gap-2 text-ink">
             <Checkbox
               checked={selectedValues.includes(option.value)}
-              onChange={() => onChange(toggleListValue(selectedValues, option.value))}
+              disabled={disabled}
+              onChange={() => onChange?.(toggleListValue(selectedValues, option.value))}
             />
             {option.label}
           </label>
@@ -48,7 +51,8 @@ export function CheckboxGroup<T extends string>({
             if (checkbox) checkbox.indeterminate = selectionState === 'some'
           }}
           checked={selectionState === 'all'}
-          onChange={() => onChange(toggleAllValues(allValues, selectedValues))}
+          disabled={disabled}
+          onChange={() => onChange?.(toggleAllValues(allValues, selectedValues))}
         />
         Select/Deselect All
       </label>

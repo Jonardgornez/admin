@@ -100,12 +100,6 @@ export type PcTimeCommand =
 
 export type BulkLockKind = PcLockAction
 
-// The internet block is set on PCs in bulk or one at a time from the detail dialog.
-export interface InternetAction {
-  blocked: boolean
-  pcIds: number[]
-}
-
 export interface Account {
   id: number
   username: string

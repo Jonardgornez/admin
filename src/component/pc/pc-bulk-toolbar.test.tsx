@@ -6,57 +6,43 @@ import { PcBulkToolbar } from './pc-bulk-toolbar'
 function renderToolbar(overrides: Partial<Parameters<typeof PcBulkToolbar>[0]> = {}) {
   const props = {
     hasVisiblePcs: true,
-    areCommandsDisabled: false,
     searchQuery: '',
     onSearchChange: vi.fn(),
     ...overrides,
   }
   render(<PcBulkToolbar {...props} />)
-  return screen.getByRole('group', { name: 'Internet' })
 }
 
-describe('PcBulkToolbar internet group', () => {
-  it('sits between Access and Power', () => {
+function getOtherGroup() {
+  return within(screen.getByRole('group', { name: 'Other' }))
+}
+
+describe('PcBulkToolbar', () => {
+  it('has no Internet group, since internet is set from the Restrictions dialog', () => {
     renderToolbar()
     const labels = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'))
-    expect(labels).toEqual(['Access', 'Internet', 'Power', 'Other'])
+    expect(labels).toEqual(['Access', 'Power', 'Other'])
   })
 
-  it('counts the PCs each internet action would change', () => {
-    const group = renderToolbar({ internetOffSelectedCount: 2, internetOnSelectedCount: 1 })
-    expect(within(group).getByRole('button', { name: 'Internet off (2)' })).toHaveProperty('disabled', false)
-    expect(within(group).getByRole('button', { name: 'Internet on (1)' })).toHaveProperty('disabled', false)
+  it('counts the PCs the Restrictions action would apply to', () => {
+    renderToolbar({ restrictionTargetCount: 2 })
+    expect(getOtherGroup().getByRole('button', { name: 'Restrictions (2)' })).toHaveProperty('disabled', false)
   })
 
-  it('disables an action when no selected PC needs it', () => {
-    const group = renderToolbar({ internetOffSelectedCount: 0, internetOnSelectedCount: 3 })
-    expect(within(group).getByRole('button', { name: 'Internet off' })).toHaveProperty('disabled', true)
-    expect(within(group).getByRole('button', { name: 'Internet on (3)' })).toHaveProperty('disabled', false)
+  it('disables Restrictions when no selected PC can take it', () => {
+    renderToolbar({ restrictionTargetCount: 0 })
+    expect(getOtherGroup().getByRole('button', { name: 'Restrictions' })).toHaveProperty('disabled', true)
   })
 
-  it('disables both actions while internet changes are not allowed', () => {
-    const group = renderToolbar({
-      internetOffSelectedCount: 2,
-      internetOnSelectedCount: 2,
-      isBulkInternetDisabled: true,
-    })
-    expect(within(group).getByRole('button', { name: 'Internet off (2)' })).toHaveProperty('disabled', true)
-    expect(within(group).getByRole('button', { name: 'Internet on (2)' })).toHaveProperty('disabled', true)
+  it('disables Restrictions while commands are not allowed', () => {
+    renderToolbar({ restrictionTargetCount: 2, isRestrictionsDisabled: true })
+    expect(getOtherGroup().getByRole('button', { name: 'Restrictions (2)' })).toHaveProperty('disabled', true)
   })
 
-  it('calls the matching handler when an action is clicked', () => {
-    const onInternetOffSelected = vi.fn()
-    const onInternetOnSelected = vi.fn()
-    const group = renderToolbar({
-      internetOffSelectedCount: 1,
-      internetOnSelectedCount: 1,
-      onInternetOffSelected,
-      onInternetOnSelected,
-    })
-    fireEvent.click(within(group).getByRole('button', { name: 'Internet off (1)' }))
-    expect(onInternetOffSelected).toHaveBeenCalledTimes(1)
-    expect(onInternetOnSelected).not.toHaveBeenCalled()
-    fireEvent.click(within(group).getByRole('button', { name: 'Internet on (1)' }))
-    expect(onInternetOnSelected).toHaveBeenCalledTimes(1)
+  it('opens Restrictions when it is clicked', () => {
+    const onOpenRestrictions = vi.fn()
+    renderToolbar({ restrictionTargetCount: 1, onOpenRestrictions })
+    fireEvent.click(getOtherGroup().getByRole('button', { name: 'Restrictions (1)' }))
+    expect(onOpenRestrictions).toHaveBeenCalledTimes(1)
   })
 })

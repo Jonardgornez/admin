@@ -17,16 +17,23 @@ const INTERNET_STATUS_LABELS: Record<InternetStatus, string> = {
   'off-when-online': 'Internet off when online',
 }
 
-// Server PCs are skipped, since a PC running the server must keep its connection.
-export function getPcIdsToBlockInternet(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs
-    .filter((pc) => selectedNames.includes(pc.name) && !pc.isServerPc && !pc.internetBlocked)
-    .map((pc) => pc.id)
+// Blocked on every PC, on none, or on some of them. Server PCs are left out, since they stay online.
+export type InternetChoice = 'blocked' | 'open' | 'mixed'
+
+export function getInternetChoice(pcs: Pc[]): InternetChoice {
+  const internetPcs = pcs.filter((pc) => !pc.isServerPc)
+  const blockedCount = internetPcs.filter((pc) => pc.internetBlocked === true).length
+  if (blockedCount === 0) return 'open'
+  return blockedCount === internetPcs.length ? 'blocked' : 'mixed'
 }
 
-export function getPcIdsToUnblockInternet(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+// The PCs whose internet is not in the wanted state yet. Server PCs are always skipped.
+export function getPcIdsToSetInternet(pcs: RegisteredPc[], blocked: boolean): number[] {
   return pcs
-    .filter((pc) => selectedNames.includes(pc.name) && pc.internetBlocked === true)
+    .filter((pc) => {
+      const isBlocked = pc.internetBlocked === true
+      return !pc.isServerPc && isBlocked !== blocked
+    })
     .map((pc) => pc.id)
 }
 

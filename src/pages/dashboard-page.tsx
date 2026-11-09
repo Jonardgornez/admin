@@ -6,7 +6,7 @@ import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-d
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
-import { InternetDialog } from '../component/pc/internet-dialog'
+import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
@@ -18,12 +18,7 @@ import { Icon, type IconName } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
-import {
-  describeInternetResult,
-  getPcIdsToBlockInternet,
-  getPcIdsToUnblockInternet,
-} from '../lib/internet'
-import type { InternetResult } from '../lib/internet-api'
+import { describeInternetResult } from '../lib/internet'
 import {
   canEditPcTime,
   countOnlinePcs,
@@ -54,7 +49,6 @@ import {
   type MessageTargets,
 } from '../lib/pcs'
 import type {
-  InternetAction,
   PcLockAction,
   PcTimeCommand,
   PowerCommand,
@@ -107,7 +101,7 @@ export function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
-  const [internetAction, setInternetAction] = useState<InternetAction | null>(null)
+  const [restrictionTargetPcs, setRestrictionTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
@@ -132,10 +126,11 @@ export function DashboardPage() {
   const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
   const rebootPcNames = getPcNamesToReboot(pcs, selectedPcNames)
   const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcNames)
-  const internetOffPcIds = getPcIdsToBlockInternet(pcs, selectedPcNames)
-  const internetOnPcIds = getPcIdsToUnblockInternet(pcs, selectedPcNames)
   const selectedMessageTargets = getMessageTargets(pcs, selectedPcNames)
-  const selectedServerPc = pcs.find((pc) => pc.isServerPc && selectedPcNames.includes(pc.name))
+  const selectedPcs = pcs.filter((pc) => selectedPcNames.includes(pc.name))
+  // The server PC keeps its internet, so it is not counted for Restrictions.
+  const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
+  const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
   const isPowerBusy =
     powerAction && 'pc' in powerAction
       ? powerPendingPcIds.includes(powerAction.pc.id)
@@ -262,23 +257,15 @@ export function DashboardPage() {
     if (pc) void cancelOnePcPower(pc)
   }
 
-  function notifyInternetResult(blocked: boolean, result: ApiResult<InternetResult[]>) {
-    if (result.success) notify(describeInternetResult(blocked, result.data), 'plug')
-    else if (!isSessionExpired(result)) notify(result.error, 'alert')
-  }
-
-  // Null means the same bulk command is still running, which closes the dialog when it ends.
-  async function confirmInternetAction(action: InternetAction) {
-    const result = await setPcsInternetBlocked(action.pcIds, action.blocked)
-    if (!result) return
-    setInternetAction(null)
-    notifyInternetResult(action.blocked, result)
-  }
-
-  // Null means the same bulk command is still running.
-  async function setOnePcInternet(pc: RegisteredPc, blocked: boolean) {
-    const result = await setPcsInternetBlocked([pc.id], blocked)
-    if (result) notifyInternetResult(blocked, result)
+  // Null means the same bulk command is still running, so the dialog stays open and can try again.
+  // A failed change keeps the dialog open with the error, and a successful one closes it.
+  async function applyRestrictionsInternet(pcIds: number[], blocked: boolean) {
+    const result = await setPcsInternetBlocked(pcIds, blocked)
+    if (result?.success) {
+      setRestrictionTargetPcs(null)
+      notify(describeInternetResult(blocked, result.data), 'plug')
+    }
+    return result
   }
 
   async function confirmPowerAction(action: PowerAction) {
@@ -342,7 +329,6 @@ export function DashboardPage() {
         {isLoaded && pcs.length > 0 && (
           <PcBulkToolbar
             hasVisiblePcs={visiblePcs.length > 0}
-            areCommandsDisabled
             lockSelectedCount={lockPcIds.length}
             unlockSelectedCount={unlockPcIds.length}
             isBulkLockDisabled={isDisconnected || isBulkCommandBusy}
@@ -353,15 +339,9 @@ export function DashboardPage() {
             isSendMessageDisabled={isDisconnected}
             onSendMessage={() => setMessageTargets(selectedMessageTargets)}
             isBulkPowerDisabled={isDisconnected || isBulkCommandBusy}
-            internetOffSelectedCount={internetOffPcIds.length}
-            internetOnSelectedCount={internetOnPcIds.length}
-            isBulkInternetDisabled={isDisconnected || isBulkCommandBusy}
-            onInternetOffSelected={() =>
-              setInternetAction({ blocked: true, pcIds: internetOffPcIds })
-            }
-            onInternetOnSelected={() =>
-              setInternetAction({ blocked: false, pcIds: internetOnPcIds })
-            }
+            restrictionTargetCount={restrictionTargetCount}
+            isRestrictionsDisabled={isDisconnected || isBulkCommandBusy}
+            onOpenRestrictions={() => setRestrictionTargetPcs(selectedPcs)}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             selectedCount={selectedPcNames.length}
             searchQuery={searchQuery}
@@ -449,14 +429,12 @@ export function DashboardPage() {
           isLockDisabled={isLockDisabled(detailPc.name)}
           isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
           isPowerDisabled={isPowerDisabled(detailPc.name)}
-          isInternetDisabled={isDisconnected || isBulkCommandBusy}
           onClose={closeDetail}
           onLock={() => void lockOnePc(detailPc)}
           onUnlock={() => void unlockOnePc(detailPc)}
           onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}
           onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
           onCancelPower={() => void cancelOnePcPower(detailPc)}
-          onSetInternet={(blocked) => void setOnePcInternet(detailPc, blocked)}
           onAddTime={() => setTimeEditPcName(detailPc.name)}
           isSendMessageDisabled={isDisconnected}
           onSendMessage={() =>
@@ -483,13 +461,13 @@ export function DashboardPage() {
         onCancel={() => setBulkLockAction(null)}
       />
 
-      <InternetDialog
-        action={internetAction}
-        hiddenPcCount={countPcsHiddenFromView(internetAction?.pcIds ?? [], pcs, visiblePcNames)}
-        isBusy={isBulkCommandBusy}
-        onConfirm={() => internetAction && void confirmInternetAction(internetAction)}
-        onCancel={() => setInternetAction(null)}
-      />
+      {restrictionTargetPcs && (
+        <RestrictionsDialog
+          targetPcs={restrictionTargetPcs}
+          onApplyInternet={applyRestrictionsInternet}
+          onClose={() => setRestrictionTargetPcs(null)}
+        />
+      )}
 
       <PowerDialog
         action={powerAction}

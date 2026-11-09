@@ -14,12 +14,7 @@ import {
   SERVER_PC_REBOOT_TITLE,
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
-import {
-  getInternetHint,
-  getInternetStatus,
-  getInternetStatusLabel,
-  SERVER_PC_INTERNET_NOTE,
-} from '../../lib/internet'
+import { getInternetHint, getInternetStatus, getInternetStatusLabel } from '../../lib/internet'
 import { getRestrictionSummary } from '../../lib/restrictions'
 import type { Pc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
@@ -33,7 +28,6 @@ interface PcDetailDialogProps {
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isPowerDisabled?: boolean
-  isInternetDisabled?: boolean
   onClose: () => void
   onLock?: () => void
   onUnlock?: () => void
@@ -41,7 +35,6 @@ interface PcDetailDialogProps {
   onShutdown?: () => void
   onCancelPower?: () => void
   onAddTime?: () => void
-  onSetInternet?: (blocked: boolean) => void
   isSendMessageDisabled?: boolean
   onSendMessage?: () => void
   viewMode?: ViewMode
@@ -70,7 +63,6 @@ export function PcDetailDialog({
   isLockDisabled = false,
   isTimeEditDisabled = false,
   isPowerDisabled = false,
-  isInternetDisabled = false,
   onClose,
   onLock,
   onUnlock,
@@ -78,7 +70,6 @@ export function PcDetailDialog({
   onShutdown,
   onCancelPower,
   onAddTime,
-  onSetInternet,
   isSendMessageDisabled = false,
   onSendMessage,
   viewMode = 'notified',
@@ -88,7 +79,6 @@ export function PcDetailDialog({
   const titleId = useId()
   const viewModeName = `view-mode-${pc.name}`
   const canViewScreen = canViewPcScreen(pc)
-  const isInternetBlocked = pc.internetBlocked === true
   const internetHint = getInternetHint(pc)
 
   return (
@@ -182,18 +172,6 @@ export function PcDetailDialog({
             <Icon name="power" />
             Shut down
           </Button>
-          <Button
-            variant="secondary"
-            className="col-span-2"
-            disabled={pc.isServerPc || isInternetDisabled}
-            onClick={() => onSetInternet?.(!isInternetBlocked)}
-          >
-            <Icon name="plug" />
-            {isInternetBlocked ? 'Turn internet on' : 'Turn internet off'}
-          </Button>
-          {pc.isServerPc && (
-            <p className="col-span-2 m-0 text-sm text-ink-muted">{SERVER_PC_INTERNET_NOTE}</p>
-          )}
           {isPowerCancelButtonShown(pc) && (
             <Button
               variant="secondary"

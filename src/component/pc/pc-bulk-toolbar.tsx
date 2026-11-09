@@ -14,15 +14,12 @@ interface PcBulkToolbarProps {
   messageRecipientCount?: number
   isSendMessageDisabled?: boolean
   restrictionTargetCount?: number
+  isRestrictionsDisabled?: boolean
   hasVisiblePcs: boolean
-  areCommandsDisabled: boolean
   lockSelectedCount?: number
   unlockSelectedCount?: number
   isBulkLockDisabled?: boolean
   isBulkPowerDisabled?: boolean
-  internetOffSelectedCount?: number
-  internetOnSelectedCount?: number
-  isBulkInternetDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
@@ -31,8 +28,6 @@ interface PcBulkToolbarProps {
   onRebootSelected?: () => void
   onShutdownSelected?: () => void
   onCancelSelected?: () => void
-  onInternetOffSelected?: () => void
-  onInternetOnSelected?: () => void
   onSendMessage?: () => void
   onOpenRestrictions?: () => void
   serverPcNote?: string
@@ -69,15 +64,12 @@ export function PcBulkToolbar({
   messageRecipientCount = 0,
   isSendMessageDisabled = false,
   restrictionTargetCount = 0,
+  isRestrictionsDisabled = false,
   hasVisiblePcs,
-  areCommandsDisabled,
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
   isBulkLockDisabled = false,
   isBulkPowerDisabled = false,
-  internetOffSelectedCount = 0,
-  internetOnSelectedCount = 0,
-  isBulkInternetDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
@@ -86,8 +78,6 @@ export function PcBulkToolbar({
   onRebootSelected,
   onShutdownSelected,
   onCancelSelected,
-  onInternetOffSelected,
-  onInternetOnSelected,
   onSendMessage,
   onOpenRestrictions,
   serverPcNote,
@@ -151,27 +141,6 @@ export function PcBulkToolbar({
           </Button>
         </ToolbarGroup>
 
-        <ToolbarGroup label="Internet">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={isBulkInternetDisabled || internetOffSelectedCount === 0}
-            onClick={onInternetOffSelected}
-          >
-            <Icon name="plug" />
-            {withCount('Internet off', internetOffSelectedCount)}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={isBulkInternetDisabled || internetOnSelectedCount === 0}
-            onClick={onInternetOnSelected}
-          >
-            <Icon name="plug" />
-            {withCount('Internet on', internetOnSelectedCount)}
-          </Button>
-        </ToolbarGroup>
-
         <ToolbarGroup label="Power">
           <Button
             variant="secondary"
@@ -215,7 +184,7 @@ export function PcBulkToolbar({
           <Button
             variant="secondary"
             size="sm"
-            disabled={areCommandsDisabled || restrictionTargetCount === 0}
+            disabled={isRestrictionsDisabled || restrictionTargetCount === 0}
             onClick={onOpenRestrictions}
           >
             <Icon name="shield" />

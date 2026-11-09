@@ -6,8 +6,8 @@ import {
   getInternetHint,
   getInternetStatus,
   getInternetStatusLabel,
-  getPcIdsToBlockInternet,
-  getPcIdsToUnblockInternet,
+  getInternetChoice,
+  getPcIdsToSetInternet,
 } from './internet'
 import type { Pc, RegisteredPc } from '../types'
 
@@ -30,40 +30,49 @@ function result(pcId: number, status: InternetResult['result']): InternetResult 
   return { pcId, pcName: `PC-${pcId}`, result: status }
 }
 
-describe('getPcIdsToBlockInternet', () => {
-  it('picks the selected PCs that are not blocked yet', () => {
-    expect(getPcIdsToBlockInternet(pcs, ['PC-1', 'PC-4'])).toEqual([1, 4])
+describe('getInternetChoice', () => {
+  it('is blocked when every PC is blocked', () => {
+    expect(getInternetChoice([registeredPc(2, { internetBlocked: true }), registeredPc(6, { internetBlocked: true })])).toBe('blocked')
   })
 
-  it('skips a PC that is already blocked', () => {
-    expect(getPcIdsToBlockInternet(pcs, ['PC-2'])).toEqual([])
+  it('is open when no PC is blocked', () => {
+    expect(getInternetChoice([registeredPc(1), registeredPc(4, { internetBlocked: false })])).toBe('open')
   })
 
-  it('skips the server PC', () => {
-    expect(getPcIdsToBlockInternet(pcs, ['PC-3'])).toEqual([])
+  it('is mixed when some PCs are blocked', () => {
+    expect(getInternetChoice([registeredPc(1), registeredPc(2, { internetBlocked: true })])).toBe('mixed')
   })
 
-  it('skips PCs that are not selected', () => {
-    expect(getPcIdsToBlockInternet(pcs, [])).toEqual([])
+  it('ignores the server PC', () => {
+    expect(getInternetChoice([registeredPc(2, { internetBlocked: true }), registeredPc(3, { isServerPc: true })])).toBe('blocked')
   })
 
-  it('keeps offline PCs, since the block applies once they are back', () => {
-    const offline = registeredPc(6, { ...offlinePc, name: 'PC-6' })
-    expect(getPcIdsToBlockInternet([offline], ['PC-6'])).toEqual([6])
+  it('is open when there are no PCs', () => {
+    expect(getInternetChoice([])).toBe('open')
   })
 })
 
-describe('getPcIdsToUnblockInternet', () => {
-  it('picks the selected PCs that are blocked', () => {
-    expect(getPcIdsToUnblockInternet(pcs, ['PC-1', 'PC-2'])).toEqual([2])
+describe('getPcIdsToSetInternet', () => {
+  it('picks the PCs that are not blocked yet when blocking', () => {
+    expect(getPcIdsToSetInternet(pcs, true)).toEqual([1, 4, 5])
   })
 
-  it('skips PCs that are not blocked', () => {
-    expect(getPcIdsToUnblockInternet(pcs, ['PC-1', 'PC-4', 'PC-5'])).toEqual([])
+  it('picks the PCs that are blocked when turning internet back on', () => {
+    expect(getPcIdsToSetInternet(pcs, false)).toEqual([2])
   })
 
-  it('skips PCs that are not selected', () => {
-    expect(getPcIdsToUnblockInternet(pcs, [])).toEqual([])
+  it('skips the server PC in both directions', () => {
+    expect(getPcIdsToSetInternet(pcs, true)).not.toContain(3)
+    expect(getPcIdsToSetInternet(pcs, false)).not.toContain(3)
+  })
+
+  it('keeps offline PCs, since the change applies once they are back', () => {
+    const offline = registeredPc(6, { ...offlinePc, name: 'PC-6' })
+    expect(getPcIdsToSetInternet([offline], true)).toEqual([6])
+  })
+
+  it('returns no PCs when every PC already has the wanted state', () => {
+    expect(getPcIdsToSetInternet([registeredPc(2, { internetBlocked: true })], true)).toEqual([])
   })
 })
 
