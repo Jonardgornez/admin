@@ -7,7 +7,6 @@ import { useAuth } from '../component/auth/auth-context'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Field, TextInput } from '../component/ui/field'
-import { Icon } from '../component/ui/icon'
 import { signIn } from '../lib/auth-api'
 import { signInSchema, type SignInValues } from '../lib/auth-schemas'
 import { readNotice } from '../lib/auth-state'
@@ -100,12 +99,6 @@ export function SignInPage() {
           {isSubmitting ? 'Logging in...' : 'Log in'}
         </Button>
       </form>
-      <p className="m-0 flex items-center gap-2 text-xs text-ink-subtle">
-        <Icon name="monitor" />
-        <span>
-          Opens only on the server PC at <span className="font-mono">localhost:[PORT]</span>
-        </span>
-      </p>
       <p className="m-0 text-xs text-ink-subtle">© 2026 Jonard M. Gornez</p>
     </main>
   )
