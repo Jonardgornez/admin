@@ -19,7 +19,7 @@ export const BACKGROUND_COPY: Record<BackgroundKind, BackgroundCopy> = {
 }
 
 export const NO_BACKGROUND_TEXT = 'No image — PCs show the plain background.'
-export const BACKGROUND_FORMAT_NOTE = 'PNG or JPEG, up to 5 MB.'
+export const BACKGROUND_FORMAT_NOTE = 'PNG or JPEG, up to 5 MB and 7680 × 4320 pixels.'
 export const BACKGROUNDS_SYNC_NOTE = 'PCs pick up changes within a few seconds while they are online.'
 
 const BYTES_PER_KB = 1024
