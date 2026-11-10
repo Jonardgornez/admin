@@ -3,6 +3,7 @@ import { PageHeader } from '../component/layout/page-header'
 import { ChangePasswordForm } from '../component/settings/change-password-form'
 import { ClientUpdateCard } from '../component/settings/client-update-card'
 import { ConsoleSessionCard } from '../component/settings/console-session-card'
+import { LockScreenCard } from '../component/settings/lock-screen-card'
 import { LoginRequestsCard } from '../component/settings/login-requests-card'
 import { MonitoringNoticeCard } from '../component/settings/monitoring-notice-card'
 import { PcPowerCard } from '../component/settings/pc-power-card'
@@ -83,6 +84,7 @@ export function SettingsPage() {
               <LoginRequestsCard />
               <PcPowerCard />
               <MonitoringNoticeCard />
+              <LockScreenCard />
               <ConsoleSessionCard />
             </form>
           </FormProvider>

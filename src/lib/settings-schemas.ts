@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_TIME_LIMIT_MINUTES } from './account-schemas'
+import { lockScreenMessageSchema } from './lock-message-schema'
 import type { AppSettings } from './settings-api'
 
 export const MIN_DEFAULT_MINUTES = 1
@@ -37,6 +38,7 @@ export const settingsFormSchema = z
     idleTimeoutMinutes: z.string(),
     defaultViewMode: z.enum(['notified', 'anonymous']),
     powerCountdownSeconds: z.string(),
+    lockMessage: lockScreenMessageSchema,
   })
   .superRefine((values, context) => {
     const minutes = parseWholeNumberInRange(
@@ -107,6 +109,7 @@ export function toSettingsFormValues(settings: AppSettings): SettingsFormValues 
     idleTimeoutMinutes: String(settings.idleTimeoutMinutes),
     defaultViewMode: settings.defaultViewMode,
     powerCountdownSeconds: String(settings.powerCountdownSeconds),
+    lockMessage: settings.lockMessage,
   }
 }
 
@@ -136,5 +139,6 @@ export function buildSettingsPayload(values: SettingsFormValues): AppSettings | 
     idleTimeoutMinutes,
     defaultViewMode: values.defaultViewMode,
     powerCountdownSeconds,
+    lockMessage: values.lockMessage.trim(),
   }
 }

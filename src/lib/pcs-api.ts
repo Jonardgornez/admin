@@ -59,8 +59,9 @@ export function removePc(id: number): Promise<ApiResult<undefined>> {
 // The server reads no body for these commands, but the JSON body keeps them POST requests.
 const COMMAND_BODY = {}
 
-export function lockPc(id: number): Promise<ApiResult<undefined>> {
-  return apiRequest(`/api/pcs/${id}/lock`, { method: 'POST', body: COMMAND_BODY })
+// A null message locks with the default message from Settings.
+export function lockPc(id: number, message: string | null): Promise<ApiResult<undefined>> {
+  return apiRequest(`/api/pcs/${id}/lock`, { method: 'POST', body: { message } })
 }
 
 export function unlockPc(id: number): Promise<ApiResult<undefined>> {
@@ -85,33 +86,37 @@ export function cancelPcPower(id: number): Promise<ApiResult<undefined>> {
 
 async function postBulkCommand(
   path: string,
-  ids: number[],
+  body: { ids: number[]; message?: string | null },
 ): Promise<ApiResult<BulkCommandResult>> {
   return parseBody(
-    await apiRequest<unknown>(path, { method: 'POST', body: { ids } }),
+    await apiRequest<unknown>(path, { method: 'POST', body }),
     bulkCommandResultSchema,
     OK_STATUS,
   )
 }
 
-export function bulkLockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
-  return postBulkCommand('/api/pcs/lock', ids)
+// A null message locks with the default message from Settings.
+export function bulkLockPcs(
+  ids: number[],
+  message: string | null,
+): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/lock', { ids, message })
 }
 
 export function bulkUnlockPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
-  return postBulkCommand('/api/pcs/unlock', ids)
+  return postBulkCommand('/api/pcs/unlock', { ids })
 }
 
 export function bulkShutDownPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
-  return postBulkCommand('/api/pcs/shutdown', ids)
+  return postBulkCommand('/api/pcs/shutdown', { ids })
 }
 
 export function bulkRebootPcs(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
-  return postBulkCommand('/api/pcs/reboot', ids)
+  return postBulkCommand('/api/pcs/reboot', { ids })
 }
 
 export function cancelPcsPower(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
-  return postBulkCommand('/api/pcs/cancel-power', ids)
+  return postBulkCommand('/api/pcs/cancel-power', { ids })
 }
 
 // The server takes at most this many PCs in one command, so larger selections are sent in batches.

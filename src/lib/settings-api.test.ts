@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE } from './api'
+import { DEFAULT_LOCK_MESSAGE } from './lock-message-schema'
 import { getSettings, saveSettings, type AppSettings } from './settings-api'
 
 const settings: AppSettings = {
@@ -8,6 +9,7 @@ const settings: AppSettings = {
   idleTimeoutMinutes: 30,
   defaultViewMode: 'notified',
   powerCountdownSeconds: 30,
+  lockMessage: 'Locked by the administrator.',
 }
 
 function stubFetch(response: Response | Error) {
@@ -69,6 +71,23 @@ describe('settings api', () => {
       expect(await getSettings()).toEqual({
         success: true,
         data: { ...settings, powerCountdownSeconds: 120 },
+      })
+    })
+
+    it('keeps the lock screen message', async () => {
+      stubFetch(Response.json({ ...settings, lockMessage: 'Back at 10:00.' }))
+      expect(await getSettings()).toEqual({
+        success: true,
+        data: { ...settings, lockMessage: 'Back at 10:00.' },
+      })
+    })
+
+    it('uses the built-in lock screen message when an older server omits it', async () => {
+      const { lockMessage: _lockMessage, ...withoutLockMessage } = settings
+      stubFetch(Response.json(withoutLockMessage))
+      expect(await getSettings()).toEqual({
+        success: true,
+        data: { ...settings, lockMessage: DEFAULT_LOCK_MESSAGE },
       })
     })
 
