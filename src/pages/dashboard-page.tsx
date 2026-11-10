@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
+import { ClientUpdateDialog } from '../component/pc/client-update-dialog'
 import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
@@ -10,6 +11,7 @@ import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
+import { useClientUpdates } from '../component/pc/use-client-updates'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
@@ -92,8 +94,14 @@ export function DashboardPage() {
     cancelPcPower,
     cancelPcsPower,
     setPcsInternetBlocked,
+    queueClientUpdates,
+    cancelClientUpdates,
     sendMessage,
   } = usePcs()
+  const clientUpdates = useClientUpdates({
+    queuePcIds: queueClientUpdates,
+    cancelPcIds: cancelClientUpdates,
+  })
   const [detailPcName, setDetailPcName] = useState<string | null>(null)
   // Null follows the saved default until the admin picks a mode in the detail dialog.
   const [detailViewMode, setDetailViewMode] = useState<ViewMode | null>(null)
@@ -130,6 +138,8 @@ export function DashboardPage() {
   const selectedPcs = pcs.filter((pc) => selectedPcNames.includes(pc.name))
   // The server PC keeps its internet, so it is not counted for Restrictions.
   const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
+  const clientUpdatePcIds = selectedPcs.map((pc) => pc.id)
+  const cancelClientUpdatePcIds = selectedPcs.filter((pc) => Boolean(pc.clientUpdate)).map((pc) => pc.id)
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
   const isPowerBusy =
     powerAction && 'pc' in powerAction
@@ -342,6 +352,16 @@ export function DashboardPage() {
             restrictionTargetCount={restrictionTargetCount}
             isRestrictionsDisabled={isDisconnected || isBulkCommandBusy}
             onOpenRestrictions={() => setRestrictionTargetPcs(selectedPcs)}
+            clientUpdateCount={clientUpdatePcIds.length}
+            isClientUpdateDisabled={
+              isDisconnected || isBulkCommandBusy || clientUpdates.release === null
+            }
+            onClientUpdate={() =>
+              void clientUpdates.openUpdate(clientUpdatePcIds, selectedServerPc !== undefined)
+            }
+            cancelClientUpdateCount={cancelClientUpdatePcIds.length}
+            isCancelClientUpdateDisabled={isDisconnected || isBulkCommandBusy}
+            onCancelClientUpdate={() => void clientUpdates.cancelUpdates(cancelClientUpdatePcIds)}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             selectedCount={selectedPcNames.length}
             searchQuery={searchQuery}
@@ -468,6 +488,16 @@ export function DashboardPage() {
           onClose={() => setRestrictionTargetPcs(null)}
         />
       )}
+
+      <ClientUpdateDialog
+        target={clientUpdates.updateTarget}
+        errorMessage={clientUpdates.updateError}
+        isBusy={isBulkCommandBusy}
+        onConfirm={() =>
+          clientUpdates.updateTarget && void clientUpdates.confirmUpdate(clientUpdates.updateTarget)
+        }
+        onCancel={clientUpdates.closeUpdate}
+      />
 
       <PowerDialog
         action={powerAction}

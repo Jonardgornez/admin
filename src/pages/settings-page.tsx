@@ -1,6 +1,7 @@
 import { FormProvider } from 'react-hook-form'
 import { PageHeader } from '../component/layout/page-header'
 import { ChangePasswordForm } from '../component/settings/change-password-form'
+import { ClientUpdateCard } from '../component/settings/client-update-card'
 import { ConsoleSessionCard } from '../component/settings/console-session-card'
 import { LoginRequestsCard } from '../component/settings/login-requests-card'
 import { MonitoringNoticeCard } from '../component/settings/monitoring-notice-card'
@@ -40,6 +41,8 @@ export function SettingsPage() {
         <ServerCard />
 
         <ScreenBackgroundsCard />
+
+        <ClientUpdateCard />
 
         {loadState.status === 'loading' && (
           <p role="status" className="col-span-full m-0 text-base text-ink-muted">

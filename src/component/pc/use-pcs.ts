@@ -280,6 +280,17 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const queueClientUpdates = useCallback(
+    (pcIds: number[], version: string) =>
+      runBulkCommand(() => pcsApi.queuePcsClientUpdate(pcIds, version)),
+    [runBulkCommand],
+  )
+
+  const cancelClientUpdates = useCallback(
+    (pcIds: number[]) => runBulkCommand(() => pcsApi.cancelPcsClientUpdate(pcIds)),
+    [runBulkCommand],
+  )
+
   const setPcsInternetBlocked = useCallback(
     (pcIds: number[], blocked: boolean) =>
       runBulkCommand(() => internetApi.setPcsInternetBlocked(pcIds, blocked)),
@@ -318,6 +329,8 @@ export function usePcs() {
     cancelPcPower,
     cancelPcsPower,
     setPcsInternetBlocked,
+    queueClientUpdates,
+    cancelClientUpdates,
     sendMessage,
   }
 }

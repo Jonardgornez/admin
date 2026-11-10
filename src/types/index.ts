@@ -21,6 +21,28 @@ export interface Pc {
   internetBlocked?: boolean
   // Null when the PC has not reported, e.g. a client older than 0.16.0.
   internetBlockApplied?: boolean | null
+  // Null when the PC has not reported a version. Null clientUpdate means no update is queued.
+  clientVersion?: string | null
+  clientUpdate?: ClientUpdateStatus | null
+}
+
+export const CLIENT_UPDATE_STATES = ['pending', 'downloading', 'installing', 'failed'] as const
+
+export type ClientUpdateState = (typeof CLIENT_UPDATE_STATES)[number]
+
+// An update queued for one PC. The PC reports its progress, and the server sends the error text when it fails.
+export interface ClientUpdateStatus {
+  targetVersion: string
+  state: ClientUpdateState
+  error: string | null
+}
+
+// The installer the admin uploaded. The server keeps only one.
+export interface ClientRelease {
+  version: string
+  sha256: string
+  sizeBytes: number
+  uploadedAtUtc: string
 }
 
 export interface ServerPcSession {
@@ -51,6 +73,8 @@ export interface ServerPc {
   isServerPc: boolean
   internetBlocked: boolean
   internetBlockApplied: boolean | null
+  clientVersion: string | null
+  clientUpdate: ClientUpdateStatus | null
 }
 
 export interface RegisteredPc extends Pc {

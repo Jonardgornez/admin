@@ -15,6 +15,12 @@ interface PcBulkToolbarProps {
   isSendMessageDisabled?: boolean
   restrictionTargetCount?: number
   isRestrictionsDisabled?: boolean
+  clientUpdateCount?: number
+  isClientUpdateDisabled?: boolean
+  onClientUpdate?: () => void
+  cancelClientUpdateCount?: number
+  isCancelClientUpdateDisabled?: boolean
+  onCancelClientUpdate?: () => void
   hasVisiblePcs: boolean
   lockSelectedCount?: number
   unlockSelectedCount?: number
@@ -65,6 +71,12 @@ export function PcBulkToolbar({
   isSendMessageDisabled = false,
   restrictionTargetCount = 0,
   isRestrictionsDisabled = false,
+  clientUpdateCount = 0,
+  isClientUpdateDisabled = false,
+  onClientUpdate,
+  cancelClientUpdateCount = 0,
+  isCancelClientUpdateDisabled = false,
+  onCancelClientUpdate,
   hasVisiblePcs,
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
@@ -189,6 +201,24 @@ export function PcBulkToolbar({
           >
             <Icon name="shield" />
             {withCount('Restrictions', restrictionTargetCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isClientUpdateDisabled || clientUpdateCount === 0}
+            onClick={onClientUpdate}
+          >
+            <Icon name="download" />
+            {withCount('Update', clientUpdateCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isCancelClientUpdateDisabled || cancelClientUpdateCount === 0}
+            onClick={onCancelClientUpdate}
+          >
+            <Icon name="x" />
+            {withCount('Cancel update', cancelClientUpdateCount)}
           </Button>
         </ToolbarGroup>
       </div>

@@ -771,6 +771,8 @@ const serverPc: ServerPc = {
   isServerPc: false,
   internetBlocked: false,
   internetBlockApplied: null,
+  clientVersion: null,
+  clientUpdate: null,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -805,6 +807,12 @@ describe('formatTimeUsed', () => {
 })
 
 describe('toRegisteredPc', () => {
+  it('carries the client version and queued update to the PC', () => {
+    const clientUpdate = { targetVersion: '0.20.0', state: 'downloading' as const, error: null }
+    const pc = toRegisteredPc({ ...serverPc, clientVersion: '0.19.0', clientUpdate }, now)
+    expect(pc).toMatchObject({ clientVersion: '0.19.0', clientUpdate })
+  })
+
   it('shows an in-use PC with the user and time left of a timed session', () => {
     const pc = toRegisteredPc(
       {
@@ -904,6 +912,8 @@ describe('toRegisteredPc', () => {
       isServerPc: false,
       internetBlocked: false,
       internetBlockApplied: null,
+      clientVersion: null,
+      clientUpdate: null,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })

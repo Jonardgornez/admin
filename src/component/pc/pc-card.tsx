@@ -17,10 +17,12 @@ import {
   SERVER_PC_SHUT_DOWN_TITLE,
 } from '../../lib/pcs'
 import type { Pc } from '../../types'
+import { formatClientVersion } from '../../lib/client-updates'
 import { Badge } from '../ui/badge'
 import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
 import { Icon, type IconName } from '../ui/icon'
+import { ClientUpdateStatusBadge } from './client-update-status'
 import { InternetBadge, OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
 
 const cardVariants = cva('flex flex-col gap-3 rounded-lg border p-4 text-ink', {
@@ -156,6 +158,7 @@ export function PcCard({
               </button>
             </h3>
           </div>
+          <p className="m-0 text-xs text-ink-muted">{formatClientVersion(pc.clientVersion)}</p>
           <div className="flex flex-wrap gap-2">
             <PcStatusBadge pc={pc} />
             {isOfflineLocked && (
@@ -165,6 +168,7 @@ export function PcCard({
             )}
             {pc.isOpenTime && <OpenTimeBadge />}
             <InternetBadge pc={pc} />
+            <ClientUpdateStatusBadge clientUpdate={pc.clientUpdate} />
           </div>
         </div>
         <div className="flex flex-none items-start gap-2">
