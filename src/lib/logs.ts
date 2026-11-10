@@ -1,4 +1,4 @@
-import type { SessionLog } from '../types'
+import type { SessionLog, SessionLogEndReason, SessionLogPage } from '../types'
 
 export interface LogFilters {
   from?: string
@@ -7,57 +7,44 @@ export interface LogFilters {
   user?: string
 }
 
-export interface Page<Item> {
-  items: Item[]
-  page: number
+interface PageRange {
   totalPages: number
-  totalItems: number
   firstItem: number
   lastItem: number
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export function filterLogs(logs: SessionLog[], filters: LogFilters): SessionLog[] {
-  const from = filters.from?.trim() ?? ''
-  const to = filters.to?.trim() ?? ''
-  const pc = filters.pc?.trim().toLowerCase() ?? ''
-  const user = filters.user?.trim().toLowerCase() ?? ''
-
-  return logs.filter((log) => {
-    const startDate = log.startedAt.slice(0, 10)
-    if (from !== '' && startDate < from) return false
-    if (to !== '' && startDate > to) return false
-    if (pc !== '' && !log.pcName.toLowerCase().includes(pc)) return false
-    if (user !== '' && !log.userOrSource.toLowerCase().includes(user)) return false
-    return true
-  })
+const END_REASON_LABELS: Record<SessionLogEndReason, string> = {
+  logout: 'Logout',
+  'time-expired': 'Time expired',
+  'account-disabled': 'Account disabled',
+  'account-deleted': 'Account removed',
+  replaced: 'Replaced by a new login',
+  'pc-removed': 'PC removed',
+  'connection-lost': 'Connection lost',
+  shutdown: 'Shutdown',
+  reboot: 'Reboot',
+  unknown: 'Other',
 }
 
-export function paginate<Item>(items: Item[], page: number, pageSize: number): Page<Item> {
-  const totalItems = items.length
-  const safePageSize = Math.max(1, Math.floor(pageSize))
-  const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize))
-  const safePage = Number.isFinite(page) ? Math.min(Math.max(1, Math.floor(page)), totalPages) : 1
-  const startIndex = (safePage - 1) * safePageSize
-  const pageItems = items.slice(startIndex, startIndex + safePageSize)
+const RUNNING_LABEL = 'Running'
 
-  return {
-    items: pageItems,
-    page: safePage,
-    totalPages,
-    totalItems,
-    firstItem: pageItems.length === 0 ? 0 : startIndex + 1,
-    lastItem: pageItems.length === 0 ? 0 : startIndex + pageItems.length,
-  }
+export function describeEndReason(log: Pick<SessionLog, 'endedAt' | 'endReason'>): string {
+  if (log.endedAt === null) return RUNNING_LABEL
+  // An ended session with no recorded reason reads as "Other", matching the CSV export.
+  return END_REASON_LABELS[log.endReason ?? 'unknown']
 }
 
+// The server sends an ISO string with an offset. Converting it to the browser's time zone gives server time,
+// because the server and this console run on the same PC.
 export function formatLogTime(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
-  if (!match) return iso
-  const [, , month, day, hour, minute] = match
-  const monthName = MONTH_NAMES[Number(month) - 1]
-  if (!monthName) return iso
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const day = String(date.getDate()).padStart(2, '0')
+  const monthName = MONTH_NAMES[date.getMonth()] ?? ''
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
   return `${day} ${monthName} ${hour}:${minute}`
 }
 
@@ -66,4 +53,11 @@ export function formatDuration(minutes: number): string {
   const hours = Math.floor(total / 60)
   const remainder = String(total % 60).padStart(2, '0')
   return `${hours}:${remainder}`
+}
+
+export function getPageRange({ items, totalItems, page, pageSize }: SessionLogPage): PageRange {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  if (items.length === 0) return { totalPages, firstItem: 0, lastItem: 0 }
+  const firstItem = (page - 1) * pageSize + 1
+  return { totalPages, firstItem, lastItem: firstItem + items.length - 1 }
 }
