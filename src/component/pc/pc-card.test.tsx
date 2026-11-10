@@ -36,10 +36,25 @@ describe('PcCard client version', () => {
     expect(screen.queryByText(/waiting|Downloading|Installing|Update failed/)).toBeNull()
   })
 
+  it('says an in-use PC waits for its student to leave before the update', () => {
+    renderCard({
+      ...onlinePc,
+      status: 'in-use',
+      user: 'maria',
+      clientUpdate: { targetVersion: '0.20.0', state: 'pending', error: null, installNow: false },
+    })
+    expect(screen.getByText('Update to 0.20.0 — waits until PC-01 is free')).not.toBeNull()
+  })
+
   it('shows the queued update on the card', () => {
     renderCard({
       ...onlinePc,
-      clientUpdate: { targetVersion: '0.20.0', state: 'downloading', error: null },
+      clientUpdate: {
+        targetVersion: '0.20.0',
+        state: 'downloading',
+        error: null,
+        installNow: false,
+      },
     })
     expect(screen.getByText('Downloading 0.20.0…')).not.toBeNull()
   })

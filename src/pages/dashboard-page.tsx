@@ -506,6 +506,7 @@ export function DashboardPage() {
         target={clientUpdates.updateTarget}
         errorMessage={clientUpdates.updateError}
         isBusy={isBulkCommandBusy}
+        onInstallNowChange={clientUpdates.setInstallNow}
         onConfirm={() =>
           clientUpdates.updateTarget && void clientUpdates.confirmUpdate(clientUpdates.updateTarget)
         }

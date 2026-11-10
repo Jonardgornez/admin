@@ -55,4 +55,6 @@ export const clientUpdateStatusSchema = z.object({
   targetVersion: clientVersionSchema,
   state: z.enum(CLIENT_UPDATE_STATES),
   error: z.string().nullable().transform(sanitizeClientUpdateError),
+  // An older server omits this, and a PC with no install-now choice waits for idle.
+  installNow: z.boolean().catch(false),
 })

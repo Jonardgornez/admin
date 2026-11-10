@@ -23,7 +23,7 @@ const NEW_RELEASE: Release = { ...RELEASE, version: '0.21.0', sha256: 'b'.repeat
 
 const CHANGED_MESSAGE = 'The uploaded update changed. Check the version and try again.'
 
-type QueuePcIds = (pcIds: number[], version: string) => Promise<unknown>
+type QueuePcIds = (pcIds: number[], version: string, installNow: boolean) => Promise<unknown>
 type CancelPcIds = (pcIds: number[]) => Promise<unknown>
 
 // The server's release can change between calls, which the tests control through setRelease.
@@ -116,6 +116,7 @@ describe('useClientUpdates', () => {
       pcIds: [1, 2],
       includesServerPc: true,
       release: RELEASE,
+      installNow: false,
     })
   })
 
@@ -127,7 +128,7 @@ describe('useClientUpdates', () => {
 
     await confirmUpdate(result)
 
-    expect(queuePcIds).toHaveBeenCalledWith([1, 2], '0.20.0')
+    expect(queuePcIds).toHaveBeenCalledWith([1, 2], '0.20.0', false)
     expect(result.current.updateTarget).toBeNull()
     expect(notify).toHaveBeenCalledWith('Update queued for 2 PCs.', 'download')
   })
@@ -170,6 +171,7 @@ describe('useClientUpdates', () => {
       pcIds: [1, 2],
       includesServerPc: false,
       release: NEW_RELEASE,
+      installNow: false,
     })
     expect(result.current.updateError).toBe(CHANGED_MESSAGE)
     expect(notify).not.toHaveBeenCalled()
@@ -202,6 +204,36 @@ describe('useClientUpdates', () => {
 
     expect(notify).toHaveBeenCalledWith('Server is busy.', 'alert')
     expect(result.current.updateTarget).toBeNull()
+  })
+
+  it('queues an install-now update when the admin turned the option on', async () => {
+    stubReleaseFetch(RELEASE)
+    const queuePcIds = vi.fn(() => Promise.resolve({ success: true, data: { affected: 1 } }))
+    const { result } = renderUpdates(queuePcIds)
+    await openUpdate(result, [1])
+
+    act(() => {
+      result.current.setInstallNow(true)
+    })
+    await confirmUpdate(result)
+
+    expect(queuePcIds).toHaveBeenCalledWith([1], '0.20.0', true)
+  })
+
+  it('starts each opened update with install-now off again', async () => {
+    stubReleaseFetch(RELEASE)
+    const { result } = renderUpdates()
+    await openUpdate(result, [1])
+    act(() => {
+      result.current.setInstallNow(true)
+    })
+    act(() => {
+      result.current.closeUpdate()
+    })
+
+    await openUpdate(result, [1])
+
+    expect(result.current.updateTarget?.installNow).toBe(false)
   })
 
   it('cancels the updates of the given PCs and reports how many were cleared', async () => {

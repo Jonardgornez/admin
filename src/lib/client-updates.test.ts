@@ -34,22 +34,58 @@ describe('formatReleaseUploaded', () => {
 })
 
 describe('getClientUpdateLabel', () => {
-  const update = { targetVersion: '0.20.0', error: null }
+  const update = { targetVersion: '0.20.0', error: null, installNow: false }
+  const idlePc = { name: 'PC-01', status: 'locked' } as const
+  const inUsePc = { name: 'PC-01', status: 'in-use' } as const
 
-  it('says an update is waiting for a PC that has not started it', () => {
-    expect(getClientUpdateLabel({ ...update, state: 'pending' })).toBe('Update to 0.20.0 waiting')
+  it('says a pending update starts soon when the PC is idle', () => {
+    expect(getClientUpdateLabel({ ...update, state: 'pending' }, idlePc)).toBe(
+      'Update to 0.20.0 starting soon',
+    )
+  })
+
+  it('says a pending update waits until the PC in use is free', () => {
+    expect(getClientUpdateLabel({ ...update, state: 'pending' }, inUsePc)).toBe(
+      'Update to 0.20.0 — waits until PC-01 is free',
+    )
+  })
+
+  it('says a pending install-now update installs after the warning when the PC is in use', () => {
+    expect(
+      getClientUpdateLabel({ ...update, state: 'pending', installNow: true }, inUsePc),
+    ).toBe('Update to 0.20.0 — installing after a 60-second warning')
+  })
+
+  it('says a pending install-now update starts soon when the PC is idle', () => {
+    expect(
+      getClientUpdateLabel({ ...update, state: 'pending', installNow: true }, idlePc),
+    ).toBe('Update to 0.20.0 starting soon')
+  })
+
+  it('says a pending update waits until a locked PC is unlocked, even with install now', () => {
+    const lockedPc = { name: 'PC-01', status: 'frozen' } as const
+    expect(getClientUpdateLabel({ ...update, state: 'pending' }, lockedPc)).toBe(
+      'Update to 0.20.0 — waits until PC-01 is unlocked',
+    )
+    expect(
+      getClientUpdateLabel({ ...update, state: 'pending', installNow: true }, lockedPc),
+    ).toBe('Update to 0.20.0 — waits until PC-01 is unlocked')
   })
 
   it('says the PC is downloading the update', () => {
-    expect(getClientUpdateLabel({ ...update, state: 'downloading' })).toBe('Downloading 0.20.0…')
+    expect(getClientUpdateLabel({ ...update, state: 'downloading' }, idlePc)).toBe(
+      'Downloading 0.20.0…',
+    )
   })
 
   it('says the PC is installing the update', () => {
-    expect(getClientUpdateLabel({ ...update, state: 'installing' })).toBe('Installing 0.20.0…')
+    expect(getClientUpdateLabel({ ...update, state: 'installing' }, idlePc)).toBe(
+      'Installing 0.20.0…',
+    )
   })
 
   it('says the update failed, without the version', () => {
-    expect(getClientUpdateLabel({ ...update, state: 'failed' })).toBe('Update failed')
+    expect(getClientUpdateLabel({ ...update, state: 'failed' }, idlePc)).toBe('Update failed')
   })
 })
 

@@ -168,7 +168,7 @@ export function PcCard({
             )}
             {pc.isOpenTime && <OpenTimeBadge />}
             <InternetBadge pc={pc} />
-            <ClientUpdateStatusBadge clientUpdate={pc.clientUpdate} />
+            <ClientUpdateStatusBadge pc={pc} />
           </div>
         </div>
         <div className="flex flex-none items-start gap-2">
