@@ -59,6 +59,46 @@ describe('apiRequest', () => {
     }
   })
 
+  it('sends a raw blob as-is with its own content type and no JSON encoding', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }))
+    const blob = new Blob(['png-bytes'], { type: 'image/png' })
+    await apiRequest('/api/backgrounds/login', {
+      method: 'PUT',
+      rawBody: { blob, contentType: 'image/png' },
+    })
+    expect(fetchMock).toHaveBeenCalledWith('/api/backgrounds/login', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'image/png' },
+      body: blob,
+    })
+  })
+
+  it('keeps the background header next to a raw body', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }))
+    await apiRequest('/api/x', {
+      method: 'PUT',
+      rawBody: { blob: new Blob(['x']), contentType: 'image/jpeg' },
+      isBackground: true,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/x',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'image/jpeg', 'X-Background-Refresh': '1' },
+      }),
+    )
+  })
+
+  it('returns the server error for a rejected raw upload', async () => {
+    stubFetch(Response.json({ error: 'The image must be 5 MB or smaller.' }, { status: 413 }))
+    expect(
+      await apiRequest('/api/backgrounds/lock', {
+        method: 'PUT',
+        rawBody: { blob: new Blob(['x']), contentType: 'image/png' },
+      }),
+    ).toEqual({ success: false, status: 413, error: 'The image must be 5 MB or smaller.' })
+  })
+
   it.each(['PUT', 'PATCH', 'DELETE'] as const)('sends the %s method', async (method) => {
     const fetchMock = stubFetch(new Response(null, { status: 204 }))
     await apiRequest('/api/x/1', { method })

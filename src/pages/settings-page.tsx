@@ -5,6 +5,7 @@ import { ConsoleSessionCard } from '../component/settings/console-session-card'
 import { LoginRequestsCard } from '../component/settings/login-requests-card'
 import { MonitoringNoticeCard } from '../component/settings/monitoring-notice-card'
 import { PcPowerCard } from '../component/settings/pc-power-card'
+import { ScreenBackgroundsCard } from '../component/settings/screen-backgrounds-card'
 import { ServerCard } from '../component/settings/server-card'
 import { SettingsCard } from '../component/settings/settings-card'
 import { useSettingsEditor } from '../component/settings/use-settings-editor'
@@ -37,6 +38,8 @@ export function SettingsPage() {
         </SettingsCard>
 
         <ServerCard />
+
+        <ScreenBackgroundsCard />
 
         {loadState.status === 'loading' && (
           <p role="status" className="col-span-full m-0 text-base text-ink-muted">
