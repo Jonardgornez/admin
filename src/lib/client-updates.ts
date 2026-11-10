@@ -5,7 +5,7 @@ const BYTES_PER_MB = 1024 * 1024
 const UNKNOWN_VERSION_LABEL = 'Version unknown'
 
 export const CLIENT_UPDATE_HINT =
-  'Upload a new LykantraSetup.exe, then choose which PCs to update on the Dashboard. PCs install it when nobody is using them.'
+  'Upload any LykantraSetup.exe (it replaces the one stored here), then choose which PCs to update on the Dashboard. A PC installs it when nobody is using it, and only if it is newer than the version the PC already has.'
 export const INSTALLER_FORMAT_NOTE = 'LykantraSetup.exe, up to 150 MB.'
 export const REMOVE_RELEASE_BODY = "PCs that haven't installed it yet won't get it."
 
