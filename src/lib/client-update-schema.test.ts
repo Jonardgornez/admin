@@ -73,8 +73,32 @@ describe('clientVersionSchema', () => {
 
 describe('clientUpdateStatusSchema', () => {
   it('accepts a failed update with its error text', () => {
-    const update = { targetVersion: '0.20.0', state: 'failed', error: 'Disk full.' }
+    const update = { targetVersion: '0.20.0', state: 'failed', error: 'Disk full.', installNow: false }
     expect(clientUpdateStatusSchema.parse(update)).toEqual(update)
+  })
+
+  it('keeps an install-now choice of true', () => {
+    const update = { targetVersion: '0.20.0', state: 'pending', error: null, installNow: true }
+    expect(clientUpdateStatusSchema.parse(update)).toEqual(update)
+  })
+
+  it('reads a missing installNow from an older server as false', () => {
+    const result = clientUpdateStatusSchema.parse({
+      targetVersion: '0.20.0',
+      state: 'pending',
+      error: null,
+    })
+    expect(result.installNow).toBe(false)
+  })
+
+  it.each(['yes', 1, null])('reads a non-boolean installNow %j as false', (installNow) => {
+    const result = clientUpdateStatusSchema.parse({
+      targetVersion: '0.20.0',
+      state: 'pending',
+      error: null,
+      installNow,
+    })
+    expect(result.installNow).toBe(false)
   })
 
   it('rejects a state outside the four the server sends', () => {

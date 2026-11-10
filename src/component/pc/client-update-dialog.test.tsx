@@ -22,13 +22,18 @@ const target: ClientUpdateTarget = {
     sizeBytes: 75 * 1024 * 1024,
     uploadedAtUtc: '2026-11-10T09:30:00.000Z',
   },
+  installNow: false,
 }
+
+const INSTALL_NOW_CHECKBOX_NAME =
+  'Install now, even if someone is using the PC (signs them out after a 60-second warning)'
 
 function renderDialog(overrides: Partial<Parameters<typeof ClientUpdateDialog>[0]> = {}) {
   const props = {
     target,
     errorMessage: null,
     isBusy: false,
+    onInstallNowChange: vi.fn(),
     onConfirm: vi.fn(),
     onCancel: vi.fn(),
     ...overrides,
@@ -42,6 +47,42 @@ describe('ClientUpdateDialog', () => {
     renderDialog()
     const dialog = within(screen.getByRole('dialog', { name: 'Update 2 PCs to 0.20.0?' }))
     expect(dialog.getByText('Each PC installs it the next time nobody is using it.')).not.toBeNull()
+  })
+
+  it('leaves the install-now checkbox unchecked by default', () => {
+    renderDialog()
+    const checkbox = screen.getByRole('checkbox', { name: INSTALL_NOW_CHECKBOX_NAME })
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('says the students get a warning and are signed out when install now is checked', () => {
+    renderDialog({ target: { ...target, installNow: true } })
+    const checkbox = screen.getByRole('checkbox', { name: INSTALL_NOW_CHECKBOX_NAME })
+    expect((checkbox as HTMLInputElement).checked).toBe(true)
+    expect(
+      screen.getByText(
+        /Students on PCs in use get a 60-second warning, then are signed out so the update can install\./,
+      ),
+    ).not.toBeNull()
+    expect(screen.queryByText('Each PC installs it the next time nobody is using it.')).toBeNull()
+  })
+
+  it('reports the new install-now choice when the checkbox is toggled', () => {
+    const { onInstallNowChange } = renderDialog()
+    fireEvent.click(screen.getByRole('checkbox', { name: INSTALL_NOW_CHECKBOX_NAME }))
+    expect(onInstallNowChange).toHaveBeenCalledWith(true)
+  })
+
+  it('reports unchecking the install-now checkbox', () => {
+    const { onInstallNowChange } = renderDialog({ target: { ...target, installNow: true } })
+    fireEvent.click(screen.getByRole('checkbox', { name: INSTALL_NOW_CHECKBOX_NAME }))
+    expect(onInstallNowChange).toHaveBeenCalledWith(false)
+  })
+
+  it('disables the install-now checkbox while the command is running', () => {
+    renderDialog({ isBusy: true })
+    const checkbox = screen.getByRole('checkbox', { name: INSTALL_NOW_CHECKBOX_NAME })
+    expect((checkbox as HTMLInputElement).disabled).toBe(true)
   })
 
   it('shows the version, upload time and the first 12 characters of the hash', () => {

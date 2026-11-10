@@ -1,5 +1,5 @@
 import { getClientUpdateLabel } from '../../lib/client-updates'
-import type { ClientUpdateState, ClientUpdateStatus } from '../../types'
+import type { ClientUpdateState, Pc } from '../../types'
 import { Badge, type BadgeVariant } from '../ui/badge'
 import type { IconName } from '../ui/icon'
 
@@ -16,11 +16,12 @@ const UPDATE_DISPLAY: Record<ClientUpdateState, ClientUpdateDisplay> = {
 }
 
 interface ClientUpdateStatusProps {
-  clientUpdate: ClientUpdateStatus | null | undefined
+  pc: Pick<Pc, 'name' | 'status' | 'clientUpdate'>
 }
 
 // Renders inside the card's badge row. A failure shows its reason as visible text, and in the tooltip.
-export function ClientUpdateStatusBadge({ clientUpdate }: ClientUpdateStatusProps) {
+export function ClientUpdateStatusBadge({ pc }: ClientUpdateStatusProps) {
+  const { clientUpdate } = pc
   if (!clientUpdate) return null
   const { variant, icon } = UPDATE_DISPLAY[clientUpdate.state]
   const isFailed = clientUpdate.state === 'failed'
@@ -29,7 +30,7 @@ export function ClientUpdateStatusBadge({ clientUpdate }: ClientUpdateStatusProp
   return (
     <>
       <Badge variant={variant} icon={icon} title={isFailed ? failureReason : undefined}>
-        {getClientUpdateLabel(clientUpdate)}
+        {getClientUpdateLabel(clientUpdate, pc)}
       </Badge>
       {isFailed && (
         <p title={failureReason} className="m-0 line-clamp-2 w-full break-words text-xs text-danger">

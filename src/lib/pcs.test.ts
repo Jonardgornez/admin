@@ -808,7 +808,12 @@ describe('formatTimeUsed', () => {
 
 describe('toRegisteredPc', () => {
   it('carries the client version and queued update to the PC', () => {
-    const clientUpdate = { targetVersion: '0.20.0', state: 'downloading' as const, error: null }
+    const clientUpdate = {
+      targetVersion: '0.20.0',
+      state: 'downloading' as const,
+      error: null,
+      installNow: false,
+    }
     const pc = toRegisteredPc({ ...serverPc, clientVersion: '0.19.0', clientUpdate }, now)
     expect(pc).toMatchObject({ clientVersion: '0.19.0', clientUpdate })
   })

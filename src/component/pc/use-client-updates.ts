@@ -13,7 +13,7 @@ import type { ClientUpdateTarget } from './client-update-dialog'
 type BulkResult = ApiResult<BulkCommandResult> | null
 
 interface UseClientUpdatesOptions {
-  queuePcIds: (pcIds: number[], version: string) => Promise<BulkResult>
+  queuePcIds: (pcIds: number[], version: string, installNow: boolean) => Promise<BulkResult>
   cancelPcIds: (pcIds: number[]) => Promise<BulkResult>
 }
 
@@ -44,12 +44,16 @@ export function useClientUpdates({ queuePcIds, cancelPcIds }: UseClientUpdatesOp
       return
     }
     setUpdateError(null)
-    setUpdateTarget({ pcIds, includesServerPc, release: result.data })
+    setUpdateTarget({ pcIds, includesServerPc, release: result.data, installNow: false })
+  }
+
+  function setInstallNow(installNow: boolean) {
+    setUpdateTarget((current) => current && { ...current, installNow })
   }
 
   // Null means the same bulk command is still running, which keeps the dialog open.
   async function confirmUpdate(target: ClientUpdateTarget) {
-    const result = await queuePcIds(target.pcIds, target.release.version)
+    const result = await queuePcIds(target.pcIds, target.release.version, target.installNow)
     if (!result) return
     if (result.success) {
       closeUpdate()
@@ -85,6 +89,7 @@ export function useClientUpdates({ queuePcIds, cancelPcIds }: UseClientUpdatesOp
     updateTarget,
     updateError,
     openUpdate,
+    setInstallNow,
     closeUpdate,
     confirmUpdate,
     cancelUpdates,

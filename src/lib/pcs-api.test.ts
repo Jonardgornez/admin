@@ -976,7 +976,7 @@ describe('pcs client update api', () => {
 
 
 
-  const update = { targetVersion: '0.20.0', state: 'pending', error: null }
+  const update = { targetVersion: '0.20.0', state: 'pending', error: null, installNow: false }
 
 
 
@@ -1061,7 +1061,7 @@ describe('pcs client update api', () => {
 
     const fetchMock = stubFetch(Response.json({ affected: 2 }))
 
-    expect(await queuePcsClientUpdate([3, 4], '0.20.0')).toEqual({ success: true, data: { affected: 2 } })
+    expect(await queuePcsClientUpdate([3, 4], '0.20.0', false)).toEqual({ success: true, data: { affected: 2 } })
 
     expect(fetchMock).toHaveBeenCalledWith(
 
@@ -1071,7 +1071,7 @@ describe('pcs client update api', () => {
 
         method: 'POST',
 
-        body: JSON.stringify({ pcIds: [3, 4], version: '0.20.0' }),
+        body: JSON.stringify({ pcIds: [3, 4], version: '0.20.0', installNow: false }),
 
       }),
 
@@ -1080,6 +1080,19 @@ describe('pcs client update api', () => {
   })
 
 
+
+  it('sends the install-now choice with the queued update', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 1 }))
+
+    await queuePcsClientUpdate([3], '0.20.0', true)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/client-update',
+      expect.objectContaining({
+        body: JSON.stringify({ pcIds: [3], version: '0.20.0', installNow: true }),
+      }),
+    )
+  })
 
   it('sends more than 500 PCs in batches and adds up what the server affected', async () => {
 
@@ -1097,7 +1110,7 @@ describe('pcs client update api', () => {
 
 
 
-    expect(await queuePcsClientUpdate(pcIds, '0.20.0')).toEqual({
+    expect(await queuePcsClientUpdate(pcIds, '0.20.0', false)).toEqual({
 
       success: true,
 
@@ -1145,7 +1158,7 @@ describe('pcs client update api', () => {
 
 
 
-    expect(await queuePcsClientUpdate(pcIds, '0.20.0')).toEqual({
+    expect(await queuePcsClientUpdate(pcIds, '0.20.0', false)).toEqual({
 
       success: false,
 
@@ -1165,7 +1178,7 @@ describe('pcs client update api', () => {
 
     stubFetch(Response.json({ error: 'Upload a client installer first.' }, { status: 409 }))
 
-    expect(await queuePcsClientUpdate([3], '0.20.0')).toEqual({
+    expect(await queuePcsClientUpdate([3], '0.20.0', false)).toEqual({
 
       success: false,
 

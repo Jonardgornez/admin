@@ -1,8 +1,10 @@
-import type { ClientUpdateState, ClientUpdateStatus } from '../types'
+import type { ClientUpdateState, ClientUpdateStatus, Pc } from '../types'
 import { formatPcCount } from './pcs'
 
 const BYTES_PER_MB = 1024 * 1024
 const UNKNOWN_VERSION_LABEL = 'Version unknown'
+
+export const INSTALL_NOW_WARNING_SECONDS = 60
 
 export const CLIENT_UPDATE_HINT =
   'Upload any LykantraSetup.exe (it replaces the one stored here), then choose which PCs to update on the Dashboard. A PC installs it when nobody is using it, and only if it is newer than the version the PC already has.'
@@ -27,14 +29,28 @@ export function formatReleaseUploaded(uploadedAtUtc: string): string {
   return `Uploaded ${uploaded}`
 }
 
-const UPDATE_LABELS: Record<ClientUpdateState, (version: string) => string> = {
-  pending: (version) => `Update to ${version} waiting`,
+const UPDATE_LABELS: Record<Exclude<ClientUpdateState, 'pending'>, (version: string) => string> = {
   downloading: (version) => `Downloading ${version}…`,
   installing: (version) => `Installing ${version}…`,
   failed: () => 'Update failed',
 }
 
-export function getClientUpdateLabel(clientUpdate: ClientUpdateStatus): string {
+type ClientUpdatePc = Pick<Pc, 'name' | 'status'>
+
+// A locked PC never installs, so it waits for unlock whatever the install-now choice is.
+// Only a PC in use waits for someone to leave. Any other PC starts the update at its next idle check.
+function getPendingUpdateLabel(clientUpdate: ClientUpdateStatus, pc: ClientUpdatePc): string {
+  const prefix = `Update to ${clientUpdate.targetVersion}`
+  if (pc.status === 'frozen') return `${prefix} — waits until ${pc.name} is unlocked`
+  if (pc.status !== 'in-use') return `${prefix} starting soon`
+  if (clientUpdate.installNow) {
+    return `${prefix} — installing after a ${INSTALL_NOW_WARNING_SECONDS}-second warning`
+  }
+  return `${prefix} — waits until ${pc.name} is free`
+}
+
+export function getClientUpdateLabel(clientUpdate: ClientUpdateStatus, pc: ClientUpdatePc): string {
+  if (clientUpdate.state === 'pending') return getPendingUpdateLabel(clientUpdate, pc)
   return UPDATE_LABELS[clientUpdate.state](clientUpdate.targetVersion)
 }
 

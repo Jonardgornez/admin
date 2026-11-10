@@ -35,6 +35,8 @@ export interface ClientUpdateStatus {
   targetVersion: string
   state: ClientUpdateState
   error: string | null
+  // True when the admin chose to sign the student out after a warning instead of waiting for idle.
+  installNow: boolean
 }
 
 // The installer the admin uploaded. The server keeps only one.

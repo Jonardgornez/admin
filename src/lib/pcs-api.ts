@@ -145,12 +145,14 @@ async function sendPcBatches(
 }
 
 // Queues the update for these PCs. The version is the one the admin saw, so a changed upload is refused.
+// installNow signs a PC in use out after a warning, instead of waiting for it to be free.
 export function queuePcsClientUpdate(
   pcIds: number[],
   version: string,
+  installNow: boolean,
 ): Promise<ApiResult<BulkCommandResult>> {
   return sendPcBatches(pcIds, (batch) =>
-    postPcIdsCommand('/api/pcs/client-update', { pcIds: batch, version }),
+    postPcIdsCommand('/api/pcs/client-update', { pcIds: batch, version, installNow }),
   )
 }
 
@@ -162,7 +164,7 @@ export function cancelPcsClientUpdate(pcIds: number[]): Promise<ApiResult<BulkCo
 
 async function postPcIdsCommand(
   path: string,
-  body: { pcIds: number[]; version?: string },
+  body: { pcIds: number[]; version?: string; installNow?: boolean },
 ): Promise<ApiResult<BulkCommandResult>> {
   return parseBody(
     await apiRequest<unknown>(path, { method: 'POST', body }),

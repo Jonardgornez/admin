@@ -279,8 +279,8 @@ export function usePcs() {
   )
 
   const queueClientUpdates = useCallback(
-    (pcIds: number[], version: string) =>
-      runBulkCommand(() => pcsApi.queuePcsClientUpdate(pcIds, version)),
+    (pcIds: number[], version: string, installNow: boolean) =>
+      runBulkCommand(() => pcsApi.queuePcsClientUpdate(pcIds, version, installNow)),
     [runBulkCommand],
   )
 
