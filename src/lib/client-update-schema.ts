@@ -8,7 +8,8 @@ export const CLIENT_UPDATE_ERROR_MAX_CHARS = 200
 const NAME_MESSAGE = 'Choose LykantraSetup.exe.'
 const SIZE_MESSAGE = 'The installer must be 150 MB or smaller.'
 
-const VERSION_PATTERN = /^\d+\.\d+\.\d+$/
+// Same rule as the server, client and service: each part is 0 or up to 9 digits with no leading zero.
+const VERSION_PATTERN = /^(?:0|[1-9]\d{0,8})\.(?:0|[1-9]\d{0,8})\.(?:0|[1-9]\d{0,8})$/
 
 export const clientVersionSchema = z.string().regex(VERSION_PATTERN)
 

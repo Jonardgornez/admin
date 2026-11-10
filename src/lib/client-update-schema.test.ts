@@ -56,7 +56,17 @@ describe('clientVersionSchema', () => {
     expect(clientVersionSchema.safeParse(version).success).toBe(true)
   })
 
-  it.each(['0.20', '1.2.3.4', 'v0.20.0', '0.20.0-beta', '', 'a.b.c'])('rejects %s', (version) => {
+  it.each([
+    '0.20',
+    '1.2.3.4',
+    'v0.20.0',
+    '0.20.0-beta',
+    '',
+    'a.b.c',
+    '01.2.3',
+    '1.2.3\n',
+    '1234567890.0.0',
+  ])('rejects %j', (version) => {
     expect(clientVersionSchema.safeParse(version).success).toBe(false)
   })
 })
