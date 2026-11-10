@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
 import { ClientUpdateDialog } from '../component/pc/client-update-dialog'
-import { BulkLockDialog, type BulkLockAction } from '../component/pc/bulk-lock-dialog'
+import { LockDialog } from '../component/pc/lock-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
 import { PcDetailDialog } from '../component/pc/pc-detail-dialog'
 import { PcGrid } from '../component/pc/pc-grid'
@@ -20,6 +20,7 @@ import { Icon, type IconName } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
+import { getLockActionPcIds, type LockAction } from '../lib/pc-lock-action'
 import { describeInternetResult } from '../lib/internet'
 import {
   canEditPcTime,
@@ -83,7 +84,6 @@ export function DashboardPage() {
     removePc,
     lockPc,
     unlockPc,
-    togglePcLock,
     editPcTime,
     lockPcs,
     unlockPcs,
@@ -108,7 +108,7 @@ export function DashboardPage() {
   const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
-  const [bulkLockAction, setBulkLockAction] = useState<BulkLockAction | null>(null)
+  const [lockAction, setLockAction] = useState<LockAction | null>(null)
   const [restrictionTargetPcs, setRestrictionTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
@@ -141,6 +141,10 @@ export function DashboardPage() {
   const clientUpdatePcIds = selectedPcs.map((pc) => pc.id)
   const cancelClientUpdatePcIds = selectedPcs.filter((pc) => Boolean(pc.clientUpdate)).map((pc) => pc.id)
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
+  const isLockBusy =
+    lockAction && 'pc' in lockAction
+      ? lockingPcIds.includes(lockAction.pc.id)
+      : isBulkCommandBusy
   const isPowerBusy =
     powerAction && 'pc' in powerAction
       ? powerPendingPcIds.includes(powerAction.pc.id)
@@ -190,21 +194,16 @@ export function DashboardPage() {
     else if (!isSessionExpired(result)) notify(result.error, 'alert')
   }
 
-  async function toggleLockOfPc(pc: RegisteredPc) {
-    notifySinglePcLock(pc, getLockToggleTarget(pc), await togglePcLock(pc))
-  }
-
-  async function lockOnePc(pc: RegisteredPc) {
-    notifySinglePcLock(pc, 'lock', await lockPc(pc))
-  }
-
   async function unlockOnePc(pc: RegisteredPc) {
     notifySinglePcLock(pc, 'unlock', await unlockPc(pc))
   }
 
+  // Locking asks for an optional message first. Unlocking takes effect at once.
   function toggleLockOfPcNamed(pcName: string) {
     const pc = pcs.find((candidate) => candidate.name === pcName)
-    if (pc) void toggleLockOfPc(pc)
+    if (!pc) return
+    if (getLockToggleTarget(pc) === 'lock') setLockAction({ kind: 'lock', pc })
+    else void unlockOnePc(pc)
   }
 
   function openPowerOfPcNamed(kind: PowerCommand, pcName: string) {
@@ -212,12 +211,23 @@ export function DashboardPage() {
     if (pc) setPowerAction({ kind, pc })
   }
 
-  async function confirmBulkLock(action: BulkLockAction) {
+  // The message is only used by lock. Null means the PC shows the default from Settings.
+  async function confirmLock(action: LockAction, message: string | null) {
+    if ('pc' in action) {
+      const result = await lockPc(action.pc, message)
+      // Null means the PC is offline or a lock for it is still running, so the dialog stays open.
+      if (!result) return
+      setLockAction(null)
+      notifySinglePcLock(action.pc, 'lock', result)
+      return
+    }
     const result =
-      action.kind === 'lock' ? await lockPcs(action.pcIds) : await unlockPcs(action.pcIds)
+      action.kind === 'lock'
+        ? await lockPcs(action.pcIds, message)
+        : await unlockPcs(action.pcIds)
     // Null means the same command is still running, which closes the dialog when it ends.
     if (!result) return
-    setBulkLockAction(null)
+    setLockAction(null)
     if (result.success) {
       notify(describeBulkLockResult(action.kind, result.data.affected), action.kind)
     } else if (!isSessionExpired(result)) {
@@ -368,8 +378,8 @@ export function DashboardPage() {
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
             serverPcNote={selectedServerPc && getServerPcPowerNote(selectedServerPc.name)}
-            onUnlockSelected={() => setBulkLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
-            onLockSelected={() => setBulkLockAction({ kind: 'lock', pcIds: lockPcIds })}
+            onUnlockSelected={() => setLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
+            onLockSelected={() => setLockAction({ kind: 'lock', pcIds: lockPcIds })}
             onRebootSelected={() =>
               setPowerAction({
                 kind: 'reboot-selected',
@@ -450,7 +460,7 @@ export function DashboardPage() {
           isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
           isPowerDisabled={isPowerDisabled(detailPc.name)}
           onClose={closeDetail}
-          onLock={() => void lockOnePc(detailPc)}
+          onLock={() => setLockAction({ kind: 'lock', pc: detailPc })}
           onUnlock={() => void unlockOnePc(detailPc)}
           onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}
           onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
@@ -473,13 +483,16 @@ export function DashboardPage() {
         />
       )}
 
-      <BulkLockDialog
-        action={bulkLockAction}
-        hiddenPcCount={countPcsHiddenFromView(bulkLockAction?.pcIds ?? [], pcs, visiblePcNames)}
-        isBusy={isBulkCommandBusy}
-        onConfirm={() => bulkLockAction && void confirmBulkLock(bulkLockAction)}
-        onCancel={() => setBulkLockAction(null)}
-      />
+      {lockAction && (
+        <LockDialog
+          action={lockAction}
+          defaultMessage={consoleDefaults.lockMessage}
+          hiddenPcCount={countPcsHiddenFromView(getLockActionPcIds(lockAction), pcs, visiblePcNames)}
+          isBusy={isLockBusy}
+          onConfirm={(message) => void confirmLock(lockAction, message)}
+          onCancel={() => setLockAction(null)}
+        />
+      )}
 
       {restrictionTargetPcs && (
         <RestrictionsDialog

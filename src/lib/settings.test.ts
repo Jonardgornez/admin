@@ -9,6 +9,7 @@ const savedSettings: AppSettings = {
   idleTimeoutMinutes: 15,
   defaultViewMode: 'anonymous',
   powerCountdownSeconds: 45,
+  lockMessage: 'Locked for class.',
 }
 
 describe('fallback settings', () => {
@@ -21,6 +22,10 @@ describe('fallback settings', () => {
   it('use a 30-second power countdown', () => {
     expect(FALLBACK_SETTINGS.powerCountdownSeconds).toBe(30)
   })
+
+  it('use the built-in lock screen message', () => {
+    expect(FALLBACK_SETTINGS.lockMessage).toBe('This computer has been locked by the administrator.')
+  })
 })
 
 describe('toConsoleDefaults', () => {
@@ -30,6 +35,7 @@ describe('toConsoleDefaults', () => {
       defaultApproval: { mode: 'open-time', minutes: 90 },
       defaultViewMode: 'anonymous',
       powerCountdownSeconds: 45,
+      lockMessage: 'Locked for class.',
     })
   })
 
@@ -40,6 +46,7 @@ describe('toConsoleDefaults', () => {
       defaultApproval: { mode: 'time-limit', minutes: 60 },
       defaultViewMode: 'notified',
       powerCountdownSeconds: null,
+      lockMessage: 'This computer has been locked by the administrator.',
     })
   })
 

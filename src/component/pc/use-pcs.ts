@@ -6,14 +6,13 @@ import {
   canEditPcTime,
   canRebootPc,
   canShutDownPc,
-  getLockToggleTarget,
   isPcOnline,
   toRegisteredPcs,
 } from '../../lib/pcs'
 import * as internetApi from '../../lib/internet-api'
 import * as pcsApi from '../../lib/pcs-api'
 import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
-import type { Pc, PcLockAction, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
+import type { Pc, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 export const POLL_INTERVAL_MS = 5000
@@ -156,13 +155,15 @@ export function usePcs() {
 
   // Resolves with null when the PC is offline or a lock command for it is already running.
   const runPcLockCommand = useCallback(
-    async (pc: RegisteredPc, action: PcLockAction): Promise<ApiResult<undefined> | null> => {
+    async (
+      pc: RegisteredPc,
+      sendCommand: () => Promise<ApiResult<undefined>>,
+    ): Promise<ApiResult<undefined> | null> => {
       if (!isPcOnline(pc) || lockingPcIdsInFlight.current.has(pc.id)) return null
       lockingPcIdsInFlight.current.add(pc.id)
       setLockingPcIds((current) => [...current, pc.id])
       try {
-        const command = action === 'lock' ? pcsApi.lockPc(pc.id) : pcsApi.unlockPc(pc.id)
-        return await runPcCommand(command)
+        return await runPcCommand(sendCommand())
       } finally {
         lockingPcIdsInFlight.current.delete(pc.id)
         setLockingPcIds((current) => current.filter((id) => id !== pc.id))
@@ -172,17 +173,13 @@ export function usePcs() {
   )
 
   const lockPc = useCallback(
-    (pc: RegisteredPc) => runPcLockCommand(pc, 'lock'),
+    (pc: RegisteredPc, message: string | null) =>
+      runPcLockCommand(pc, () => pcsApi.lockPc(pc.id, message)),
     [runPcLockCommand],
   )
 
   const unlockPc = useCallback(
-    (pc: RegisteredPc) => runPcLockCommand(pc, 'unlock'),
-    [runPcLockCommand],
-  )
-
-  const togglePcLock = useCallback(
-    (pc: RegisteredPc) => runPcLockCommand(pc, getLockToggleTarget(pc)),
+    (pc: RegisteredPc) => runPcLockCommand(pc, () => pcsApi.unlockPc(pc.id)),
     [runPcLockCommand],
   )
 
@@ -256,7 +253,8 @@ export function usePcs() {
   )
 
   const lockPcs = useCallback(
-    (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkLockPcs(pcIds)),
+    (pcIds: number[], message: string | null) =>
+      runBulkCommand(() => pcsApi.bulkLockPcs(pcIds, message)),
     [runBulkCommand],
   )
 
@@ -318,7 +316,6 @@ export function usePcs() {
     removePc,
     lockPc,
     unlockPc,
-    togglePcLock,
     editPcTime,
     lockPcs,
     unlockPcs,

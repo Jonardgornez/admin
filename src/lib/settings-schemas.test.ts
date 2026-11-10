@@ -17,6 +17,7 @@ const valid: SettingsFormValues = {
   idleTimeoutMinutes: '30',
   defaultViewMode: 'notified',
   powerCountdownSeconds: '30',
+  lockMessage: 'Locked by the administrator.',
 }
 
 function errorsFor(values: Partial<SettingsFormValues>): Record<string, string> {
@@ -35,6 +36,7 @@ const savedSettings: AppSettings = {
   idleTimeoutMinutes: 15,
   defaultViewMode: 'anonymous',
   powerCountdownSeconds: 45,
+  lockMessage: 'Back at 10:00.',
 }
 
 describe('parseWholeNumberInRange', () => {
@@ -146,6 +148,7 @@ describe('toSettingsFormValues', () => {
       idleTimeoutMinutes: '15',
       defaultViewMode: 'anonymous',
       powerCountdownSeconds: '45',
+      lockMessage: 'Back at 10:00.',
     })
   })
 })
@@ -168,6 +171,7 @@ describe('buildSettingsPayload', () => {
       idleTimeoutMinutes: 15,
       defaultViewMode: 'anonymous',
       powerCountdownSeconds: 45,
+      lockMessage: 'Locked by the administrator.',
     })
   })
 

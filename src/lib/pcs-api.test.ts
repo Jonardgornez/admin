@@ -440,23 +440,32 @@ describe('pcs api', () => {
 
   describe('lockPc and unlockPc', () => {
 
-    it('posts an empty body to the lock route of the PC', async () => {
+    it('posts the message to the lock route of the PC', async () => {
 
       const fetchMock = stubFetch(new Response(null, { status: 204 }))
 
-      expect(await lockPc(7)).toEqual({ success: true, data: undefined })
+      expect(await lockPc(7, 'Back at 10:00.')).toEqual({ success: true, data: undefined })
 
       expect(fetchMock).toHaveBeenCalledWith(
 
         '/api/pcs/7/lock',
 
-        expect.objectContaining({ method: 'POST', body: '{}' }),
+        expect.objectContaining({ method: 'POST', body: '{"message":"Back at 10:00."}' }),
 
       )
 
     })
 
 
+
+    it('posts a null message when the default from Settings should be used', async () => {
+      const fetchMock = stubFetch(new Response(null, { status: 204 }))
+      expect(await lockPc(7, null)).toEqual({ success: true, data: undefined })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/lock',
+        expect.objectContaining({ method: 'POST', body: '{"message":null}' }),
+      )
+    })
 
     it('posts to the unlock route of the PC', async () => {
 
@@ -878,17 +887,17 @@ describe('pcs api', () => {
 
   describe('bulkLockPcs and bulkUnlockPcs', () => {
 
-    it('posts the PC ids to the lock route and returns how many were locked', async () => {
+    it('posts the PC ids and message to the lock route and returns how many were locked', async () => {
 
       const fetchMock = stubFetch(Response.json({ affected: 2 }))
 
-      expect(await bulkLockPcs([3, 7])).toEqual({ success: true, data: { affected: 2 } })
+      expect(await bulkLockPcs([3, 7], 'Class is over.')).toEqual({ success: true, data: { affected: 2 } })
 
       expect(fetchMock).toHaveBeenCalledWith(
 
         '/api/pcs/lock',
 
-        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7]}' }),
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"message":"Class is over."}' }),
 
       )
 
@@ -914,6 +923,15 @@ describe('pcs api', () => {
 
 
 
+    it('posts a null message when no custom message was typed', async () => {
+      const fetchMock = stubFetch(Response.json({ affected: 2 }))
+      expect(await bulkLockPcs([3, 7], null)).toEqual({ success: true, data: { affected: 2 } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/lock',
+        expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"message":null}' }),
+      )
+    })
+
     it('fails on a count that is not a whole number of PCs', async () => {
 
       stubFetch(Response.json({ affected: -1 }))
@@ -928,7 +946,7 @@ describe('pcs api', () => {
 
       stubFetch(Response.json({ count: 3 }))
 
-      expect(await bulkLockPcs([3])).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+      expect(await bulkLockPcs([3], null)).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
 
     })
 
@@ -938,7 +956,7 @@ describe('pcs api', () => {
 
       stubFetch(Response.json({ error: 'Sign in again.' }, { status: 401 }))
 
-      expect(await bulkLockPcs([3])).toEqual({ success: false, status: 401, error: 'Sign in again.' })
+      expect(await bulkLockPcs([3], null)).toEqual({ success: false, status: 401, error: 'Sign in again.' })
 
     })
 

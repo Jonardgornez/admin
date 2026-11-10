@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { apiRequest, type ApiResult } from './api'
 import { OK_STATUS, parseBody } from './accounts-api'
+import { DEFAULT_LOCK_MESSAGE } from './lock-message-schema'
 
 const defaultApprovalSchema = z.object({
   mode: z.enum(['time-limit', 'open-time']),
@@ -16,6 +17,8 @@ const settingsSchema = z.object({
   idleTimeoutMinutes: z.number().int(),
   defaultViewMode: z.enum(['notified', 'anonymous']),
   powerCountdownSeconds: z.number().int(),
+  // An older server omits this, so the built-in default stands in until it is restarted.
+  lockMessage: z.string().default(DEFAULT_LOCK_MESSAGE),
 })
 
 export type DefaultApproval = z.infer<typeof defaultApprovalSchema>
