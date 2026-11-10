@@ -68,7 +68,9 @@ describe('ClientUpdateCard', () => {
   it('shows the hint and a loading message while the release loads', () => {
     stubFetch(() => new Promise<Response>(() => {}))
     renderCard()
-    expect(screen.getByText(/Upload a new LykantraSetup\.exe, then choose which PCs/)).not.toBeNull()
+    expect(
+      screen.getByText(/only if it is newer than the version the PC already has/),
+    ).not.toBeNull()
     expect(screen.getByRole('status').textContent).toBe('Loading client update...')
   })
 
