@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Notify } from '../component/ui/notification-context'
 import { TestProviders } from '../test/test-providers'
 import { DashboardPage } from './dashboard-page'
@@ -194,5 +194,82 @@ describe('DashboardPage client update selection', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
 
     expect(await screen.findByRole('button', { name: 'Update (1)' })).toBeDefined()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})
+
+describe('DashboardPage wallpaper', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:wallpaper-preview')
+    URL.revokeObjectURL = vi.fn()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uploads the chosen image, then sets it on every selected PC', async () => {
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'POST /api/wallpapers': () =>
+        Response.json({ id: 7, sha256: 'e'.repeat(64), contentType: 'image/png', sizeBytes: 2048 }),
+      'POST /api/pcs/wallpaper': () => Response.json({ affected: 2 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wallpaper (2)' }))
+    const dialog = screen.getByRole('heading', { name: 'Wallpaper for 2 PCs' }).closest('dialog')
+    if (!dialog) throw new Error('The wallpaper dialog is not open')
+    const image = new File([new Uint8Array(2048)], 'wall.png', { type: 'image/png' })
+    fireEvent.change(within(dialog).getByLabelText('Choose image'), { target: { files: [image] } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Apply to 2 PCs' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Wallpaper set on 2 PCs.', 'image'))
+    const postCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(postCalls.map(([input]) => String(input))).toEqual(['/api/wallpapers', '/api/pcs/wallpaper'])
+    expect(postCalls[0][1]?.body).toBe(image)
+    expect(postCalls[0][1]?.headers).toEqual({ 'Content-Type': 'image/png' })
+    expect(postCalls[1][1]?.body).toBe('{"ids":[1,2],"wallpaperId":7}')
+    expect(screen.queryByRole('heading', { name: 'Wallpaper for 2 PCs' })).toBeNull()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('removes the wallpaper from the selected PCs when a selected PC has one', async () => {
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () =>
+        Response.json([
+          serverPc(1),
+          { ...serverPc(2), wallpaper: { id: 5, sha256: 'f'.repeat(64) } },
+        ]),
+      'POST /api/pcs/wallpaper': () => Response.json({ affected: 2 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wallpaper (2)' }))
+    const dialog = screen.getByRole('heading', { name: 'Wallpaper for 2 PCs' }).closest('dialog')
+    if (!dialog) throw new Error('The wallpaper dialog is not open')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove wallpaper' }))
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Wallpaper removed from 2 PCs.', 'image'),
+    )
+    expect(commandCalls(fetchMock, '/api/pcs/wallpaper')[0][1]?.body).toBe(
+      '{"ids":[1,2],"wallpaperId":null}',
+    )
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('offers Remove wallpaper only when a selected PC has a wallpaper', async () => {
+    stubApi(standardRoutes())
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wallpaper (2)' }))
+    const dialog = screen.getByRole('heading', { name: 'Wallpaper for 2 PCs' }).closest('dialog')
+    if (!dialog) throw new Error('The wallpaper dialog is not open')
+
+    expect(within(dialog).queryByRole('button', { name: 'Remove wallpaper' })).toBeNull()
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })

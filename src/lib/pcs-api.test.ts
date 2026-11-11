@@ -32,6 +32,8 @@ import {
 
   removePc,
 
+  setPcsWallpaper,
+
   shutDownPc,
 
   unlockPc,
@@ -69,6 +71,8 @@ const serverPc = {
   clientVersion: null,
 
   clientUpdate: null,
+
+  wallpaper: null,
 
 }
 
@@ -968,6 +972,50 @@ describe('pcs api', () => {
 
 
 
+describe('setPcsWallpaper', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the PC ids and the wallpaper id to the wallpaper route', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 2 }))
+    expect(await setPcsWallpaper([3, 7], 12)).toEqual({ success: true, data: { affected: 2 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/wallpaper',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"wallpaperId":12}' }),
+    )
+  })
+
+  it('sends a null wallpaper id to remove the wallpaper', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 1 }))
+    expect(await setPcsWallpaper([3], null)).toEqual({ success: true, data: { affected: 1 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/wallpaper',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3],"wallpaperId":null}' }),
+    )
+  })
+
+  it('sends a large selection in batches and adds up the counts', async () => {
+    const ids = Array.from({ length: 501 }, (_, index) => index + 1)
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ affected: 500 }))
+      .mockResolvedValueOnce(Response.json({ affected: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await setPcsWallpaper(ids, 4)).toEqual({ success: true, data: { affected: 501 } })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns the server error when the wallpaper is unknown', async () => {
+    stubFetch(Response.json({ error: 'Unknown wallpaper.' }, { status: 404 }))
+    expect(await setPcsWallpaper([3], 99)).toEqual({
+      success: false,
+      status: 404,
+      error: 'Unknown wallpaper.',
+    })
+  })
+})
+
 describe('editPcsTime', () => {
   it('posts the PC ids with an add-time command to the bulk time route and returns how many changed', async () => {
     const fetchMock = stubFetch(Response.json({ affected: 2 }))
@@ -1055,6 +1103,23 @@ describe('pcs client update api', () => {
   })
 
 
+
+  it('keeps the wallpaper a PC has', async () => {
+    const wallpaper = { id: 7, sha256: 'c'.repeat(64) }
+    stubFetch(Response.json([{ ...serverPc, wallpaper }]))
+    expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, wallpaper }] })
+  })
+
+  it('reads a PC from an older server that omits the wallpaper as having none', async () => {
+    const { wallpaper: _wallpaper, ...olderServerPc } = serverPc
+    stubFetch(Response.json([olderServerPc]))
+    expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+  })
+
+  it('reads a malformed wallpaper as none, so the rest of the list still loads', async () => {
+    stubFetch(Response.json([{ ...serverPc, wallpaper: { id: 'seven' } }]))
+    expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+  })
 
   it('reads a PC from an older server as not reported and no update', async () => {
 

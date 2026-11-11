@@ -26,6 +26,7 @@ const ICONS = {
   expand: ['M4 9V4h5', 'M20 9V4h-5', 'M4 15v5h5', 'M20 15v5h-5'],
   collapse: ['M9 4v5H4', 'M15 4v5h5', 'M9 20v-5H4', 'M15 20v-5h5'],
   shield: ['M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z'],
+  image: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6', 'M15 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z'],
 } as const
 
 export type IconName = keyof typeof ICONS

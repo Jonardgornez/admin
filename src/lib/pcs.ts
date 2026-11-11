@@ -12,6 +12,7 @@ import type {
   ServerPcSession,
   TimeUnit,
   ViewMode,
+  WallpaperCommand,
 } from '../types'
 
 const MINUTES_PER_HOUR = 60
@@ -77,6 +78,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     internetBlockApplied: serverPc.internetBlockApplied,
     clientVersion: serverPc.clientVersion,
     clientUpdate: serverPc.clientUpdate,
+    wallpaperId: serverPc.wallpaper?.id ?? null,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -309,6 +311,22 @@ export function describeCancelPowerRequest(pcName: string): string {
 export function describeBulkCancelResult(affected: number): string {
   if (affected === 0) return 'No PCs had a shutdown or restart to cancel.'
   return `Asking ${formatPcCount(affected)} to cancel.`
+}
+
+export function anyPcHasWallpaper(pcs: Pick<Pc, 'wallpaperId'>[]): boolean {
+  return pcs.some((pc) => pc.wallpaperId != null)
+}
+
+// Zero means no PC was changed, such as when none of them had a wallpaper to remove.
+export function describeBulkWallpaperResult(kind: WallpaperCommand, affected: number): string {
+  if (kind === 'remove') {
+    return affected === 0
+      ? 'No PCs had a wallpaper to remove.'
+      : `Wallpaper removed from ${formatPcCount(affected)}.`
+  }
+  return affected === 0
+    ? 'No PCs got the wallpaper.'
+    : `Wallpaper set on ${formatPcCount(affected)}.`
 }
 
 export function getLogsHref(pcName: string): string {

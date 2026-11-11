@@ -24,6 +24,8 @@ export interface Pc {
   // Null when the PC has not reported a version. Null clientUpdate means no update is queued.
   clientVersion?: string | null
   clientUpdate?: ClientUpdateStatus | null
+  // The wallpaper set on the PC, or null for none. Students cannot change it while it is set.
+  wallpaperId?: number | null
 }
 
 export const CLIENT_UPDATE_STATES = ['pending', 'downloading', 'installing', 'failed'] as const
@@ -77,6 +79,12 @@ export interface ServerPc {
   internetBlockApplied: boolean | null
   clientVersion: string | null
   clientUpdate: ClientUpdateStatus | null
+  wallpaper: ServerPcWallpaper | null
+}
+
+export interface ServerPcWallpaper {
+  id: number
+  sha256: string
 }
 
 export interface RegisteredPc extends Pc {
@@ -125,6 +133,9 @@ export type PcTimeCommand =
   | { action: 'time-out' }
 
 export type BulkLockKind = PcLockAction
+
+// Setting a wallpaper and removing one share the same result message.
+export type WallpaperCommand = 'set' | 'remove'
 
 export interface Account {
   id: number

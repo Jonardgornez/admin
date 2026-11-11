@@ -21,7 +21,7 @@ import { Button, ButtonLink } from '../ui/button'
 import { RadioOption } from '../ui/choice'
 import { Icon } from '../ui/icon'
 import { Modal } from '../ui/modal'
-import { OpenTimeBadge, PcStatusBadge } from './pc-status-badge'
+import { OpenTimeBadge, PcStatusBadge, WallpaperBadge } from './pc-status-badge'
 
 interface PcDetailDialogProps {
   pc: Pc
@@ -102,6 +102,7 @@ export function PcDetailDialog({
         <div className="flex flex-wrap gap-2">
           <PcStatusBadge pc={pc} />
           {pc.isOpenTime && <OpenTimeBadge />}
+          {pc.wallpaperId != null && <WallpaperBadge />}
         </div>
         <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <DetailRow label="User" value={pc.user} />

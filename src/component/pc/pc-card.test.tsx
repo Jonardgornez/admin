@@ -59,3 +59,15 @@ describe('PcCard client version', () => {
     expect(screen.getByText('Downloading 0.20.0…')).not.toBeNull()
   })
 })
+
+describe('PcCard wallpaper', () => {
+  it('shows a labelled Wallpaper set badge when the PC has a wallpaper', () => {
+    renderCard({ ...onlinePc, wallpaperId: 4 })
+    expect(screen.getByText('Wallpaper set')).not.toBeNull()
+  })
+
+  it('shows no wallpaper badge when the PC has none', () => {
+    renderCard({ ...onlinePc, wallpaperId: null })
+    expect(screen.queryByText('Wallpaper set')).toBeNull()
+  })
+})

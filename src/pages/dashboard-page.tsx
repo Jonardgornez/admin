@@ -12,6 +12,7 @@ import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
+import { WallpaperDialog } from '../component/pc/wallpaper-dialog'
 import { useClientUpdates } from '../component/pc/use-client-updates'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
@@ -33,6 +34,7 @@ import {
   describeBulkTimeResult,
   describeCancelPowerRequest,
   describeSinglePowerResult,
+  describeBulkWallpaperResult,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
@@ -56,12 +58,14 @@ import {
   toPcTimeCommand,
   type MessageTargets,
 } from '../lib/pcs'
+import type { BulkCommandResult } from '../lib/pcs-api'
 import type {
   PcLockAction,
   PcTimeCommand,
   PowerCommand,
   RegisteredPc,
   ViewMode,
+  WallpaperCommand,
 } from '../types'
 
 const NO_PCS_MESSAGE =
@@ -100,6 +104,8 @@ export function DashboardPage() {
     cancelPcPower,
     cancelPcsPower,
     setPcsInternetBlocked,
+    setPcsWallpaper,
+    applyPcsWallpaper,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,
@@ -120,6 +126,7 @@ export function DashboardPage() {
   const [restrictionTargetPcs, setRestrictionTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
+  const [wallpaperTargetPcs, setWallpaperTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
   const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
@@ -145,6 +152,7 @@ export function DashboardPage() {
   const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcNames)
   const selectedMessageTargets = getMessageTargets(pcs, selectedPcNames)
   const selectedPcs = pcs.filter((pc) => selectedPcNames.includes(pc.name))
+  const wallpaperTargetIds = wallpaperTargetPcs?.map((pc) => pc.id) ?? []
   // The server PC keeps its internet, so it is not counted for Restrictions.
   const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
   const clientUpdatePcIds = getPcIdsToUpdateClient(pcs, selectedPcNames)
@@ -297,6 +305,19 @@ export function DashboardPage() {
     return result
   }
 
+  // Null means the same bulk command is still running, so the dialog stays open until it ends.
+  // A success closes the dialog and reports the result. A failure keeps it open with the error.
+  async function finishWallpaperCommand(
+    kind: WallpaperCommand,
+    result: ApiResult<BulkCommandResult> | null,
+  ) {
+    if (result?.success) {
+      setWallpaperTargetPcs(null)
+      notify(describeBulkWallpaperResult(kind, result.data.affected), 'image')
+    }
+    return result
+  }
+
   async function confirmPowerAction(action: PowerAction) {
     if ('pc' in action) {
       await runOnePcPower(action.kind, action.pc)
@@ -390,6 +411,9 @@ export function DashboardPage() {
             restrictionTargetCount={restrictionTargetCount}
             isRestrictionsDisabled={isDisconnected || isBulkCommandBusy}
             onOpenRestrictions={() => setRestrictionTargetPcs(selectedPcs)}
+            wallpaperCount={selectedPcs.length}
+            isWallpaperDisabled={isDisconnected || isBulkCommandBusy}
+            onWallpaper={() => setWallpaperTargetPcs(selectedPcs)}
             clientUpdateCount={clientUpdatePcIds.length}
             isClientUpdateDisabled={
               isDisconnected || isBulkCommandBusy || clientUpdates.release === null
@@ -542,6 +566,20 @@ export function DashboardPage() {
           targetPcs={restrictionTargetPcs}
           onApplyInternet={applyRestrictionsInternet}
           onClose={() => setRestrictionTargetPcs(null)}
+        />
+      )}
+
+      {wallpaperTargetPcs && (
+        <WallpaperDialog
+          targetPcs={wallpaperTargetPcs}
+          isBusy={isBulkCommandBusy}
+          onApply={async (file) =>
+            finishWallpaperCommand('set', await applyPcsWallpaper(wallpaperTargetIds, file))
+          }
+          onRemove={async () =>
+            finishWallpaperCommand('remove', await setPcsWallpaper(wallpaperTargetIds, null))
+          }
+          onClose={() => setWallpaperTargetPcs(null)}
         />
       )}
 
