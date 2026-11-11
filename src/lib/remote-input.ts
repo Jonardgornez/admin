@@ -85,6 +85,8 @@ const KEY_CODE_PATTERN = /^[A-Za-z0-9]{1,32}$/
 const RELEASE_SHORTCUT_CODE = 'KeyX'
 
 export const RELEASE_MESSAGE = JSON.stringify({ t: 'release' })
+// Ctrl+Alt+Del on the PC. The server relays it only while control is on, at most once a second.
+export const SECURE_ATTENTION_MESSAGE = JSON.stringify({ t: 'sas' })
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)

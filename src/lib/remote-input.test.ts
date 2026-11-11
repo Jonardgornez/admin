@@ -14,6 +14,7 @@ import {
   mergeWheelUnits,
   parseServerControlMessage,
   RELEASE_MESSAGE,
+  SECURE_ATTENTION_MESSAGE,
   toWheelUnits,
 } from './remote-input'
 
@@ -217,6 +218,7 @@ describe('input message builders', () => {
     expect(buildControlMessage(true)).toBe('{"t":"control","on":true}')
     expect(buildControlMessage(false)).toBe('{"t":"control","on":false}')
     expect(RELEASE_MESSAGE).toBe('{"t":"release"}')
+    expect(SECURE_ATTENTION_MESSAGE).toBe('{"t":"sas"}')
   })
 })
 
