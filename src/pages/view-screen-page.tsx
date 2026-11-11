@@ -175,7 +175,6 @@ export function ViewScreenPage() {
         canvasRef={screen.canvasRef}
         stopButtonRef={screenStopButtonRef}
         onStopControl={control.stop}
-        onSendSecureAttention={control.sendSecureAttention}
       />
 
       {!isControlling && viewMode === 'notified' && (

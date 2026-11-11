@@ -46,7 +46,8 @@ interface PcScreenViewProps {
   canvasRef: RefObject<HTMLCanvasElement | null>
   stopButtonRef: RefObject<HTMLButtonElement | null>
   onStopControl: () => void
-  onSendSecureAttention: () => void
+  // Left out while the PC client can't act on Ctrl+Alt+Del, so the button isn't shown.
+  onSendSecureAttention?: () => void
 }
 
 export function PcScreenView({
@@ -114,7 +115,7 @@ export function PcScreenView({
   }
 
   // Shown in whichever toolbar is on screen: the full-view header or the footer row, never both.
-  const secureAttentionButton = isControlling && (
+  const secureAttentionButton = isControlling && onSendSecureAttention && (
     <Button variant="secondary" aria-label="Send Ctrl+Alt+Del" onClick={onSendSecureAttention}>
       <Icon name="shield" />
       Ctrl+Alt+Del

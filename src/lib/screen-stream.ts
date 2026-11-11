@@ -31,7 +31,7 @@ export const PC_GONE_MESSAGE = 'This PC went offline or was removed, so the scre
 export const SCREEN_REFUSED_MESSAGE =
   "Couldn't open the screen. The PC may be offline, or your session may have ended."
 export const PAUSED_MESSAGE =
-  "The PC is showing a protected screen, such as a Windows security prompt, and can't share it. Update the client to see it."
+  'The PC is showing a protected screen, such as a Windows security prompt.'
 
 const SESSION_ENDED_MESSAGE = 'Your session ended. Sign in again.'
 const NORMAL_CLOSE_CODE = 1000
