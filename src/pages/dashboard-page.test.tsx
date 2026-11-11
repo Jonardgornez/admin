@@ -177,3 +177,22 @@ describe('DashboardPage bulk edit time', () => {
     )
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
+
+describe('DashboardPage client update selection', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('counts only the online PCs of the selection for an update', async () => {
+    const offlinePc = { ...serverPc(2), isOnline: false, session: null }
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([serverPc(1), offlinePc]),
+    })
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+
+    expect(await screen.findByRole('button', { name: 'Update (1)' })).toBeDefined()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})

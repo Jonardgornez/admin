@@ -190,6 +190,11 @@ export function getPcIdsToEditTime(pcs: RegisteredPc[], selectedNames: string[])
   return pcs.filter((pc) => selectedNames.includes(pc.name) && canEditPcTime(pc)).map((pc) => pc.id)
 }
 
+// A client update is offered only to online PCs, so an offline PC in the selection is left out.
+export function getPcIdsToUpdateClient(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && isPcOnline(pc)).map((pc) => pc.id)
+}
+
 // Re-checks a bulk time dialog's PCs against the latest list when it is confirmed. A PC whose session ended, or that
 // another user has logged in to since the dialog opened, is left out, so a bulk time out never ends a newer session.
 export function getBulkTimeTargetIds(openedWith: RegisteredPc[], current: RegisteredPc[]): number[] {
