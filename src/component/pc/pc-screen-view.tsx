@@ -46,6 +46,7 @@ interface PcScreenViewProps {
   canvasRef: RefObject<HTMLCanvasElement | null>
   stopButtonRef: RefObject<HTMLButtonElement | null>
   onStopControl: () => void
+  onSendSecureAttention: () => void
 }
 
 export function PcScreenView({
@@ -60,6 +61,7 @@ export function PcScreenView({
   canvasRef,
   stopButtonRef,
   onStopControl,
+  onSendSecureAttention,
 }: PcScreenViewProps) {
   const notify = useNotify()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -111,6 +113,14 @@ export function PcScreenView({
     exitButtonRef.current?.focus()
   }
 
+  // Shown in whichever toolbar is on screen: the full-view header or the footer row, never both.
+  const secureAttentionButton = isControlling && (
+    <Button variant="secondary" aria-label="Send Ctrl+Alt+Del" onClick={onSendSecureAttention}>
+      <Icon name="shield" />
+      Ctrl+Alt+Del
+    </Button>
+  )
+
   return (
     <div ref={containerRef} className={containerVariants({ isFullView })}>
       {isFullView && (
@@ -127,6 +137,7 @@ export function PcScreenView({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {secureAttentionButton}
             {isControlling && (
               <Button ref={stopButtonRef} variant="secondary" onClick={stopControl}>
                 <Icon name="x" />
@@ -178,16 +189,18 @@ export function PcScreenView({
               <span>Nothing is saved unless you press Save screenshot.</span>
             </p>
           )}
-          <Button
-            ref={fullViewButtonRef}
-            variant="secondary"
-            disabled={isOffline}
-            className="ml-auto"
-            onClick={() => void enterFullView()}
-          >
-            <Icon name="expand" />
-            Full view
-          </Button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {secureAttentionButton}
+            <Button
+              ref={fullViewButtonRef}
+              variant="secondary"
+              disabled={isOffline}
+              onClick={() => void enterFullView()}
+            >
+              <Icon name="expand" />
+              Full view
+            </Button>
+          </div>
         </div>
       )}
     </div>

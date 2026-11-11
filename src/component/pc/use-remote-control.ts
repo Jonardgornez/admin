@@ -21,6 +21,7 @@ import {
   mapPointerToFrame,
   mergeWheelUnits,
   RELEASE_MESSAGE,
+  SECURE_ATTENTION_MESSAGE,
   toWheelUnits,
   type FramePoint,
   type RemoteMouseButton,
@@ -44,6 +45,7 @@ export interface RemoteControl {
   isCoolingDown: boolean
   start: () => void
   stop: () => void
+  sendSecureAttention: () => void
 }
 
 // A paused screen (for example a UAC prompt) has its own message. Any other non-live status is a connection problem.
@@ -307,5 +309,11 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     setState(endControl(state, 'stopped'))
   }
 
-  return { state, isCoolingDown, start, stop }
+  // Ctrl+Alt+Del is sent only while control is on. Nothing is sent otherwise, so it can't reach the PC uncontrolled.
+  function sendSecureAttention() {
+    if (state.kind !== 'on') return
+    sendMessage(SECURE_ATTENTION_MESSAGE)
+  }
+
+  return { state, isCoolingDown, start, stop, sendSecureAttention }
 }
