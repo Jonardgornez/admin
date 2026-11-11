@@ -26,6 +26,14 @@ export interface Pc {
   clientUpdate?: ClientUpdateStatus | null
   // The wallpaper set on the PC, or null for none. Students cannot change it while it is set.
   wallpaperId?: number | null
+  // Null when the Lykantra service has not reported, e.g. a server older than the diagnostics feature.
+  service?: PcServiceStatus | null
+}
+
+// The Lykantra service on a PC. It keeps reporting even when the client app is not running.
+export interface PcServiceStatus {
+  lastSeenAt: string
+  clientRunning: boolean
 }
 
 export const CLIENT_UPDATE_STATES = ['pending', 'downloading', 'installing', 'failed'] as const
@@ -80,11 +88,49 @@ export interface ServerPc {
   clientVersion: string | null
   clientUpdate: ClientUpdateStatus | null
   wallpaper: ServerPcWallpaper | null
+  service: PcServiceStatus | null
 }
 
 export interface ServerPcWallpaper {
   id: number
   sha256: string
+}
+
+export const DIAGNOSTICS_UPDATE_STATES = [
+  'pending',
+  'waiting',
+  'downloading',
+  'installing',
+  'failed',
+] as const
+
+export type DiagnosticsUpdateState = (typeof DIAGNOSTICS_UPDATE_STATES)[number]
+
+export const DIAGNOSTICS_EVENT_LEVELS = ['information', 'warning', 'error'] as const
+
+export type DiagnosticsEventLevel = (typeof DIAGNOSTICS_EVENT_LEVELS)[number]
+
+export interface DiagnosticsUpdate {
+  version: string
+  state: DiagnosticsUpdateState
+  error: string | null
+}
+
+export interface DiagnosticsEvent {
+  at: string
+  level: DiagnosticsEventLevel
+  message: string
+}
+
+// The latest health report a PC's Lykantra service sent to the server.
+export interface PcDiagnostics {
+  receivedAt: string
+  serviceVersion: string
+  clientRunning: boolean
+  clientVersion: string | null
+  userSignedIn: boolean
+  update: DiagnosticsUpdate | null
+  events: DiagnosticsEvent[]
 }
 
 export interface RegisteredPc extends Pc {

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLIENT_UPDATE_HINT } from '../../lib/internet'
-import type { Pc } from '../../types'
+import { TestProviders } from '../../test/test-providers'
+import type { RegisteredPc } from '../../types'
 import { PcDetailDialog } from './pc-detail-dialog'
 
 // jsdom does not implement showModal, so the open state is set by hand.
@@ -15,11 +16,36 @@ beforeAll(() => {
   }
 })
 
-const onlinePc: Pc = { name: 'PC-01', status: 'locked', lastSeen: 'Now' }
+// The diagnostics section polls its own route, so these tests answer that route with a request that never finishes.
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+})
 
-function renderDetail(pc: Pc) {
-  render(<PcDetailDialog pc={pc} onClose={vi.fn()} />)
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+const onlinePc: RegisteredPc = { id: 1, name: 'PC-01', status: 'locked', lastSeen: 'Now' }
+
+function renderDetail(pc: RegisteredPc) {
+  render(
+    <TestProviders>
+      <PcDetailDialog pc={pc} onClose={vi.fn()} />
+    </TestProviders>,
+  )
 }
+
+describe('PcDetailDialog diagnostics', () => {
+  it('has a Diagnostics section for the PC', () => {
+    renderDetail(onlinePc)
+    expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeTruthy()
+  })
+
+  it('requests the diagnostics of this PC when it opens', () => {
+    renderDetail({ ...onlinePc, id: 12 })
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/pcs/12/diagnostics', expect.anything())
+  })
+})
 
 describe('PcDetailDialog internet', () => {
   it('has no button that turns internet on or off, since that moved to Restrictions', () => {

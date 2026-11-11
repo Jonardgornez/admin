@@ -79,6 +79,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     clientVersion: serverPc.clientVersion,
     clientUpdate: serverPc.clientUpdate,
     wallpaperId: serverPc.wallpaper?.id ?? null,
+    service: serverPc.service ?? null,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -96,6 +97,26 @@ export function formatLastUpdate(updatedAt: Date): string {
 
 export function isPcOnline(pc: Pc): boolean {
   return pc.status === 'locked' || pc.status === 'frozen' || pc.status === 'in-use'
+}
+
+// A service report older than this counts as stale, so the PC may be off or its service stopped.
+export const SERVICE_REPORT_FRESH_MS = 3 * MILLISECONDS_PER_MINUTE
+
+export function isServiceReportFresh(reportedAt: string, now: Date): boolean {
+  const reportedTime = new Date(reportedAt).getTime()
+  if (Number.isNaN(reportedTime)) return false
+  return now.getTime() - reportedTime <= SERVICE_REPORT_FRESH_MS
+}
+
+export const CLIENT_NOT_RUNNING_LABEL = 'Client not running'
+
+// The service reports the client is down while the PC is offline or the client is not running.
+// A stale report (or none) returns null, so an offline PC reads as plain offline.
+export function getServiceWarning(pc: Pick<Pc, 'status' | 'service'>, now: Date): string | null {
+  const { service } = pc
+  if (!service || !isServiceReportFresh(service.lastSeenAt, now)) return null
+  const isClientMissing = pc.status === 'offline' || !service.clientRunning
+  return isClientMissing ? CLIENT_NOT_RUNNING_LABEL : null
 }
 
 export function countOnlinePcs(pcs: Pc[]): number {
