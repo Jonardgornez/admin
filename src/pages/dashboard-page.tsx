@@ -40,6 +40,7 @@ import {
   getPcIdsToCancelPower,
   getBulkTimeTargetIds,
   getPcIdsToEditTime,
+  getPcIdsToUpdateClient,
   getPcIdsToLock,
   getPcIdsToReboot,
   getPcIdsToShutDown,
@@ -146,7 +147,7 @@ export function DashboardPage() {
   const selectedPcs = pcs.filter((pc) => selectedPcNames.includes(pc.name))
   // The server PC keeps its internet, so it is not counted for Restrictions.
   const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
-  const clientUpdatePcIds = selectedPcs.map((pc) => pc.id)
+  const clientUpdatePcIds = getPcIdsToUpdateClient(pcs, selectedPcNames)
   const cancelClientUpdatePcIds = selectedPcs.filter((pc) => Boolean(pc.clientUpdate)).map((pc) => pc.id)
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
   const isLockBusy =

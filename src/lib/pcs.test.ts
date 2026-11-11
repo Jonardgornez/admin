@@ -23,6 +23,7 @@ import {
   describeTimeGrant,
   getBulkTimeTargetIds,
   getPcIdsToEditTime,
+  getPcIdsToUpdateClient,
   filterPcs,
   formatMinutes,
   formatPcCount,
@@ -208,6 +209,21 @@ describe('getPcIdsToUnlock', () => {
 
   it('returns nothing when nothing is selected', () => {
     expect(getPcIdsToUnlock(bulkPcList, [])).toEqual([])
+  })
+})
+
+describe('getPcIdsToUpdateClient', () => {
+  it('returns only the selected PCs that are online', () => {
+    expect(getPcIdsToUpdateClient(bulkPcList, allBulkNames)).toEqual([1, 2, 3])
+  })
+
+  it('leaves out offline, shut down and restarting PCs', () => {
+    const shutDown: RegisteredPc = { id: 7, name: 'PC-07', status: 'shutdown', lastSeen: '09:00' }
+    expect(getPcIdsToUpdateClient([...bulkPcList, shutDown], ['PC-04', 'PC-05', 'PC-06', 'PC-07'])).toEqual([])
+  })
+
+  it('returns nothing when nothing is selected', () => {
+    expect(getPcIdsToUpdateClient(bulkPcList, [])).toEqual([])
   })
 })
 
