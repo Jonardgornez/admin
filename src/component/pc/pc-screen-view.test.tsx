@@ -10,7 +10,7 @@ import type { ScreenSocketListener } from './use-screen-stream'
 
 const SECURE_ATTENTION_BUTTON_NAME = 'Send Ctrl+Alt+Del'
 
-function renderView(isControlling: boolean, onSendSecureAttention: () => void) {
+function renderView(isControlling: boolean, onSendSecureAttention?: () => void) {
   render(
     <NotificationContext.Provider value={vi.fn()}>
       <PcScreenView
@@ -33,6 +33,12 @@ function renderView(isControlling: boolean, onSendSecureAttention: () => void) {
 describe('PcScreenView Ctrl+Alt+Del button', () => {
   it('is hidden while control is off', () => {
     renderView(false, vi.fn())
+
+    expect(screen.queryByRole('button', { name: SECURE_ATTENTION_BUTTON_NAME })).toBeNull()
+  })
+
+  it('is hidden while controlling when no handler is given, as while the PC client cannot act on it', () => {
+    renderView(true)
 
     expect(screen.queryByRole('button', { name: SECURE_ATTENTION_BUTTON_NAME })).toBeNull()
   })
