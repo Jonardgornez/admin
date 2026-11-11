@@ -32,6 +32,8 @@ import {
 
   removePc,
 
+  setPcsKeepAwake,
+
   setPcsWallpaper,
 
   shutDownPc,
@@ -75,6 +77,8 @@ const serverPc = {
   wallpaper: null,
 
   service: null,
+
+  keepAwake: false,
 
 }
 
@@ -144,6 +148,17 @@ describe('pcs api', () => {
       stubFetch(Response.json([olderServerPc]))
 
       expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, service: null }] })
+    })
+
+    it('reads the always awake setting of each PC', async () => {
+      stubFetch(Response.json([{ ...serverPc, keepAwake: true }]))
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, keepAwake: true }] })
+    })
+
+    it('reads a PC with no always awake setting as off, so an older server still loads', async () => {
+      const { keepAwake: _omitted, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc]))
+      expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
     })
 
     it('reads a malformed service report as null without hiding the other PCs', async () => {
@@ -1035,6 +1050,44 @@ describe('setPcsWallpaper', () => {
       status: 404,
       error: 'Unknown wallpaper.',
     })
+  })
+})
+
+describe('setPcsKeepAwake', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the PC ids and the setting to the keep-awake route and returns how many changed', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 3 }))
+    expect(await setPcsKeepAwake([3, 7, 8], true)).toEqual({ success: true, data: { affected: 3 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/keep-awake',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3,7,8],"keepAwake":true}' }),
+    )
+  })
+
+  it('sends false to turn always awake off', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 1 }))
+    expect(await setPcsKeepAwake([3], false)).toEqual({ success: true, data: { affected: 1 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/keep-awake',
+      expect.objectContaining({ body: '{"ids":[3],"keepAwake":false}' }),
+    )
+  })
+
+  it('returns the server error when the command is refused', async () => {
+    stubFetch(Response.json({ error: 'Too many PCs.' }, { status: 400 }))
+    expect(await setPcsKeepAwake([3], true)).toEqual({
+      success: false,
+      status: 400,
+      error: 'Too many PCs.',
+    })
+  })
+
+  it('fails when the reply does not carry a count', async () => {
+    stubFetch(Response.json({ affected: 'many' }))
+    expect((await setPcsKeepAwake([3], true)).success).toBe(false)
   })
 })
 

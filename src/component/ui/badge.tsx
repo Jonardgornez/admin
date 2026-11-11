@@ -22,6 +22,7 @@ const badgeVariants = cva(
         'update-failed': 'bg-danger-bg text-danger',
         'service-warning': 'bg-danger-bg text-danger',
         wallpaper: 'bg-surface-300 text-ink',
+        'keep-awake': 'bg-surface-300 text-ink',
       },
     },
     defaultVariants: {

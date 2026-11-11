@@ -48,6 +48,8 @@ const serverPcSchema = z.object({
   wallpaper: serverPcWallpaperSchema.nullable().catch(null),
   // An older server omits this, so a missing or odd value reads as no service report.
   service: serverPcServiceSchema.nullable().catch(null),
+  // An older server omits this, so a missing or odd value reads as off.
+  keepAwake: z.boolean().catch(false),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)
@@ -182,6 +184,16 @@ export function setPcsWallpaper(
 ): Promise<ApiResult<BulkCommandResult>> {
   return sendPcBatches(pcIds, (batch) =>
     postBulkCommand('/api/pcs/wallpaper', { ids: batch, wallpaperId }),
+  )
+}
+
+// Turns always awake on or off for these PCs. The server skips offline PCs, and counts the ones it changed.
+export function setPcsKeepAwake(
+  ids: number[],
+  keepAwake: boolean,
+): Promise<ApiResult<BulkCommandResult>> {
+  return sendPcBatches(ids, (batch) =>
+    postBulkCommand('/api/pcs/keep-awake', { ids: batch, keepAwake }),
   )
 }
 

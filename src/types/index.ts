@@ -26,6 +26,8 @@ export interface Pc {
   clientUpdate?: ClientUpdateStatus | null
   // The wallpaper set on the PC, or null for none. Students cannot change it while it is set.
   wallpaperId?: number | null
+  // True keeps the PC from sleeping and its screen on.
+  keepAwake?: boolean
   // Null when the Lykantra service has not reported, e.g. a server older than the diagnostics feature.
   service?: PcServiceStatus | null
 }
@@ -89,6 +91,7 @@ export interface ServerPc {
   clientUpdate: ClientUpdateStatus | null
   wallpaper: ServerPcWallpaper | null
   service: PcServiceStatus | null
+  keepAwake: boolean
 }
 
 export interface ServerPcWallpaper {

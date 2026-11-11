@@ -23,7 +23,13 @@ import { Button, ButtonLink } from '../ui/button'
 import { Checkbox } from '../ui/choice'
 import { Icon, type IconName } from '../ui/icon'
 import { ClientUpdateStatusBadge } from './client-update-status'
-import { InternetBadge, OpenTimeBadge, PcStatusBadge, WallpaperBadge } from './pc-status-badge'
+import {
+  InternetBadge,
+  KeepAwakeBadge,
+  OpenTimeBadge,
+  PcStatusBadge,
+  WallpaperBadge,
+} from './pc-status-badge'
 
 const cardVariants = cva('flex flex-col gap-3 rounded-lg border p-4 text-ink', {
   variants: {
@@ -176,6 +182,7 @@ export function PcCard({
             )}
             {pc.isOpenTime && <OpenTimeBadge />}
             {pc.wallpaperId != null && <WallpaperBadge />}
+            {pc.keepAwake && <KeepAwakeBadge />}
             <InternetBadge pc={pc} />
             <ClientUpdateStatusBadge pc={pc} />
           </div>

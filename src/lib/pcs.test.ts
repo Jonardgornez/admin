@@ -36,6 +36,8 @@ import {
   countPcsHiddenFromView,
   canViewPcScreen,
   describeBulkWallpaperResult,
+  describeKeepAwakeResult,
+  getPcIdsToKeepAwake,
   anyPcHasWallpaper,
   getScreenHref,
   getServiceWarning,
@@ -875,6 +877,7 @@ const serverPc: ServerPc = {
   clientUpdate: null,
   wallpaper: null,
   service: null,
+  keepAwake: false,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -1023,6 +1026,7 @@ describe('toRegisteredPc', () => {
       clientUpdate: null,
       wallpaperId: null,
       service: null,
+      keepAwake: false,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
@@ -1195,6 +1199,50 @@ describe('anyPcHasWallpaper', () => {
 
   it('is false for no PCs', () => {
     expect(anyPcHasWallpaper([])).toBe(false)
+  })
+})
+
+describe('getPcIdsToKeepAwake', () => {
+  const pcs: RegisteredPc[] = [
+    { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
+    { id: 2, name: 'PC-02', status: 'offline', lastSeen: '1h ago' },
+    { id: 3, name: 'PC-03', status: 'locked', lastSeen: 'Now' },
+    { id: 4, name: 'PC-04', status: 'shutdown', lastSeen: '2h ago' },
+  ]
+
+  it('keeps only the selected PCs that are online when turning it on', () => {
+    expect(getPcIdsToKeepAwake(pcs, ['PC-01', 'PC-02', 'PC-04'], true)).toEqual([1])
+  })
+
+  it('is empty when turning it on and every selected PC is offline', () => {
+    expect(getPcIdsToKeepAwake(pcs, ['PC-02', 'PC-04'], true)).toEqual([])
+  })
+
+  it('keeps every selected PC, offline ones too, when turning it off', () => {
+    expect(getPcIdsToKeepAwake(pcs, ['PC-01', 'PC-02', 'PC-04'], false)).toEqual([1, 2, 4])
+  })
+})
+
+describe('describeKeepAwakeResult', () => {
+  it('says always awake was turned on for the PCs', () => {
+    expect(describeKeepAwakeResult(true, 3, 0)).toBe('Always awake turned on for 3 PCs.')
+  })
+
+  it('says always awake was turned off for one PC', () => {
+    expect(describeKeepAwakeResult(false, 1, 0)).toBe('Always awake turned off for 1 PC.')
+  })
+
+  it('adds how many offline PCs were skipped', () => {
+    expect(describeKeepAwakeResult(true, 3, 2)).toBe(
+      'Always awake turned on for 3 PCs. 2 offline PCs skipped.',
+    )
+    expect(describeKeepAwakeResult(true, 3, 1)).toBe(
+      'Always awake turned on for 3 PCs. 1 offline PC skipped.',
+    )
+  })
+
+  it('reports no skipped PCs when turning it off, since offline PCs are included', () => {
+    expect(describeKeepAwakeResult(false, 5, 2)).toBe('Always awake turned off for 5 PCs.')
   })
 })
 

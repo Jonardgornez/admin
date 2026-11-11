@@ -25,7 +25,7 @@ describe('PcBulkToolbar', () => {
   it('has no Internet group, since internet is set from the Restrictions dialog', () => {
     renderToolbar()
     const labels = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'))
-    expect(labels).toEqual(['Access', 'Power', 'Other'])
+    expect(labels).toEqual(['Access', 'Power', 'Other', 'Always awake'])
   })
 
   it('counts the PCs the Restrictions action would apply to', () => {
@@ -109,6 +109,55 @@ describe('PcBulkToolbar', () => {
     renderToolbar({ editTimeSelectedCount: 2, onEditTimeSelected })
     fireEvent.click(getAccessGroup().getByRole('button', { name: 'Edit time (2)' }))
     expect(onEditTimeSelected).toHaveBeenCalledTimes(1)
+  })
+})
+
+function getKeepAwakeGroup() {
+  return within(screen.getByRole('group', { name: 'Always awake' }))
+}
+
+describe('PcBulkToolbar always awake', () => {
+  it('counts the online selected PCs on On and every selected PC on Off', () => {
+    renderToolbar({ keepAwakeOnCount: 3, keepAwakeOffCount: 5, keepAwakeOfflineCount: 2 })
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'On (3)' })).toHaveProperty('disabled', false)
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'Off (5)' })).toHaveProperty('disabled', false)
+  })
+
+  it('turns always awake on or off when a choice is clicked', () => {
+    const onKeepAwake = vi.fn()
+    renderToolbar({ keepAwakeOnCount: 2, keepAwakeOffCount: 2, onKeepAwake })
+    fireEvent.click(getKeepAwakeGroup().getByRole('button', { name: 'On (2)' }))
+    fireEvent.click(getKeepAwakeGroup().getByRole('button', { name: 'Off (2)' }))
+    expect(onKeepAwake.mock.calls).toEqual([[true], [false]])
+  })
+
+  it('disables only On and says why when every selected PC is offline', () => {
+    renderToolbar({ keepAwakeOnCount: 0, keepAwakeOffCount: 2, keepAwakeOfflineCount: 2 })
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'On' })).toHaveProperty('disabled', true)
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'Off (2)' })).toHaveProperty('disabled', false)
+    expect(getKeepAwakeGroup().getByText('No selected PC is online')).not.toBeNull()
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'On' }).getAttribute('title')).toBe(
+      'No selected PC is online',
+    )
+  })
+
+  it('disables both choices when nothing is selected', () => {
+    renderToolbar()
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'On' })).toHaveProperty('disabled', true)
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'Off' })).toHaveProperty('disabled', true)
+    expect(getKeepAwakeGroup().queryByText(/online|skipped/)).toBeNull()
+  })
+
+  it('shows how many offline selected PCs will be skipped', () => {
+    renderToolbar({ keepAwakeOnCount: 3, keepAwakeOffCount: 5, keepAwakeOfflineCount: 2 })
+    expect(getKeepAwakeGroup().getByText('On skips 2 offline PCs')).not.toBeNull()
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'Off (5)' }).getAttribute('title')).toBeNull()
+  })
+
+  it('disables both choices while commands are not allowed, such as when disconnected', () => {
+    renderToolbar({ keepAwakeOnCount: 2, keepAwakeOffCount: 2, isKeepAwakeDisabled: true })
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'On (2)' })).toHaveProperty('disabled', true)
+    expect(getKeepAwakeGroup().getByRole('button', { name: 'Off (2)' })).toHaveProperty('disabled', true)
   })
 })
 

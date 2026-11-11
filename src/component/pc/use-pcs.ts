@@ -309,6 +309,12 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const setPcsKeepAwake = useCallback(
+    (pcIds: number[], keepAwake: boolean) =>
+      runBulkCommand(() => pcsApi.setPcsKeepAwake(pcIds, keepAwake)),
+    [runBulkCommand],
+  )
+
   // The upload runs inside the same guard as the assign, so a second click cannot start another upload.
   const applyPcsWallpaper = useCallback(
     (pcIds: number[], file: File) =>
@@ -354,6 +360,7 @@ export function usePcs() {
     setPcsInternetBlocked,
     setPcsWallpaper,
     applyPcsWallpaper,
+    setPcsKeepAwake,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,

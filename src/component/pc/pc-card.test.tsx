@@ -73,6 +73,18 @@ describe('PcCard wallpaper', () => {
   })
 })
 
+describe('PcCard always awake', () => {
+  it('shows a labelled Always awake badge when the PC is kept awake', () => {
+    renderCard({ ...onlinePc, keepAwake: true })
+    expect(screen.getByText('Always awake')).not.toBeNull()
+  })
+
+  it('shows no always awake badge when the setting is off', () => {
+    renderCard({ ...onlinePc, keepAwake: false })
+    expect(screen.queryByText('Always awake')).toBeNull()
+  })
+})
+
 describe('PcCard service warning', () => {
   const freshReport = () => new Date(Date.now() - 30_000).toISOString()
   const staleReport = () => new Date(Date.now() - 10 * 60_000).toISOString()
