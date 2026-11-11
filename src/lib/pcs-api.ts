@@ -84,10 +84,7 @@ export function cancelPcPower(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}/cancel-power`, { method: 'POST', body: COMMAND_BODY })
 }
 
-async function postBulkCommand(
-  path: string,
-  body: { ids: number[]; message?: string | null },
-): Promise<ApiResult<BulkCommandResult>> {
+async function postBulkCommand(path: string, body: object): Promise<ApiResult<BulkCommandResult>> {
   return parseBody(
     await apiRequest<unknown>(path, { method: 'POST', body }),
     bulkCommandResultSchema,
@@ -117,6 +114,14 @@ export function bulkRebootPcs(ids: number[]): Promise<ApiResult<BulkCommandResul
 
 export function cancelPcsPower(ids: number[]): Promise<ApiResult<BulkCommandResult>> {
   return postBulkCommand('/api/pcs/cancel-power', { ids })
+}
+
+// The same change goes to every PC. The server skips PCs with no session, and counts the ones it changed.
+export function editPcsTime(
+  ids: number[],
+  command: PcTimeCommand,
+): Promise<ApiResult<BulkCommandResult>> {
+  return postBulkCommand('/api/pcs/time', { ids, ...command })
 }
 
 // The server takes at most this many PCs in one command, so larger selections are sent in batches.

@@ -20,6 +20,8 @@ import {
 
   editPcTime,
 
+  editPcsTime,
+
   listPcs,
 
   lockPc,
@@ -965,6 +967,64 @@ describe('pcs api', () => {
 })
 
 
+
+describe('editPcsTime', () => {
+  it('posts the PC ids with an add-time command to the bulk time route and returns how many changed', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 2 }))
+    expect(await editPcsTime([3, 7], { action: 'add-time', minutes: 30 })).toEqual({
+      success: true,
+      data: { affected: 2 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/time',
+      expect.objectContaining({
+        method: 'POST',
+        body: '{"ids":[3,7],"action":"add-time","minutes":30}',
+      }),
+    )
+  })
+
+  it('posts an open-time command with no minutes', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 1 }))
+    expect(await editPcsTime([3], { action: 'open-time' })).toEqual({
+      success: true,
+      data: { affected: 1 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/time',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3],"action":"open-time"}' }),
+    )
+  })
+
+  it('posts a time-out command', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 0 }))
+    expect(await editPcsTime([3], { action: 'time-out' })).toEqual({
+      success: true,
+      data: { affected: 0 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/time',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3],"action":"time-out"}' }),
+    )
+  })
+
+  it('fails on a count that is not a whole number of PCs', async () => {
+    stubFetch(Response.json({ affected: -1 }))
+    expect(await editPcsTime([3], { action: 'time-out' })).toMatchObject({
+      success: false,
+      error: FALLBACK_ERROR_MESSAGE,
+    })
+  })
+
+  it('returns the server message when the request fails', async () => {
+    stubFetch(Response.json({ error: 'Enter 24 hours or less.' }, { status: 400 }))
+    expect(await editPcsTime([3], { action: 'add-time', minutes: 1500 })).toEqual({
+      success: false,
+      status: 400,
+      error: 'Enter 24 hours or less.',
+    })
+  })
+})
 
 describe('pcs client update api', () => {
 

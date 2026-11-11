@@ -13,6 +13,10 @@ function renderToolbar(overrides: Partial<Parameters<typeof PcBulkToolbar>[0]> =
   render(<PcBulkToolbar {...props} />)
 }
 
+function getAccessGroup() {
+  return within(screen.getByRole('group', { name: 'Access' }))
+}
+
 function getOtherGroup() {
   return within(screen.getByRole('group', { name: 'Other' }))
 }
@@ -83,5 +87,27 @@ describe('PcBulkToolbar', () => {
     renderToolbar({ cancelClientUpdateCount: 2, onCancelClientUpdate })
     fireEvent.click(getOtherGroup().getByRole('button', { name: 'Cancel update (2)' }))
     expect(onCancelClientUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts the checked PCs whose time can be edited on Edit time', () => {
+    renderToolbar({ editTimeSelectedCount: 3 })
+    expect(getAccessGroup().getByRole('button', { name: 'Edit time (3)' })).toHaveProperty('disabled', false)
+  })
+
+  it('disables Edit time when no checked PC can have its time edited', () => {
+    renderToolbar({ editTimeSelectedCount: 0 })
+    expect(getAccessGroup().getByRole('button', { name: 'Edit time' })).toHaveProperty('disabled', true)
+  })
+
+  it('disables Edit time while commands are not allowed, such as when disconnected', () => {
+    renderToolbar({ editTimeSelectedCount: 2, isBulkTimeDisabled: true })
+    expect(getAccessGroup().getByRole('button', { name: 'Edit time (2)' })).toHaveProperty('disabled', true)
+  })
+
+  it('opens the time dialog when Edit time is clicked', () => {
+    const onEditTimeSelected = vi.fn()
+    renderToolbar({ editTimeSelectedCount: 2, onEditTimeSelected })
+    fireEvent.click(getAccessGroup().getByRole('button', { name: 'Edit time (2)' }))
+    expect(onEditTimeSelected).toHaveBeenCalledTimes(1)
   })
 })
