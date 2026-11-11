@@ -15,6 +15,9 @@ interface PcBulkToolbarProps {
   isSendMessageDisabled?: boolean
   restrictionTargetCount?: number
   isRestrictionsDisabled?: boolean
+  wallpaperCount?: number
+  isWallpaperDisabled?: boolean
+  onWallpaper?: () => void
   clientUpdateCount?: number
   isClientUpdateDisabled?: boolean
   onClientUpdate?: () => void
@@ -74,6 +77,9 @@ export function PcBulkToolbar({
   isSendMessageDisabled = false,
   restrictionTargetCount = 0,
   isRestrictionsDisabled = false,
+  wallpaperCount = 0,
+  isWallpaperDisabled = false,
+  onWallpaper,
   clientUpdateCount = 0,
   isClientUpdateDisabled = false,
   onClientUpdate,
@@ -216,6 +222,15 @@ export function PcBulkToolbar({
           >
             <Icon name="shield" />
             {withCount('Restrictions', restrictionTargetCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isWallpaperDisabled || wallpaperCount === 0}
+            onClick={onWallpaper}
+          >
+            <Icon name="image" />
+            {withCount('Wallpaper', wallpaperCount)}
           </Button>
           <Button
             variant="secondary"

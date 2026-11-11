@@ -63,6 +63,14 @@ export function OpenTimeBadge() {
   )
 }
 
+export function WallpaperBadge() {
+  return (
+    <Badge variant="wallpaper" icon="image">
+      Wallpaper set
+    </Badge>
+  )
+}
+
 // The card badge only flags an internet block that is set or still being applied.
 interface InternetBadgeDisplay {
   variant: BadgeVariant

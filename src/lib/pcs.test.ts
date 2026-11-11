@@ -35,6 +35,8 @@ import {
   getTimeAmountError,
   countPcsHiddenFromView,
   canViewPcScreen,
+  describeBulkWallpaperResult,
+  anyPcHasWallpaper,
   getScreenHref,
   getSelectionState,
   getTimeLeftLabel,
@@ -869,6 +871,7 @@ const serverPc: ServerPc = {
   internetBlockApplied: null,
   clientVersion: null,
   clientUpdate: null,
+  wallpaper: null,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -1015,6 +1018,7 @@ describe('toRegisteredPc', () => {
       internetBlockApplied: null,
       clientVersion: null,
       clientUpdate: null,
+      wallpaperId: null,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
@@ -1162,6 +1166,53 @@ describe('toRegisteredPcs', () => {
 
   it('returns an empty list for no PCs', () => {
     expect(toRegisteredPcs([], now)).toEqual([])
+  })
+})
+
+describe('toRegisteredPc wallpaper', () => {
+  it('carries the id of the wallpaper the PC has', () => {
+    const pc = toRegisteredPc({ ...serverPc, wallpaper: { id: 4, sha256: 'a'.repeat(64) } }, now)
+    expect(pc.wallpaperId).toBe(4)
+  })
+
+  it('has no wallpaper when the PC has none', () => {
+    expect(toRegisteredPc(serverPc, now).wallpaperId).toBeNull()
+  })
+})
+
+describe('anyPcHasWallpaper', () => {
+  it('is true when at least one PC has a wallpaper', () => {
+    expect(anyPcHasWallpaper([{ wallpaperId: null }, { wallpaperId: 3 }])).toBe(true)
+  })
+
+  it('is false when no PC has a wallpaper, including PCs that have not reported one', () => {
+    expect(anyPcHasWallpaper([{ wallpaperId: null }, {}])).toBe(false)
+  })
+
+  it('is false for no PCs', () => {
+    expect(anyPcHasWallpaper([])).toBe(false)
+  })
+})
+
+describe('describeBulkWallpaperResult', () => {
+  it('says the wallpaper was set on the PCs', () => {
+    expect(describeBulkWallpaperResult('set', 3)).toBe('Wallpaper set on 3 PCs.')
+  })
+
+  it('uses the singular for one PC', () => {
+    expect(describeBulkWallpaperResult('set', 1)).toBe('Wallpaper set on 1 PC.')
+  })
+
+  it('says no PC got the wallpaper when none was changed', () => {
+    expect(describeBulkWallpaperResult('set', 0)).toBe('No PCs got the wallpaper.')
+  })
+
+  it('says the wallpaper was removed from the PCs', () => {
+    expect(describeBulkWallpaperResult('remove', 2)).toBe('Wallpaper removed from 2 PCs.')
+  })
+
+  it('says no PC had a wallpaper to remove when none was changed', () => {
+    expect(describeBulkWallpaperResult('remove', 0)).toBe('No PCs had a wallpaper to remove.')
   })
 })
 

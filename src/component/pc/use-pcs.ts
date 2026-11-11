@@ -12,6 +12,7 @@ import {
 import * as internetApi from '../../lib/internet-api'
 import * as pcsApi from '../../lib/pcs-api'
 import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
+import * as wallpapersApi from '../../lib/wallpapers-api'
 import type { Pc, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
@@ -301,6 +302,24 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  // A null wallpaper id removes the wallpaper from these PCs.
+  const setPcsWallpaper = useCallback(
+    (pcIds: number[], wallpaperId: number | null) =>
+      runBulkCommand(() => pcsApi.setPcsWallpaper(pcIds, wallpaperId)),
+    [runBulkCommand],
+  )
+
+  // The upload runs inside the same guard as the assign, so a second click cannot start another upload.
+  const applyPcsWallpaper = useCallback(
+    (pcIds: number[], file: File) =>
+      runBulkCommand(async () => {
+        const upload = await wallpapersApi.uploadWallpaper(file)
+        if (!upload.success) return upload
+        return pcsApi.setPcsWallpaper(pcIds, upload.data.id)
+      }),
+    [runBulkCommand],
+  )
+
   // Messages do not change a PC's state, so the list is not re-read afterwards.
   const sendMessage = useCallback(
     (pcIds: number[], text: string): Promise<ApiResult<PcMessageDelivery[]>> =>
@@ -333,6 +352,8 @@ export function usePcs() {
     cancelPcPower,
     cancelPcsPower,
     setPcsInternetBlocked,
+    setPcsWallpaper,
+    applyPcsWallpaper,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,

@@ -20,6 +20,7 @@ const badgeVariants = cva(
         'update-pending': 'bg-surface-300 text-ink',
         'update-busy': 'bg-st-reboot-bg text-st-reboot',
         'update-failed': 'bg-danger-bg text-danger',
+        wallpaper: 'bg-surface-300 text-ink',
       },
     },
     defaultVariants: {

@@ -20,7 +20,7 @@ import { BackgroundPreview } from './background-preview'
 import type { BackgroundActionType } from './use-screen-backgrounds'
 import { useChosenImage } from './use-chosen-image'
 
-const FILE_INPUT_CLASS =
+export const FILE_INPUT_CLASS =
   'w-full min-w-0 cursor-pointer text-sm text-ink-muted file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-border-strong file:bg-surface-300 file:px-3 file:py-1.5 file:font-semibold file:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-disabled'
 
 interface BackgroundSlotProps {

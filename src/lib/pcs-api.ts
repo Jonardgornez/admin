@@ -15,6 +15,11 @@ const serverPcSessionSchema = z.object({
   secondsRemaining: z.number().nullable(),
 })
 
+const serverPcWallpaperSchema = z.object({
+  id: z.number().int(),
+  sha256: z.string(),
+})
+
 const serverPcSchema = z.object({
   id: z.number().int(),
   name: z.string(),
@@ -34,6 +39,8 @@ const serverPcSchema = z.object({
   // Read per PC: an older server omits these, and one odd value must not hide the whole Dashboard.
   clientVersion: clientVersionSchema.nullable().catch(null),
   clientUpdate: clientUpdateStatusSchema.nullable().catch(null),
+  // An older server omits this, so a missing or odd value reads as no wallpaper.
+  wallpaper: serverPcWallpaperSchema.nullable().catch(null),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)
@@ -158,6 +165,16 @@ export function queuePcsClientUpdate(
 ): Promise<ApiResult<BulkCommandResult>> {
   return sendPcBatches(pcIds, (batch) =>
     postPcIdsCommand('/api/pcs/client-update', { pcIds: batch, version, installNow }),
+  )
+}
+
+// Sets the wallpaper on these PCs, or removes it with null. The server takes the id of an uploaded image.
+export function setPcsWallpaper(
+  pcIds: number[],
+  wallpaperId: number | null,
+): Promise<ApiResult<BulkCommandResult>> {
+  return sendPcBatches(pcIds, (batch) =>
+    postBulkCommand('/api/pcs/wallpaper', { ids: batch, wallpaperId }),
   )
 }
 

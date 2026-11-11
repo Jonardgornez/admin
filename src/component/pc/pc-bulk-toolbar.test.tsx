@@ -111,3 +111,27 @@ describe('PcBulkToolbar', () => {
     expect(onEditTimeSelected).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('PcBulkToolbar wallpaper', () => {
+  it('counts the selected PCs on the Wallpaper action', () => {
+    renderToolbar({ wallpaperCount: 3 })
+    expect(getOtherGroup().getByRole('button', { name: 'Wallpaper (3)' })).toHaveProperty('disabled', false)
+  })
+
+  it('disables Wallpaper when nothing is selected', () => {
+    renderToolbar({ wallpaperCount: 0 })
+    expect(getOtherGroup().getByRole('button', { name: 'Wallpaper' })).toHaveProperty('disabled', true)
+  })
+
+  it('disables Wallpaper while commands are not allowed, such as when disconnected', () => {
+    renderToolbar({ wallpaperCount: 2, isWallpaperDisabled: true })
+    expect(getOtherGroup().getByRole('button', { name: 'Wallpaper (2)' })).toHaveProperty('disabled', true)
+  })
+
+  it('opens the wallpaper dialog when Wallpaper is clicked', () => {
+    const onWallpaper = vi.fn()
+    renderToolbar({ wallpaperCount: 2, onWallpaper })
+    fireEvent.click(getOtherGroup().getByRole('button', { name: 'Wallpaper (2)' }))
+    expect(onWallpaper).toHaveBeenCalledTimes(1)
+  })
+})

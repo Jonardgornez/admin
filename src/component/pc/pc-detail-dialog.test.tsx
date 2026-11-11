@@ -44,3 +44,15 @@ describe('PcDetailDialog internet', () => {
     expect(screen.queryByText(CLIENT_UPDATE_HINT)).toBeNull()
   })
 })
+
+describe('PcDetailDialog wallpaper', () => {
+  it('shows a Wallpaper set badge when the PC has a wallpaper', () => {
+    renderDetail({ ...onlinePc, wallpaperId: 4 })
+    expect(screen.getByText('Wallpaper set')).toBeTruthy()
+  })
+
+  it('shows no wallpaper badge when the PC has none', () => {
+    renderDetail({ ...onlinePc, wallpaperId: null })
+    expect(screen.queryByText('Wallpaper set')).toBeNull()
+  })
+})
