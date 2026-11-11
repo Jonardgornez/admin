@@ -197,6 +197,74 @@ describe('DashboardPage client update selection', () => {
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
 
+describe('DashboardPage always awake', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('sends only the online selected PCs and reports the offline ones as skipped', async () => {
+    const offlinePc = { ...serverPc(2), isOnline: false, session: null }
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([serverPc(1), offlinePc, serverPc(3)]),
+      'POST /api/pcs/keep-awake': () => Response.json({ affected: 2 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    const group = within(screen.getByRole('group', { name: 'Always awake' }))
+    fireEvent.click(group.getByRole('button', { name: 'On (2)' }))
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        'Always awake turned on for 2 PCs. 1 offline PC skipped.',
+        'eye',
+      ),
+    )
+    expect(commandCalls(fetchMock, '/api/pcs/keep-awake')[0][1]?.body).toBe(
+      '{"ids":[1,3],"keepAwake":true}',
+    )
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('turns it off on every selected PC, offline ones too, with no skipped count', async () => {
+    const offlinePc = { ...serverPc(2), isOnline: false, session: null }
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([serverPc(1), offlinePc, serverPc(3)]),
+      'POST /api/pcs/keep-awake': () => Response.json({ affected: 3 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    const group = within(screen.getByRole('group', { name: 'Always awake' }))
+    fireEvent.click(group.getByRole('button', { name: 'Off (3)' }))
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Always awake turned off for 3 PCs.', 'eye'),
+    )
+    expect(commandCalls(fetchMock, '/api/pcs/keep-awake')[0][1]?.body).toBe(
+      '{"ids":[1,2,3],"keepAwake":false}',
+    )
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('shows the server error when the change fails', async () => {
+    stubApi({
+      ...standardRoutes(),
+      'POST /api/pcs/keep-awake': () => Response.json({ error: 'Server busy.' }, { status: 503 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    const group = within(screen.getByRole('group', { name: 'Always awake' }))
+    fireEvent.click(group.getByRole('button', { name: 'Off (2)' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Server busy.', 'alert'))
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})
+
 describe('DashboardPage wallpaper', () => {
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => 'blob:wallpaper-preview')

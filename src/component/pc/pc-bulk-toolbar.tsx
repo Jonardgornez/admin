@@ -24,6 +24,11 @@ interface PcBulkToolbarProps {
   cancelClientUpdateCount?: number
   isCancelClientUpdateDisabled?: boolean
   onCancelClientUpdate?: () => void
+  keepAwakeOnCount?: number
+  keepAwakeOffCount?: number
+  keepAwakeOfflineCount?: number
+  isKeepAwakeDisabled?: boolean
+  onKeepAwake?: (keepAwake: boolean) => void
   hasVisiblePcs: boolean
   lockSelectedCount?: number
   unlockSelectedCount?: number
@@ -47,6 +52,13 @@ interface PcBulkToolbarProps {
 
 function withCount(label: string, count: number): string {
   return count > 0 ? `${label} (${count})` : label
+}
+
+// Explains why On is unavailable, or which selected PCs it will skip. Off reaches offline PCs too.
+function getKeepAwakeNote(onlineCount: number, offlineCount: number): string | undefined {
+  if (offlineCount === 0) return undefined
+  if (onlineCount === 0) return 'No selected PC is online'
+  return `On skips ${offlineCount} offline ${offlineCount === 1 ? 'PC' : 'PCs'}`
 }
 
 interface ToolbarGroupProps {
@@ -86,6 +98,11 @@ export function PcBulkToolbar({
   cancelClientUpdateCount = 0,
   isCancelClientUpdateDisabled = false,
   onCancelClientUpdate,
+  keepAwakeOnCount = 0,
+  keepAwakeOffCount = 0,
+  keepAwakeOfflineCount = 0,
+  isKeepAwakeDisabled = false,
+  onKeepAwake,
   hasVisiblePcs,
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
@@ -106,6 +123,8 @@ export function PcBulkToolbar({
   onOpenRestrictions,
   serverPcNote,
 }: PcBulkToolbarProps) {
+  const keepAwakeNote = getKeepAwakeNote(keepAwakeOnCount, keepAwakeOfflineCount)
+
   return (
     <div
       role="toolbar"
@@ -250,6 +269,31 @@ export function PcBulkToolbar({
             <Icon name="x" />
             {withCount('Cancel update', cancelClientUpdateCount)}
           </Button>
+        </ToolbarGroup>
+
+        <ToolbarGroup label="Always awake">
+          <span className="flex items-center gap-2 text-sm text-ink">
+            <Icon name="eye" />
+            Always awake
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            title={keepAwakeNote}
+            disabled={isKeepAwakeDisabled || keepAwakeOnCount === 0}
+            onClick={() => onKeepAwake?.(true)}
+          >
+            {withCount('On', keepAwakeOnCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isKeepAwakeDisabled || keepAwakeOffCount === 0}
+            onClick={() => onKeepAwake?.(false)}
+          >
+            {withCount('Off', keepAwakeOffCount)}
+          </Button>
+          {keepAwakeNote && <span className="text-xs text-ink-muted">{keepAwakeNote}</span>}
         </ToolbarGroup>
       </div>
 

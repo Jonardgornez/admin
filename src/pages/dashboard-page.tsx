@@ -35,6 +35,7 @@ import {
   describeCancelPowerRequest,
   describeSinglePowerResult,
   describeBulkWallpaperResult,
+  describeKeepAwakeResult,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
@@ -42,6 +43,7 @@ import {
   getPcIdsToCancelPower,
   getBulkTimeTargetIds,
   getPcIdsToEditTime,
+  getPcIdsToKeepAwake,
   getPcIdsToUpdateClient,
   getPcIdsToLock,
   getPcIdsToReboot,
@@ -106,6 +108,7 @@ export function DashboardPage() {
     setPcsInternetBlocked,
     setPcsWallpaper,
     applyPcsWallpaper,
+    setPcsKeepAwake,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,
@@ -158,6 +161,9 @@ export function DashboardPage() {
   const clientUpdatePcIds = getPcIdsToUpdateClient(pcs, selectedPcNames)
   const cancelClientUpdatePcIds = selectedPcs.filter((pc) => Boolean(pc.clientUpdate)).map((pc) => pc.id)
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
+  const keepAwakeOnPcIds = getPcIdsToKeepAwake(pcs, selectedPcNames, true)
+  const keepAwakeOffPcIds = getPcIdsToKeepAwake(pcs, selectedPcNames, false)
+  const keepAwakeOfflineCount = keepAwakeOffPcIds.length - keepAwakeOnPcIds.length
   const isLockBusy =
     lockAction && 'pc' in lockAction
       ? lockingPcIds.includes(lockAction.pc.id)
@@ -318,6 +324,18 @@ export function DashboardPage() {
     return result
   }
 
+  // Null means the same bulk command is still running.
+  async function setSelectedPcsKeepAwake(keepAwake: boolean) {
+    const pcIds = keepAwake ? keepAwakeOnPcIds : keepAwakeOffPcIds
+    const result = await setPcsKeepAwake(pcIds, keepAwake)
+    if (!result) return
+    if (result.success) {
+      notify(describeKeepAwakeResult(keepAwake, result.data.affected, keepAwakeOfflineCount), 'eye')
+    } else if (!isSessionExpired(result)) {
+      notify(result.error, 'alert')
+    }
+  }
+
   async function confirmPowerAction(action: PowerAction) {
     if ('pc' in action) {
       await runOnePcPower(action.kind, action.pc)
@@ -424,6 +442,11 @@ export function DashboardPage() {
             cancelClientUpdateCount={cancelClientUpdatePcIds.length}
             isCancelClientUpdateDisabled={isDisconnected || isBulkCommandBusy}
             onCancelClientUpdate={() => void clientUpdates.cancelUpdates(cancelClientUpdatePcIds)}
+            keepAwakeOnCount={keepAwakeOnPcIds.length}
+            keepAwakeOffCount={keepAwakeOffPcIds.length}
+            keepAwakeOfflineCount={keepAwakeOfflineCount}
+            isKeepAwakeDisabled={isDisconnected || isBulkCommandBusy}
+            onKeepAwake={(keepAwake) => void setSelectedPcsKeepAwake(keepAwake)}
             selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
             selectedCount={selectedPcNames.length}
             searchQuery={searchQuery}

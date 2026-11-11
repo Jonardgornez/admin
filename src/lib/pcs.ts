@@ -80,6 +80,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     clientUpdate: serverPc.clientUpdate,
     wallpaperId: serverPc.wallpaper?.id ?? null,
     service: serverPc.service ?? null,
+    keepAwake: serverPc.keepAwake,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -218,6 +219,18 @@ export function getPcIdsToUpdateClient(pcs: RegisteredPc[], selectedNames: strin
   return pcs.filter((pc) => selectedNames.includes(pc.name) && isPcOnline(pc)).map((pc) => pc.id)
 }
 
+// Turning always awake on needs the client, so offline PCs are left out. Turning it off goes to every
+// selected PC, since a PC held at the sign-in screen reads as offline but its service still applies it.
+export function getPcIdsToKeepAwake(
+  pcs: RegisteredPc[],
+  selectedNames: string[],
+  keepAwake: boolean,
+): number[] {
+  return pcs
+    .filter((pc) => selectedNames.includes(pc.name) && (!keepAwake || isPcOnline(pc)))
+    .map((pc) => pc.id)
+}
+
 // Re-checks a bulk time dialog's PCs against the latest list when it is confirmed. A PC whose session ended, or that
 // another user has logged in to since the dialog opened, is left out, so a bulk time out never ends a newer session.
 export function getBulkTimeTargetIds(openedWith: RegisteredPc[], current: RegisteredPc[]): number[] {
@@ -348,6 +361,17 @@ export function describeBulkWallpaperResult(kind: WallpaperCommand, affected: nu
   return affected === 0
     ? 'No PCs got the wallpaper.'
     : `Wallpaper set on ${formatPcCount(affected)}.`
+}
+
+// Only turning it on skips offline PCs, so the skipped count is reported for on alone.
+export function describeKeepAwakeResult(
+  keepAwake: boolean,
+  affected: number,
+  skippedOfflineCount: number,
+): string {
+  const result = `Always awake turned ${keepAwake ? 'on' : 'off'} for ${formatPcCount(affected)}.`
+  if (!keepAwake || skippedOfflineCount === 0) return result
+  return `${result} ${skippedOfflineCount} offline ${skippedOfflineCount === 1 ? 'PC' : 'PCs'} skipped.`
 }
 
 export function getLogsHref(pcName: string): string {

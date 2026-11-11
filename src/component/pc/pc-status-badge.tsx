@@ -71,6 +71,14 @@ export function WallpaperBadge() {
   )
 }
 
+export function KeepAwakeBadge() {
+  return (
+    <Badge variant="keep-awake" icon="eye">
+      Always awake
+    </Badge>
+  )
+}
+
 // The card badge only flags an internet block that is set or still being applied.
 interface InternetBadgeDisplay {
   variant: BadgeVariant
