@@ -21,6 +21,7 @@ import {
   describeBulkTimeResult,
   describeTimeEdit,
   describeTimeGrant,
+  getBulkTimeTargetIds,
   getPcIdsToEditTime,
   filterPcs,
   formatMinutes,
@@ -230,6 +231,31 @@ describe('getPcIdsToEditTime', () => {
 
   it('returns nothing when nothing is selected', () => {
     expect(getPcIdsToEditTime(bulkPcList, [])).toEqual([])
+  })
+})
+
+describe('getBulkTimeTargetIds', () => {
+  const inUse = (id: number, user: string): RegisteredPc => ({
+    id,
+    name: `PC-${id}`,
+    status: 'in-use',
+    user,
+    timeUsed: '00:10',
+    lastSeen: 'Now',
+  })
+
+  it('keeps the PCs that still have the same session', () => {
+    const openedWith = [inUse(1, 'ana'), inUse(2, 'ben')]
+    expect(getBulkTimeTargetIds(openedWith, openedWith)).toEqual([1, 2])
+  })
+
+  it('leaves out a PC another user has logged in to since the dialog opened', () => {
+    expect(getBulkTimeTargetIds([inUse(1, 'ana'), inUse(2, 'ben')], [inUse(1, 'ana'), inUse(2, 'cara')])).toEqual([1])
+  })
+
+  it('leaves out a PC whose session ended or that was removed', () => {
+    const ended: RegisteredPc = { id: 2, name: 'PC-2', status: 'locked', lastSeen: 'Now' }
+    expect(getBulkTimeTargetIds([inUse(1, 'ana'), inUse(2, 'ben'), inUse(3, 'cy')], [inUse(1, 'ana'), ended])).toEqual([1])
   })
 })
 

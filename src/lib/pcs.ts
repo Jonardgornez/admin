@@ -190,6 +190,17 @@ export function getPcIdsToEditTime(pcs: RegisteredPc[], selectedNames: string[])
   return pcs.filter((pc) => selectedNames.includes(pc.name) && canEditPcTime(pc)).map((pc) => pc.id)
 }
 
+// Re-checks a bulk time dialog's PCs against the latest list when it is confirmed. A PC whose session ended, or that
+// another user has logged in to since the dialog opened, is left out, so a bulk time out never ends a newer session.
+export function getBulkTimeTargetIds(openedWith: RegisteredPc[], current: RegisteredPc[]): number[] {
+  return openedWith
+    .filter((opened) => {
+      const latest = current.find((pc) => pc.id === opened.id)
+      return latest !== undefined && canEditPcTime(latest) && latest.user === opened.user
+    })
+    .map((pc) => pc.id)
+}
+
 export const SERVER_PC_SHUT_DOWN_TITLE = 'This PC runs the server. Shut it down by hand.'
 export const SERVER_PC_REBOOT_TITLE = 'This PC runs the server. Restart it by hand.'
 

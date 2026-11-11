@@ -38,6 +38,7 @@ import {
   formatLastUpdate,
   getLockToggleTarget,
   getPcIdsToCancelPower,
+  getBulkTimeTargetIds,
   getPcIdsToEditTime,
   getPcIdsToLock,
   getPcIdsToReboot,
@@ -318,10 +319,14 @@ export function DashboardPage() {
 
   // Null means the same bulk command is still running. A failure keeps the dialog open so it can be retried.
   async function submitBulkTimeEdit(targetPcs: RegisteredPc[], command: PcTimeCommand) {
-    const result = await editPcsTime(
-      targetPcs.map((pc) => pc.id),
-      command,
-    )
+    const targetIds = getBulkTimeTargetIds(targetPcs, pcs)
+    if (targetIds.length === 0) {
+      setBulkTimeEditPcs(null)
+      notify(describeBulkTimeResult(command, 0), 'clock')
+      return
+    }
+
+    const result = await editPcsTime(targetIds, command)
     if (!result) return
     if (result.success) {
       setBulkTimeEditPcs(null)
