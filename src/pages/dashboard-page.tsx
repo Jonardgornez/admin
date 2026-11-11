@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
 import { AddTimeDialog } from '../component/pc/add-time-dialog'
+import { BulkTimeDialog } from '../component/pc/bulk-time-dialog'
 import { ClientUpdateDialog } from '../component/pc/client-update-dialog'
 import { LockDialog } from '../component/pc/lock-dialog'
 import { PcBulkToolbar } from '../component/pc/pc-bulk-toolbar'
@@ -29,6 +30,7 @@ import {
   describeBulkCancelResult,
   describeBulkLockResult,
   describeBulkPowerResult,
+  describeBulkTimeResult,
   describeCancelPowerRequest,
   describeSinglePowerResult,
   describeTimeEdit,
@@ -36,6 +38,7 @@ import {
   formatLastUpdate,
   getLockToggleTarget,
   getPcIdsToCancelPower,
+  getPcIdsToEditTime,
   getPcIdsToLock,
   getPcIdsToReboot,
   getPcIdsToShutDown,
@@ -85,6 +88,7 @@ export function DashboardPage() {
     lockPc,
     unlockPc,
     editPcTime,
+    editPcsTime,
     lockPcs,
     unlockPcs,
     shutDownPc,
@@ -106,6 +110,8 @@ export function DashboardPage() {
   // Null follows the saved default until the admin picks a mode in the detail dialog.
   const [detailViewMode, setDetailViewMode] = useState<ViewMode | null>(null)
   const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
+  // The PCs are fixed when the dialog opens, so the count shown matches what the command changes.
+  const [bulkTimeEditPcs, setBulkTimeEditPcs] = useState<RegisteredPc[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
   const [lockAction, setLockAction] = useState<LockAction | null>(null)
@@ -129,6 +135,7 @@ export function DashboardPage() {
   const selectedPcNames = selectedNames.filter((name) => pcs.some((pc) => pc.name === name))
   const lockPcIds = getPcIdsToLock(pcs, selectedPcNames)
   const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcNames)
+  const editTimePcIds = getPcIdsToEditTime(pcs, selectedPcNames)
   const shutDownPcIds = getPcIdsToShutDown(pcs, selectedPcNames)
   const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcNames)
   const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
@@ -309,6 +316,21 @@ export function DashboardPage() {
     }
   }
 
+  // Null means the same bulk command is still running. A failure keeps the dialog open so it can be retried.
+  async function submitBulkTimeEdit(targetPcs: RegisteredPc[], command: PcTimeCommand) {
+    const result = await editPcsTime(
+      targetPcs.map((pc) => pc.id),
+      command,
+    )
+    if (!result) return
+    if (result.success) {
+      setBulkTimeEditPcs(null)
+      notify(describeBulkTimeResult(command, result.data.affected), 'clock')
+    } else if (!isSessionExpired(result)) {
+      notify(result.error, 'alert')
+    }
+  }
+
   async function removeConfirmedPc(pc: RegisteredPc) {
     setPcToRemove(null)
     const result = await removePc(pc)
@@ -380,6 +402,11 @@ export function DashboardPage() {
             serverPcNote={selectedServerPc && getServerPcPowerNote(selectedServerPc.name)}
             onUnlockSelected={() => setLockAction({ kind: 'unlock', pcIds: unlockPcIds })}
             onLockSelected={() => setLockAction({ kind: 'lock', pcIds: lockPcIds })}
+            editTimeSelectedCount={editTimePcIds.length}
+            isBulkTimeDisabled={isDisconnected || isBulkCommandBusy}
+            onEditTimeSelected={() =>
+              setBulkTimeEditPcs(pcs.filter((pc) => editTimePcIds.includes(pc.id)))
+            }
             onRebootSelected={() =>
               setPowerAction({
                 kind: 'reboot-selected',
@@ -480,6 +507,16 @@ export function DashboardPage() {
           onConfirm={(choice) => void submitTimeEdit(editablePc, toPcTimeCommand(choice))}
           onTimeOut={() => void submitTimeEdit(editablePc, { action: 'time-out' })}
           onCancel={() => setTimeEditPcName(null)}
+        />
+      )}
+
+      {bulkTimeEditPcs && (
+        <BulkTimeDialog
+          pcs={bulkTimeEditPcs}
+          isBusy={isBulkCommandBusy}
+          onConfirm={(choice) => void submitBulkTimeEdit(bulkTimeEditPcs, toPcTimeCommand(choice))}
+          onTimeOut={() => void submitBulkTimeEdit(bulkTimeEditPcs, { action: 'time-out' })}
+          onCancel={() => setBulkTimeEditPcs(null)}
         />
       )}
 

@@ -186,6 +186,10 @@ export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): 
   return pcs.filter((pc) => selectedNames.includes(pc.name) && canUnlockPc(pc)).map((pc) => pc.id)
 }
 
+export function getPcIdsToEditTime(pcs: RegisteredPc[], selectedNames: string[]): number[] {
+  return pcs.filter((pc) => selectedNames.includes(pc.name) && canEditPcTime(pc)).map((pc) => pc.id)
+}
+
 export const SERVER_PC_SHUT_DOWN_TITLE = 'This PC runs the server. Shut it down by hand.'
 export const SERVER_PC_REBOOT_TITLE = 'This PC runs the server. Restart it by hand.'
 
@@ -338,6 +342,19 @@ export function describeTimeEdit(pcName: string, command: PcTimeCommand): string
   if (command.action === 'time-out') return `${pcName} timed out.`
   if (command.action === 'open-time') return describeTimeGrant(pcName, { mode: 'open-time' })
   return describeTimeGrant(pcName, { mode: 'time-limit', minutes: command.minutes })
+}
+
+// Zero means the server applied the change to no PC, such as when none had a session to change.
+export function describeBulkTimeResult(command: PcTimeCommand, affected: number): string {
+  if (command.action === 'time-out') {
+    return affected === 0 ? 'No PCs could be timed out.' : `Timed out ${formatPcCount(affected)}.`
+  }
+  if (command.action === 'open-time') {
+    if (affected === 0) return 'No PCs could be put on open time.'
+    return `${formatPcCount(affected)} ${affected === 1 ? 'is' : 'are'} now on open time.`
+  }
+  if (affected === 0) return 'No PCs could get more time.'
+  return `Added ${formatMinutes(command.minutes)} to ${formatPcCount(affected)}.`
 }
 
 // Off PCs have no screen to show, so their View screen actions stay disabled.

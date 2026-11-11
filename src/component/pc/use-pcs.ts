@@ -236,7 +236,7 @@ export function usePcs() {
     [runPcPowerCommand],
   )
 
-  // Resolves with null when a bulk lock, unlock, shutdown, reboot, cancel or internet change is already running.
+  // Resolves with null when a bulk lock, unlock, time, shutdown, reboot, cancel or internet change is already running.
   const runBulkCommand = useCallback(
     async <T,>(command: () => Promise<ApiResult<T>>): Promise<ApiResult<T> | null> => {
       if (isBulkCommandInFlight.current) return null
@@ -260,6 +260,12 @@ export function usePcs() {
 
   const unlockPcs = useCallback(
     (pcIds: number[]) => runBulkCommand(() => pcsApi.bulkUnlockPcs(pcIds)),
+    [runBulkCommand],
+  )
+
+  const editPcsTime = useCallback(
+    (pcIds: number[], command: PcTimeCommand) =>
+      runBulkCommand(() => pcsApi.editPcsTime(pcIds, command)),
     [runBulkCommand],
   )
 
@@ -317,6 +323,7 @@ export function usePcs() {
     lockPc,
     unlockPc,
     editPcTime,
+    editPcsTime,
     lockPcs,
     unlockPcs,
     shutDownPc,

@@ -25,12 +25,15 @@ interface PcBulkToolbarProps {
   lockSelectedCount?: number
   unlockSelectedCount?: number
   isBulkLockDisabled?: boolean
+  editTimeSelectedCount?: number
+  isBulkTimeDisabled?: boolean
   isBulkPowerDisabled?: boolean
   searchQuery: string
   onSearchChange: (searchQuery: string) => void
   onToggleSelectAll?: () => void
   onUnlockSelected?: () => void
   onLockSelected?: () => void
+  onEditTimeSelected?: () => void
   onRebootSelected?: () => void
   onShutdownSelected?: () => void
   onCancelSelected?: () => void
@@ -81,12 +84,15 @@ export function PcBulkToolbar({
   lockSelectedCount = 0,
   unlockSelectedCount = 0,
   isBulkLockDisabled = false,
+  editTimeSelectedCount = 0,
+  isBulkTimeDisabled = false,
   isBulkPowerDisabled = false,
   searchQuery,
   onSearchChange,
   onToggleSelectAll,
   onUnlockSelected,
   onLockSelected,
+  onEditTimeSelected,
   onRebootSelected,
   onShutdownSelected,
   onCancelSelected,
@@ -150,6 +156,15 @@ export function PcBulkToolbar({
           >
             <Icon name="lock" />
             {withCount('Lock', lockSelectedCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isBulkTimeDisabled || editTimeSelectedCount === 0}
+            onClick={onEditTimeSelected}
+          >
+            <Icon name="clock" />
+            {withCount('Edit time', editTimeSelectedCount)}
           </Button>
         </ToolbarGroup>
 

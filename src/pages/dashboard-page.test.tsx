@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { Notify } from '../component/ui/notification-context'
 import { TestProviders } from '../test/test-providers'
 import { DashboardPage } from './dashboard-page'
 
@@ -69,9 +70,9 @@ function commandCalls(fetchMock: ReturnType<typeof stubApi>, path: string) {
   return fetchMock.mock.calls.filter(([input, init]) => init?.method === 'POST' && String(input) === path)
 }
 
-function renderDashboard() {
+function renderDashboard(notify?: Notify) {
   render(
-    <TestProviders initialPath="/">
+    <TestProviders initialPath="/" notify={notify}>
       <DashboardPage />
     </TestProviders>,
   )
@@ -146,6 +147,33 @@ describe('DashboardPage lock message', () => {
     await waitFor(() => expect(commandCalls(fetchMock, '/api/pcs/lock')).toHaveLength(1))
     expect(commandCalls(fetchMock, '/api/pcs/lock')[0][1]?.body).toBe(
       '{"ids":[1,2],"message":"Class is over."}',
+    )
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})
+
+describe('DashboardPage bulk edit time', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('adds 30 minutes to every selected PC in one command and reports it', async () => {
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'POST /api/pcs/time': () => Response.json({ affected: 2 }),
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit time (2)' }))
+    const dialog = screen.getByRole('heading', { name: 'Edit time for 2 PCs' }).closest('dialog')
+    if (!dialog) throw new Error('The time dialog is not open')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Added 30m to 2 PCs.', 'clock'))
+    expect(commandCalls(fetchMock, '/api/pcs/time')).toHaveLength(1)
+    expect(commandCalls(fetchMock, '/api/pcs/time')[0][1]?.body).toBe(
+      '{"ids":[1,2],"action":"add-time","minutes":30}',
     )
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })

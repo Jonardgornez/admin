@@ -18,8 +18,10 @@ import {
   canUnlockPc,
   countOnlinePcs,
   describeBulkLockResult,
+  describeBulkTimeResult,
   describeTimeEdit,
   describeTimeGrant,
+  getPcIdsToEditTime,
   filterPcs,
   formatMinutes,
   formatPcCount,
@@ -205,6 +207,29 @@ describe('getPcIdsToUnlock', () => {
 
   it('returns nothing when nothing is selected', () => {
     expect(getPcIdsToUnlock(bulkPcList, [])).toEqual([])
+  })
+})
+
+describe('getPcIdsToEditTime', () => {
+  it('returns the selected PCs whose session time can be edited, including a locked PC that keeps its session', () => {
+    const lockedWithSession: RegisteredPc = {
+      id: 7,
+      name: 'PC-07',
+      status: 'frozen',
+      timeUsed: '00:30',
+      lastSeen: 'Now',
+    }
+    expect(getPcIdsToEditTime(bulkPcList, allBulkNames)).toEqual([1])
+    expect(getPcIdsToEditTime([...bulkPcList, lockedWithSession], ['PC-01', 'PC-07'])).toEqual([1, 7])
+  })
+
+  it('leaves out locked PCs with no session, offline PCs and PCs that are not selected', () => {
+    expect(getPcIdsToEditTime(bulkPcList, ['PC-02', 'PC-04', 'PC-05', 'PC-06'])).toEqual([])
+    expect(getPcIdsToEditTime(bulkPcList, ['PC-01'])).toEqual([1])
+  })
+
+  it('returns nothing when nothing is selected', () => {
+    expect(getPcIdsToEditTime(bulkPcList, [])).toEqual([])
   })
 })
 
@@ -733,6 +758,35 @@ describe('describeTimeEdit', () => {
     )
     expect(describeTimeEdit('PC-05', { action: 'open-time' })).toBe('PC-05 is now on open time.')
     expect(describeTimeEdit('PC-05', { action: 'time-out' })).toBe('PC-05 timed out.')
+  })
+})
+
+describe('describeBulkTimeResult', () => {
+  it('reports the time added to how many PCs', () => {
+    expect(describeBulkTimeResult({ action: 'add-time', minutes: 30 }, 12)).toBe(
+      'Added 30m to 12 PCs.',
+    )
+    expect(describeBulkTimeResult({ action: 'add-time', minutes: 90 }, 1)).toBe('Added 1h 30m to 1 PC.')
+  })
+
+  it('reports how many PCs are now on open time, using the matching verb', () => {
+    expect(describeBulkTimeResult({ action: 'open-time' }, 12)).toBe('12 PCs are now on open time.')
+    expect(describeBulkTimeResult({ action: 'open-time' }, 1)).toBe('1 PC is now on open time.')
+  })
+
+  it('reports how many PCs were timed out', () => {
+    expect(describeBulkTimeResult({ action: 'time-out' }, 12)).toBe('Timed out 12 PCs.')
+    expect(describeBulkTimeResult({ action: 'time-out' }, 1)).toBe('Timed out 1 PC.')
+  })
+
+  it('says when no PC was changed, for each kind of edit', () => {
+    expect(describeBulkTimeResult({ action: 'add-time', minutes: 30 }, 0)).toBe(
+      'No PCs could get more time.',
+    )
+    expect(describeBulkTimeResult({ action: 'open-time' }, 0)).toBe(
+      'No PCs could be put on open time.',
+    )
+    expect(describeBulkTimeResult({ action: 'time-out' }, 0)).toBe('No PCs could be timed out.')
   })
 })
 
