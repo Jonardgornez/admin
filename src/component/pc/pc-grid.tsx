@@ -4,6 +4,7 @@ import { PcCard } from './pc-card'
 
 interface PcGridProps {
   pcs: Pc[]
+  now: Date
   selectedNames?: string[]
   viewMode?: ViewMode
   emptyMessage: string
@@ -24,6 +25,7 @@ interface PcGridProps {
 
 export function PcGrid({
   pcs,
+  now,
   selectedNames = [],
   viewMode = 'notified',
   emptyMessage,
@@ -56,6 +58,7 @@ export function PcGrid({
             <PcCard
               key={pc.name}
               pc={pc}
+              now={now}
               isSelected={selectedNames.includes(pc.name)}
               isLockDisabled={isLockDisabled?.(pc.name)}
               isTimeEditDisabled={isTimeEditDisabled?.(pc.name)}

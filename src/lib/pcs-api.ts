@@ -20,6 +20,11 @@ const serverPcWallpaperSchema = z.object({
   sha256: z.string(),
 })
 
+const serverPcServiceSchema = z.object({
+  lastSeenAt: z.string(),
+  clientRunning: z.boolean(),
+})
+
 const serverPcSchema = z.object({
   id: z.number().int(),
   name: z.string(),
@@ -41,6 +46,8 @@ const serverPcSchema = z.object({
   clientUpdate: clientUpdateStatusSchema.nullable().catch(null),
   // An older server omits this, so a missing or odd value reads as no wallpaper.
   wallpaper: serverPcWallpaperSchema.nullable().catch(null),
+  // An older server omits this, so a missing or odd value reads as no service report.
+  service: serverPcServiceSchema.nullable().catch(null),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)

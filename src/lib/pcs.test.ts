@@ -38,6 +38,8 @@ import {
   describeBulkWallpaperResult,
   anyPcHasWallpaper,
   getScreenHref,
+  getServiceWarning,
+  isServiceReportFresh,
   getSelectionState,
   getTimeLeftLabel,
   isPcActionable,
@@ -872,6 +874,7 @@ const serverPc: ServerPc = {
   clientVersion: null,
   clientUpdate: null,
   wallpaper: null,
+  service: null,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -1019,6 +1022,7 @@ describe('toRegisteredPc', () => {
       clientVersion: null,
       clientUpdate: null,
       wallpaperId: null,
+      service: null,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
@@ -1220,5 +1224,73 @@ describe('formatLastUpdate', () => {
   it('formats the time of day', () => {
     const date = new Date(2026, 10, 5, 10, 44, 12)
     expect(formatLastUpdate(date)).toBe(date.toLocaleTimeString(undefined, { timeStyle: 'medium' }))
+  })
+})
+
+describe('toRegisteredPc service report', () => {
+  const service = { lastSeenAt: '2026-11-05T10:01:00.000Z', clientRunning: false }
+
+  it('carries the service report to the PC', () => {
+    expect(toRegisteredPc({ ...serverPc, service }, now).service).toEqual(service)
+  })
+
+  it('reads a PC with no service report as null', () => {
+    const serverPcWithoutService = { ...serverPc, service: undefined } as unknown as ServerPc
+    expect(toRegisteredPc(serverPcWithoutService, now).service).toBeNull()
+  })
+})
+
+describe('isServiceReportFresh', () => {
+  const reportNow = new Date('2026-11-05T10:03:00.000Z')
+
+  it('is true for a report sent within the last 3 minutes', () => {
+    expect(isServiceReportFresh('2026-11-05T10:02:00.000Z', reportNow)).toBe(true)
+    expect(isServiceReportFresh('2026-11-05T10:00:00.000Z', reportNow)).toBe(true)
+  })
+
+  it('is false for a report older than 3 minutes', () => {
+    expect(isServiceReportFresh('2026-11-05T09:59:59.000Z', reportNow)).toBe(false)
+  })
+
+  it('is false for a timestamp that is not a date', () => {
+    expect(isServiceReportFresh('not a date', reportNow)).toBe(false)
+  })
+})
+
+describe('getServiceWarning', () => {
+  const reportNow = new Date('2026-11-05T10:03:00.000Z')
+  const freshAt = '2026-11-05T10:02:30.000Z'
+  const staleAt = '2026-11-05T09:58:00.000Z'
+  const offlinePc = { status: 'offline' as const }
+  const onlinePc = { status: 'locked' as const }
+
+  it('warns when the service reports the client is not running on an online PC', () => {
+    const pc = { ...onlinePc, service: { lastSeenAt: freshAt, clientRunning: false } }
+    expect(getServiceWarning(pc, reportNow)).toBe('Client not running')
+  })
+
+  it('warns for an offline PC whose service reported recently', () => {
+    const pc = { ...offlinePc, service: { lastSeenAt: freshAt, clientRunning: true } }
+    expect(getServiceWarning(pc, reportNow)).toBe('Client not running')
+  })
+
+  it('shows no warning for an online PC whose client is running', () => {
+    const pc = { ...onlinePc, service: { lastSeenAt: freshAt, clientRunning: true } }
+    expect(getServiceWarning(pc, reportNow)).toBeNull()
+  })
+
+  it('shows no warning for an offline PC whose service has been silent for over 3 minutes', () => {
+    const pc = { ...offlinePc, service: { lastSeenAt: staleAt, clientRunning: false } }
+    expect(getServiceWarning(pc, reportNow)).toBeNull()
+  })
+
+  it('shows no warning for an online PC whose service report is stale', () => {
+    const pc = { ...onlinePc, service: { lastSeenAt: staleAt, clientRunning: false } }
+    expect(getServiceWarning(pc, reportNow)).toBeNull()
+  })
+
+  it('shows no warning when the PC has no service report', () => {
+    expect(getServiceWarning({ ...offlinePc, service: null }, reportNow)).toBeNull()
+    expect(getServiceWarning(offlinePc, reportNow)).toBeNull()
   })
 })

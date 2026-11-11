@@ -485,9 +485,10 @@ export function DashboardPage() {
         </p>
       )}
 
-      {isLoaded && pcs.length > 0 && (
+      {isLoaded && pcs.length > 0 && lastUpdatedAt && (
         <PcGrid
           pcs={visiblePcs}
+          now={lastUpdatedAt}
           selectedNames={selectedPcNames}
           viewMode={consoleDefaults.defaultViewMode}
           emptyMessage={`No PCs match "${searchQuery}".`}

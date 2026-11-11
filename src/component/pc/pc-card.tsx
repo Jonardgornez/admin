@@ -8,8 +8,8 @@ import {
   canViewPcScreen,
   getCancelPowerLabel,
   getLockToggleTarget,
+  getServiceWarning,
   getTimeLeftLabel,
-  isPcActionable,
   isPcOff,
   isPcOnline,
   isPowerCancelButtonShown,
@@ -71,6 +71,8 @@ const metaValueVariants = cva('m-0 min-w-0 break-words text-right', {
 
 interface PcCardProps {
   pc: Pc
+  // The time the list was read, so the service warning matches the PC's data.
+  now: Date
   isSelected: boolean
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
@@ -109,6 +111,7 @@ function PcMetaRow({ icon, label, value, isOff }: PcMetaRowProps) {
 
 export function PcCard({
   pc,
+  now,
   isSelected,
   isLockDisabled = false,
   isTimeEditDisabled = false,
@@ -140,6 +143,7 @@ export function PcCard({
   const cancelLabel = getCancelPowerLabel(pc)
   const removeLabel = `Remove ${pc.name}`
   const canRemove = onRemove !== undefined && isOff
+  const serviceWarning = getServiceWarning(pc, now)
 
   return (
     <article className={cardVariants({ isSelected, isOff })}>
@@ -150,9 +154,8 @@ export function PcCard({
             <h3 className="m-0">
               <button
                 type="button"
-                disabled={!isPcActionable(pc)}
                 onClick={onOpenDetail}
-                className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink enabled:hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed"
+                className="cursor-pointer rounded-sm bg-transparent p-0 font-mono text-xl font-semibold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {pc.name}
               </button>
@@ -161,6 +164,11 @@ export function PcCard({
           <p className="m-0 text-xs text-ink-muted">{formatClientVersion(pc.clientVersion)}</p>
           <div className="flex flex-wrap gap-2">
             <PcStatusBadge pc={pc} />
+            {serviceWarning && (
+              <Badge variant="service-warning" icon="alert">
+                {serviceWarning}
+              </Badge>
+            )}
             {isOfflineLocked && (
               <Badge variant="frozen" icon="lock">
                 Locked

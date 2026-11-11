@@ -74,6 +74,8 @@ const serverPc = {
 
   wallpaper: null,
 
+  service: null,
+
 }
 
 
@@ -129,6 +131,26 @@ describe('pcs api', () => {
     })
 
 
+
+    it('reads the service report of each PC', async () => {
+      const service = { lastSeenAt: '2026-11-05T10:01:00.000Z', clientRunning: false }
+      stubFetch(Response.json([{ ...serverPc, service }]))
+
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, service }] })
+    })
+
+    it('reads a PC with no service report as null, so an older server still loads', async () => {
+      const { service: _omitted, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc]))
+
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, service: null }] })
+    })
+
+    it('reads a malformed service report as null without hiding the other PCs', async () => {
+      stubFetch(Response.json([{ ...serverPc, service: { lastSeenAt: 12 } }]))
+
+      expect(await listPcs()).toEqual({ success: true, data: [{ ...serverPc, service: null }] })
+    })
 
     it('marks background requests with the refresh header', async () => {
 

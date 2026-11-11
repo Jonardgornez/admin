@@ -16,15 +16,16 @@ import {
 } from '../../lib/pcs'
 import { getInternetHint, getInternetStatus, getInternetStatusLabel } from '../../lib/internet'
 import { getRestrictionSummary } from '../../lib/restrictions'
-import type { Pc, ViewMode } from '../../types'
+import type { RegisteredPc, ViewMode } from '../../types'
 import { Button, ButtonLink } from '../ui/button'
 import { RadioOption } from '../ui/choice'
 import { Icon } from '../ui/icon'
 import { Modal } from '../ui/modal'
 import { OpenTimeBadge, PcStatusBadge, WallpaperBadge } from './pc-status-badge'
+import { PcDiagnostics } from './pc-diagnostics'
 
 interface PcDetailDialogProps {
-  pc: Pc
+  pc: RegisteredPc
   isLockDisabled?: boolean
   isTimeEditDisabled?: boolean
   isPowerDisabled?: boolean
@@ -221,6 +222,7 @@ export function PcDetailDialog({
             )}
           </fieldset>
         </div>
+        <PcDiagnostics key={pc.id} pcId={pc.id} />
       </div>
     </Modal>
   )
