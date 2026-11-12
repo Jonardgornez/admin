@@ -1,5 +1,9 @@
 # Admin console in Docker on pc-server
 
+> **Not in use.** pc-server runs Lykantra directly on Windows: see `WINDOWS.md`. Docker Desktop can't run this
+> server correctly (it hides the lab PCs' real IP addresses), and the Ubuntu + Docker Engine setup below was too
+> involved. This guide is kept only for reference.
+
 The admin console runs in Docker next to the server and opens at **http://localhost:5173**, on pc-server only.
 
 **First time?** Follow the full guide in the **server** folder: `server\DOCKER.md`. It sets up Docker, moves
