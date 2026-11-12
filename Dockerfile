@@ -1,16 +1,18 @@
-# Builds the admin console and serves it with nginx, which also forwards /api (and the live-view WebSocket) to the
-# server running on Windows.
-FROM node:22-slim AS build
-LABEL app=lykantra-admin
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+FROM node:22-alpine
 
-FROM nginxinc/nginx-unprivileged:1.28-alpine
-LABEL app=lykantra-admin
-ENV SERVER_HOST=host.docker.internal \
-    SERVER_PORT=5000
-COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /app/dist /usr/share/nginx/html
+WORKDIR /app
+
+# Copy package files first
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy the React application
+COPY . .
+
+# Expose Vite development server
+EXPOSE 5173
+
+# Start Vite and allow access outside the container
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
