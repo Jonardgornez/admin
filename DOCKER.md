@@ -37,6 +37,10 @@ cd C:\...\admin
 
 `docker compose down` stops the console; `.\update.ps1 -Force` starts it again.
 
+**Keep pc-server's Docker for Lykantra only.** To reach the server, the console container connects as if it were a
+program on pc-server itself, and every other container in Docker Desktop could do the same. They still need an
+admin password to do anything, so use strong admin passwords and don't run other people's containers on pc-server.
+
 **Different port** (only if something else needs 5173): create a file `.env` in `C:\...\admin` containing
 `ADMIN_PORT=8080`, then run `.\update.ps1 -Force`. Live view also needs the server to accept that address: ask the
 developer.

@@ -17,10 +17,13 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Docker Desktop is not running. Start it, wait until it shows "Engine running", then run update.ps1 again.'
 }
 
-$before = (git rev-parse HEAD).Trim()
+$before = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or -not $before) { throw "$PSScriptRoot is not a git folder. Run update.ps1 from the admin folder." }
+$before = $before.Trim()
 git pull --ff-only
 if ($LASTEXITCODE -ne 0) { throw 'git pull failed; the admin console was not changed. Run git status.' }
-$after = (git rev-parse HEAD).Trim()
+$after = (git rev-parse HEAD) | Out-String
+$after = $after.Trim()
 
 $isRunning = [bool](docker compose ps --status running --quiet admin)
 if ($before -eq $after -and $isRunning -and -not $Force) {
@@ -51,9 +54,18 @@ if (Get-ScheduledTask -TaskName $oldTaskName -ErrorAction SilentlyContinue) {
 }
 foreach ($id in Get-NetTCPConnection -State Listen -LocalPort 5173 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique) {
     $process = Get-CimInstance Win32_Process -Filter "ProcessId=$id" -ErrorAction SilentlyContinue
-    if ($process.Name -like 'node*' -and "$($process.CommandLine)" -like "*$PSScriptRoot*") {
+    if (-not $process) { continue }  # already gone
+    $isOldConsole = $process.Name -like 'node*' -and
+        "$($process.CommandLine)".IndexOf($PSScriptRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    if ($process.Name -like 'node*' -and -not $process.CommandLine) {
+        throw 'The old console (node) is still running and this window cannot stop it. Run update.ps1 once in PowerShell as administrator.'
+    } elseif ($isOldConsole) {
         Write-Host 'Stopping the old npm run dev console...'
-        Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+        try {
+            Stop-Process -Id $id -Force -ErrorAction Stop
+        } catch {
+            throw 'Could not stop the old console (node). Run update.ps1 once in PowerShell as administrator.'
+        }
         Start-Sleep -Seconds 2
     } elseif ($process.Name -notlike 'com.docker*' -and $process.Name -notlike 'wslrelay*' -and $process.Name -notlike 'vpnkit*') {
         throw "Port 5173 is used by another program ($($process.Name), PID $id). Close it, then run update.ps1 again."
@@ -63,8 +75,8 @@ foreach ($id in Get-NetTCPConnection -State Listen -LocalPort 5173 -ErrorAction 
 docker compose up -d
 if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed. See: docker compose logs admin' }
 
-# Removes only untagged images left over from earlier builds.
-docker image prune -f *> $null
+# Removes only this console's untagged images left over from earlier builds.
+docker image prune -f --filter label=app=lykantra-admin *> $null
 
 $deadline = (Get-Date).AddMinutes(1)
 while ((Get-Date) -lt $deadline) {

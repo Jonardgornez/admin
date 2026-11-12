@@ -13,3 +13,5 @@ compose.yaml
 DOCKER.md
 update.ps1
 logs
+.env
+.env.*
