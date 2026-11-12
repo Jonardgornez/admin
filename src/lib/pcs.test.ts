@@ -28,6 +28,8 @@ import {
   formatMinutes,
   formatPcCount,
   getLogsHref,
+  getPcNumberFromName,
+  describeRename,
   getMessageTargets,
   getLockToggleTarget,
   getPcIdsToLock,
@@ -40,6 +42,7 @@ import {
   getPcIdsToKeepAwake,
   anyPcHasWallpaper,
   getScreenHref,
+  parsePcIdParam,
   getServiceWarning,
   isServiceReportFresh,
   getSelectionState,
@@ -59,7 +62,7 @@ import {
   getPcNamesToShutDown,
   getServerPcPowerNote,
   toggleSelectAll,
-  toggleSelectedName,
+  toggleSelectedId,
   toPcTimeCommand,
 } from './pcs'
 
@@ -149,7 +152,7 @@ const bulkPcList: RegisteredPc[] = [
   { id: 5, name: 'PC-05', status: 'offline', isLocked: true, lastSeen: '09:00' },
   { id: 6, name: 'PC-06', status: 'rebooting', lastSeen: 'Now' },
 ]
-const allBulkNames = bulkPcList.map((pc) => pc.name)
+const allBulkIds = bulkPcList.map((pc) => pc.id)
 
 describe('countPcsHiddenFromView', () => {
   const all = [
@@ -159,29 +162,29 @@ describe('countPcsHiddenFromView', () => {
   ] as RegisteredPc[]
 
   it('counts the chosen PCs that are not on screen', () => {
-    expect(countPcsHiddenFromView([1, 2, 3], all, ['PC-01'])).toBe(2)
+    expect(countPcsHiddenFromView([1, 2, 3], all, [1])).toBe(2)
   })
 
   it('is zero when every chosen PC is on screen', () => {
-    expect(countPcsHiddenFromView([1], all, ['PC-01', 'PC-02'])).toBe(0)
+    expect(countPcsHiddenFromView([1], all, [1, 2])).toBe(0)
   })
 })
 
 describe('getPcIdsToLock', () => {
   it('returns the selected PCs that are not locked yet', () => {
-    expect(getPcIdsToLock(bulkPcList, allBulkNames)).toEqual([1, 2])
+    expect(getPcIdsToLock(bulkPcList, allBulkIds)).toEqual([1, 2])
   })
 
   it('leaves out offline PCs, locked or not', () => {
-    expect(getPcIdsToLock(bulkPcList, ['PC-04', 'PC-05'])).toEqual([])
+    expect(getPcIdsToLock(bulkPcList, [4, 5])).toEqual([])
   })
 
   it('leaves out PCs that are not selected', () => {
-    expect(getPcIdsToLock(bulkPcList, ['PC-01'])).toEqual([1])
+    expect(getPcIdsToLock(bulkPcList, [1])).toEqual([1])
   })
 
   it('returns nothing when no selected PC can be locked', () => {
-    expect(getPcIdsToLock(bulkPcList, ['PC-03', 'PC-06'])).toEqual([])
+    expect(getPcIdsToLock(bulkPcList, [3, 6])).toEqual([])
     expect(getPcIdsToLock(bulkPcList, [])).toEqual([])
   })
 })
@@ -206,11 +209,11 @@ describe('getLockToggleTarget', () => {
 
 describe('getPcIdsToUnlock', () => {
   it('returns the selected frozen PCs and PCs with no user', () => {
-    expect(getPcIdsToUnlock(bulkPcList, allBulkNames)).toEqual([2, 3])
+    expect(getPcIdsToUnlock(bulkPcList, allBulkIds)).toEqual([2, 3])
   })
 
   it('leaves out offline and in-use PCs even when selected', () => {
-    expect(getPcIdsToUnlock(bulkPcList, ['PC-01', 'PC-04', 'PC-05'])).toEqual([])
+    expect(getPcIdsToUnlock(bulkPcList, [1, 4, 5])).toEqual([])
   })
 
   it('returns nothing when nothing is selected', () => {
@@ -220,12 +223,12 @@ describe('getPcIdsToUnlock', () => {
 
 describe('getPcIdsToUpdateClient', () => {
   it('returns only the selected PCs that are online', () => {
-    expect(getPcIdsToUpdateClient(bulkPcList, allBulkNames)).toEqual([1, 2, 3])
+    expect(getPcIdsToUpdateClient(bulkPcList, allBulkIds)).toEqual([1, 2, 3])
   })
 
   it('leaves out offline, shut down and restarting PCs', () => {
     const shutDown: RegisteredPc = { id: 7, name: 'PC-07', status: 'shutdown', lastSeen: '09:00' }
-    expect(getPcIdsToUpdateClient([...bulkPcList, shutDown], ['PC-04', 'PC-05', 'PC-06', 'PC-07'])).toEqual([])
+    expect(getPcIdsToUpdateClient([...bulkPcList, shutDown], [4, 5, 6, 7])).toEqual([])
   })
 
   it('returns nothing when nothing is selected', () => {
@@ -242,13 +245,13 @@ describe('getPcIdsToEditTime', () => {
       timeUsed: '00:30',
       lastSeen: 'Now',
     }
-    expect(getPcIdsToEditTime(bulkPcList, allBulkNames)).toEqual([1])
-    expect(getPcIdsToEditTime([...bulkPcList, lockedWithSession], ['PC-01', 'PC-07'])).toEqual([1, 7])
+    expect(getPcIdsToEditTime(bulkPcList, allBulkIds)).toEqual([1])
+    expect(getPcIdsToEditTime([...bulkPcList, lockedWithSession], [1, 7])).toEqual([1, 7])
   })
 
   it('leaves out locked PCs with no session, offline PCs and PCs that are not selected', () => {
-    expect(getPcIdsToEditTime(bulkPcList, ['PC-02', 'PC-04', 'PC-05', 'PC-06'])).toEqual([])
-    expect(getPcIdsToEditTime(bulkPcList, ['PC-01'])).toEqual([1])
+    expect(getPcIdsToEditTime(bulkPcList, [2, 4, 5, 6])).toEqual([])
+    expect(getPcIdsToEditTime(bulkPcList, [1])).toEqual([1])
   })
 
   it('returns nothing when nothing is selected', () => {
@@ -320,15 +323,15 @@ describe('getMessageTargets', () => {
   ]
 
   it('returns the selected online PCs as recipients', () => {
-    expect(getMessageTargets(list, ['B'])).toEqual({ recipients: [list[1]], offlineCount: 0 })
+    expect(getMessageTargets(list, [2])).toEqual({ recipients: [list[1]], offlineCount: 0 })
   })
 
   it('includes a frozen PC because it is online', () => {
-    expect(getMessageTargets(list, ['E']).recipients).toEqual([list[4]])
+    expect(getMessageTargets(list, [5]).recipients).toEqual([list[4]])
   })
 
   it('counts selected PCs that are not online as offline', () => {
-    expect(getMessageTargets(list, ['A', 'C', 'D'])).toEqual({
+    expect(getMessageTargets(list, [1, 3, 4])).toEqual({
       recipients: [list[0]],
       offlineCount: 2,
     })
@@ -339,11 +342,11 @@ describe('getMessageTargets', () => {
   })
 
   it('returns no recipients when every selected PC is offline', () => {
-    expect(getMessageTargets(list, ['C', 'D'])).toEqual({ recipients: [], offlineCount: 2 })
+    expect(getMessageTargets(list, [3, 4])).toEqual({ recipients: [], offlineCount: 2 })
   })
 
-  it('ignores selected names that are not in the list', () => {
-    expect(getMessageTargets(list, ['Z'])).toEqual({ recipients: [], offlineCount: 0 })
+  it('ignores selected ids that are not in the list', () => {
+    expect(getMessageTargets(list, [99])).toEqual({ recipients: [], offlineCount: 0 })
   })
 })
 
@@ -380,19 +383,19 @@ describe('toggleSelectAll', () => {
   })
 })
 
-describe('toggleSelectedName', () => {
+describe('toggleSelectedId', () => {
   it('adds a PC that is not selected', () => {
-    expect(toggleSelectedName(['A'], 'B')).toEqual(['A', 'B'])
+    expect(toggleSelectedId([1], 2)).toEqual([1, 2])
   })
 
   it('removes a PC that is selected', () => {
-    expect(toggleSelectedName(['A', 'B'], 'A')).toEqual(['B'])
+    expect(toggleSelectedId([1, 2], 1)).toEqual([2])
   })
 
   it('does not change the input', () => {
-    const selected = ['A']
-    toggleSelectedName(selected, 'B')
-    expect(selected).toEqual(['A'])
+    const selected = [1]
+    toggleSelectedId(selected, 2)
+    expect(selected).toEqual([1])
   })
 })
 
@@ -560,18 +563,18 @@ describe('getPcIdsToReboot and getPcNamesToReboot', () => {
   ]
 
   it('returns the selected PCs that can be restarted', () => {
-    expect(getPcIdsToReboot(rebootList, ['PC-01', 'PC-06'])).toEqual([1, 6])
-    expect(getPcNamesToReboot(rebootList, ['PC-01', 'PC-06'])).toEqual(['PC-01', 'PC-06'])
+    expect(getPcIdsToReboot(rebootList, [1, 6])).toEqual([1, 6])
+    expect(getPcNamesToReboot(rebootList, [1, 6])).toEqual(['PC-01', 'PC-06'])
   })
 
   it('leaves out the server PC even when it is selected', () => {
-    const allNames = rebootList.map((pc) => pc.name)
-    expect(getPcIdsToReboot(rebootList, allNames)).toEqual([1, 6])
-    expect(getPcNamesToReboot(rebootList, allNames)).toEqual(['PC-01', 'PC-06'])
+    const allIds = rebootList.map((pc) => pc.id)
+    expect(getPcIdsToReboot(rebootList, allIds)).toEqual([1, 6])
+    expect(getPcNamesToReboot(rebootList, allIds)).toEqual(['PC-01', 'PC-06'])
   })
 
   it('leaves out PCs that are offline, shutting down or restarting', () => {
-    expect(getPcIdsToReboot(rebootList, ['PC-03', 'PC-04', 'PC-05'])).toEqual([])
+    expect(getPcIdsToReboot(rebootList, [3, 4, 5])).toEqual([])
   })
 
   it('returns nothing when nothing is selected', () => {
@@ -590,18 +593,18 @@ describe('getPcIdsToShutDown and getPcNamesToShutDown', () => {
   ]
 
   it('returns the selected PCs that can be shut down', () => {
-    expect(getPcIdsToShutDown(shutDownList, ['PC-01', 'PC-05'])).toEqual([1, 5])
-    expect(getPcNamesToShutDown(shutDownList, ['PC-01', 'PC-05'])).toEqual(['PC-01', 'PC-05'])
+    expect(getPcIdsToShutDown(shutDownList, [1, 5])).toEqual([1, 5])
+    expect(getPcNamesToShutDown(shutDownList, [1, 5])).toEqual(['PC-01', 'PC-05'])
   })
 
   it('leaves out the server PC even when it is selected', () => {
-    const allNames = shutDownList.map((pc) => pc.name)
-    expect(getPcIdsToShutDown(shutDownList, allNames)).toEqual([1, 5])
-    expect(getPcNamesToShutDown(shutDownList, allNames)).toEqual(['PC-01', 'PC-05'])
+    const allIds = shutDownList.map((pc) => pc.id)
+    expect(getPcIdsToShutDown(shutDownList, allIds)).toEqual([1, 5])
+    expect(getPcNamesToShutDown(shutDownList, allIds)).toEqual(['PC-01', 'PC-05'])
   })
 
   it('leaves out PCs that are offline or already shutting down', () => {
-    expect(getPcIdsToShutDown(shutDownList, ['PC-03', 'PC-04'])).toEqual([])
+    expect(getPcIdsToShutDown(shutDownList, [3, 4])).toEqual([])
   })
 
   it('returns nothing when nothing is selected', () => {
@@ -683,15 +686,15 @@ describe('getPcIdsToCancelPower', () => {
   ]
 
   it('takes only the selected PCs that can be cancelled', () => {
-    expect(getPcIdsToCancelPower(cancelList, ['PC-01', 'PC-02', 'PC-04'])).toEqual([1])
+    expect(getPcIdsToCancelPower(cancelList, [1, 2, 4])).toEqual([1])
   })
 
   it('takes every selected PC in a countdown and skips the rest', () => {
-    expect(getPcIdsToCancelPower(cancelList, ['PC-01', 'PC-03', 'PC-05'])).toEqual([1, 3, 5])
+    expect(getPcIdsToCancelPower(cancelList, [1, 3, 5])).toEqual([1, 3, 5])
   })
 
   it('takes nothing when no selected PC is in a countdown', () => {
-    expect(getPcIdsToCancelPower(cancelList, ['PC-02', 'PC-04'])).toEqual([])
+    expect(getPcIdsToCancelPower(cancelList, [2, 4])).toEqual([])
     expect(getPcIdsToCancelPower(cancelList, [])).toEqual([])
   })
 })
@@ -854,9 +857,22 @@ describe('canViewPcScreen', () => {
   })
 })
 
+describe('parsePcIdParam', () => {
+  it('reads a positive whole number', () => {
+    expect(parsePcIdParam('5')).toBe(5)
+  })
+
+  it.each([undefined, '', '0', '-1', '2.5', 'PC-05', '99999999999999999999'])(
+    'returns null for %s',
+    (param) => {
+      expect(parsePcIdParam(param)).toBeNull()
+    },
+  )
+})
+
 describe('getScreenHref', () => {
-  it('builds the screen route with the view mode', () => {
-    expect(getScreenHref('PC-05', 'anonymous')).toBe('/pc/PC-05/screen?mode=anonymous')
+  it('builds the screen route from the PC id with the view mode', () => {
+    expect(getScreenHref(5, 'anonymous')).toBe('/pc/5/screen?mode=anonymous')
   })
 })
 
@@ -1211,15 +1227,15 @@ describe('getPcIdsToKeepAwake', () => {
   ]
 
   it('keeps only the selected PCs that are online when turning it on', () => {
-    expect(getPcIdsToKeepAwake(pcs, ['PC-01', 'PC-02', 'PC-04'], true)).toEqual([1])
+    expect(getPcIdsToKeepAwake(pcs, [1, 2, 4], true)).toEqual([1])
   })
 
   it('is empty when turning it on and every selected PC is offline', () => {
-    expect(getPcIdsToKeepAwake(pcs, ['PC-02', 'PC-04'], true)).toEqual([])
+    expect(getPcIdsToKeepAwake(pcs, [2, 4], true)).toEqual([])
   })
 
   it('keeps every selected PC, offline ones too, when turning it off', () => {
-    expect(getPcIdsToKeepAwake(pcs, ['PC-01', 'PC-02', 'PC-04'], false)).toEqual([1, 2, 4])
+    expect(getPcIdsToKeepAwake(pcs, [1, 2, 4], false)).toEqual([1, 2, 4])
   })
 })
 
@@ -1340,5 +1356,36 @@ describe('getServiceWarning', () => {
   it('shows no warning when the PC has no service report', () => {
     expect(getServiceWarning({ ...offlinePc, service: null }, reportNow)).toBeNull()
     expect(getServiceWarning(offlinePc, reportNow)).toBeNull()
+  })
+})
+
+describe('getPcNumberFromName', () => {
+  it('reads the number after the PC- prefix', () => {
+    expect(getPcNumberFromName('PC-12')).toBe(12)
+    expect(getPcNumberFromName('PC-03')).toBe(3)
+    expect(getPcNumberFromName('PC-999999999')).toBe(999_999_999)
+  })
+
+  it('returns null for a name with another shape', () => {
+    expect(getPcNumberFromName('LAB-12')).toBeNull()
+    expect(getPcNumberFromName('PC-')).toBeNull()
+    expect(getPcNumberFromName('PC-12a')).toBeNull()
+    expect(getPcNumberFromName(' PC-12')).toBeNull()
+  })
+
+  it('reads the prefix in any case, as the server does', () => {
+    expect(getPcNumberFromName('pc-5')).toBe(5)
+    expect(getPcNumberFromName('Pc-7')).toBe(7)
+  })
+
+  it('returns null for a number out of range', () => {
+    expect(getPcNumberFromName('PC-0')).toBeNull()
+    expect(getPcNumberFromName('PC-1000000000')).toBeNull()
+  })
+})
+
+describe('describeRename', () => {
+  it('names the new PC name', () => {
+    expect(describeRename('PC-9')).toBe('Renamed to PC-9.')
   })
 })

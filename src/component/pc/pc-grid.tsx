@@ -1,32 +1,32 @@
 import { getLogsHref, getScreenHref } from '../../lib/pcs'
-import type { Pc, ViewMode } from '../../types'
+import type { RegisteredPc, ViewMode } from '../../types'
 import { PcCard } from './pc-card'
 
 interface PcGridProps {
-  pcs: Pc[]
+  pcs: RegisteredPc[]
   now: Date
-  selectedNames?: string[]
+  selectedIds?: number[]
   viewMode?: ViewMode
   emptyMessage: string
-  isLockDisabled?: (pcName: string) => boolean
-  isTimeEditDisabled?: (pcName: string) => boolean
-  isRemoveDisabled?: (pcName: string) => boolean
-  isPowerDisabled?: (pcName: string) => boolean
-  onToggleSelect?: (pcName: string) => void
-  onOpenDetail: (pcName: string) => void
-  onToggleLock?: (pcName: string) => void
+  isLockDisabled?: (pcId: number) => boolean
+  isTimeEditDisabled?: (pcId: number) => boolean
+  isRemoveDisabled?: (pcId: number) => boolean
+  isPowerDisabled?: (pcId: number) => boolean
+  onToggleSelect?: (pcId: number) => void
+  onOpenDetail: (pcId: number) => void
+  onToggleLock?: (pcId: number) => void
   onViewScreen?: (href: string) => void
-  onAddTime?: (pcName: string) => void
-  onReboot?: (pcName: string) => void
-  onShutdown?: (pcName: string) => void
-  onCancelPower?: (pcName: string) => void
-  onRemove?: (pcName: string) => void
+  onAddTime?: (pcId: number) => void
+  onReboot?: (pcId: number) => void
+  onShutdown?: (pcId: number) => void
+  onCancelPower?: (pcId: number) => void
+  onRemove?: (pcId: number) => void
 }
 
 export function PcGrid({
   pcs,
   now,
-  selectedNames = [],
+  selectedIds = [],
   viewMode = 'notified',
   emptyMessage,
   isLockDisabled,
@@ -56,24 +56,24 @@ export function PcGrid({
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(var(--spacing-pc-card),100%),1fr))] gap-4">
           {pcs.map((pc) => (
             <PcCard
-              key={pc.name}
+              key={pc.id}
               pc={pc}
               now={now}
-              isSelected={selectedNames.includes(pc.name)}
-              isLockDisabled={isLockDisabled?.(pc.name)}
-              isTimeEditDisabled={isTimeEditDisabled?.(pc.name)}
-              isRemoveDisabled={isRemoveDisabled?.(pc.name)}
-              isPowerDisabled={isPowerDisabled?.(pc.name)}
+              isSelected={selectedIds.includes(pc.id)}
+              isLockDisabled={isLockDisabled?.(pc.id)}
+              isTimeEditDisabled={isTimeEditDisabled?.(pc.id)}
+              isRemoveDisabled={isRemoveDisabled?.(pc.id)}
+              isPowerDisabled={isPowerDisabled?.(pc.id)}
               historyHref={getLogsHref(pc.name)}
-              onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.name))}
-              onOpenDetail={() => onOpenDetail(pc.name)}
-              onToggleLock={onToggleLock && (() => onToggleLock(pc.name))}
-              onViewScreen={onViewScreen && (() => onViewScreen(getScreenHref(pc.name, viewMode)))}
-              onAddTime={onAddTime && (() => onAddTime(pc.name))}
-              onReboot={onReboot && (() => onReboot(pc.name))}
-              onShutdown={onShutdown && (() => onShutdown(pc.name))}
-              onCancelPower={onCancelPower && (() => onCancelPower(pc.name))}
-              onRemove={onRemove && (() => onRemove(pc.name))}
+              onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.id))}
+              onOpenDetail={() => onOpenDetail(pc.id)}
+              onToggleLock={onToggleLock && (() => onToggleLock(pc.id))}
+              onViewScreen={onViewScreen && (() => onViewScreen(getScreenHref(pc.id, viewMode)))}
+              onAddTime={onAddTime && (() => onAddTime(pc.id))}
+              onReboot={onReboot && (() => onReboot(pc.id))}
+              onShutdown={onShutdown && (() => onShutdown(pc.id))}
+              onCancelPower={onCancelPower && (() => onCancelPower(pc.id))}
+              onRemove={onRemove && (() => onRemove(pc.id))}
             />
           ))}
         </div>

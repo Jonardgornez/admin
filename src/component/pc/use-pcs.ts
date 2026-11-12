@@ -154,6 +154,21 @@ export function usePcs() {
     [request],
   )
 
+  // The new name shows at once, and the re-read list then moves the PC to its place in the server's order.
+  const renamePc = useCallback(
+    async (pc: RegisteredPc, number: number): Promise<ApiResult<pcsApi.RenamedPc>> => {
+      const result = await runPcCommand(pcsApi.renamePc(pc.id, number))
+      if (result.success) {
+        const { name } = result.data
+        setPcs((current) =>
+          current.map((candidate) => (candidate.id === pc.id ? { ...candidate, name } : candidate)),
+        )
+      }
+      return result
+    },
+    [runPcCommand],
+  )
+
   // Resolves with null when the PC is offline or a lock command for it is already running.
   const runPcLockCommand = useCallback(
     async (
@@ -345,6 +360,7 @@ export function usePcs() {
     isBulkCommandBusy,
     retry,
     removePc,
+    renamePc,
     lockPc,
     unlockPc,
     editPcTime,

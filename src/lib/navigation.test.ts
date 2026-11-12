@@ -9,7 +9,7 @@ describe('isNavItemActive', () => {
   })
 
   it('matches nested paths under an active path', () => {
-    expect(isNavItemActive(dashboardItem, '/pc/PC-05/screen')).toBe(true)
+    expect(isNavItemActive(dashboardItem, '/pc/5/screen')).toBe(true)
   })
 
   it('matches the /pc root itself', () => {
