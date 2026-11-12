@@ -36,6 +36,7 @@ import {
   describeCancelPowerRequest,
   describeSinglePowerResult,
   describeBulkWallpaperResult,
+  countOfflinePcsToKeepAwake,
   describeKeepAwakeResult,
   describeRename,
   describeTimeEdit,
@@ -171,7 +172,7 @@ export function DashboardPage() {
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
   const keepAwakeOnPcIds = getPcIdsToKeepAwake(pcs, selectedPcIds, true)
   const keepAwakeOffPcIds = getPcIdsToKeepAwake(pcs, selectedPcIds, false)
-  const keepAwakeOfflineCount = keepAwakeOffPcIds.length - keepAwakeOnPcIds.length
+  const keepAwakeOfflineCount = countOfflinePcsToKeepAwake(pcs, selectedPcIds)
   const isLockBusy =
     lockAction && 'pc' in lockAction
       ? lockingPcIds.includes(lockAction.pc.id)
