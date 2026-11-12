@@ -6,7 +6,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.28-alpine
 # The console listens on loopback only, like the server's admin port. Both ports can be changed in compose.yaml.
 ENV ADMIN_PORT=5173 \
     SERVER_PORT=5000

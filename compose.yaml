@@ -5,6 +5,10 @@ services:
     # Host networking so nginx can listen on this computer's localhost and reach the server's loopback-only admin port.
     network_mode: host
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       ADMIN_PORT: ${ADMIN_PORT:-5173}
       SERVER_PORT: ${SERVER_PORT:-5000}

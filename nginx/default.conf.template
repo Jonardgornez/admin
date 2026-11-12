@@ -12,14 +12,23 @@ server {
 
     root /usr/share/nginx/html;
 
+    # DNS-rebinding protection: a page on another name that resolves to 127.0.0.1 is refused here, and the real
+    # Host is passed on below so the server's own check sees it too.
+    if ($host !~* "^(localhost|127\.0\.0\.1)$") {
+        return 421;
+    }
+
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+
     # Client installer uploads can be up to 150 MB; the server checks the exact limit itself.
     client_max_body_size 151m;
 
     location /api/ {
         proxy_pass http://127.0.0.1:${SERVER_PORT};
         proxy_http_version 1.1;
-        # The server only accepts the admin port with a localhost Host header.
-        proxy_set_header Host localhost;
+        # The browser's own Host (already limited to localhost/127.0.0.1 above); the server checks it again.
+        proxy_set_header Host $host;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         # Large uploads go straight through instead of being saved to a temp file first.
@@ -29,13 +38,18 @@ server {
         proxy_send_timeout 1h;
     }
 
+    # add_header in a location replaces the server-level ones, so the anti-framing headers are repeated here.
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
         try_files $uri =404;
     }
 
     location / {
         add_header Cache-Control "no-cache";
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
         try_files $uri $uri/ /index.html;
     }
 }
