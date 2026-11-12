@@ -10,5 +10,7 @@ CLAUDE.local.md
 *.log
 Dockerfile
 compose.yaml
-deploy.ps1
 DOCKER.md
+WINDOWS.md
+update.ps1
+logs

@@ -1,4 +1,4 @@
-# ${ADMIN_PORT} and ${SERVER_PORT} are filled in from the environment when the container starts.
+# ${SERVER_HOST} and ${SERVER_PORT} are filled in from the environment when the container starts.
 
 map $http_upgrade $connection_upgrade {
     default upgrade;
@@ -6,8 +6,8 @@ map $http_upgrade $connection_upgrade {
 }
 
 server {
-    # Loopback only: the console can be opened on this computer and nowhere else.
-    listen 127.0.0.1:${ADMIN_PORT};
+    # Inside the container. compose.yaml publishes it on 127.0.0.1 only, so it opens on this computer and nowhere else.
+    listen 8080;
     server_name localhost;
 
     root /usr/share/nginx/html;
@@ -25,7 +25,8 @@ server {
     client_max_body_size 151m;
 
     location /api/ {
-        proxy_pass http://127.0.0.1:${SERVER_PORT};
+        # The server runs on Windows itself; Docker Desktop delivers this as a local connection, which its admin port requires.
+        proxy_pass http://${SERVER_HOST}:${SERVER_PORT};
         proxy_http_version 1.1;
         # The browser's own Host (already limited to localhost/127.0.0.1 above); the server checks it again.
         proxy_set_header Host $host;

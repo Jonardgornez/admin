@@ -2,13 +2,17 @@ services:
   admin:
     build: .
     image: lykantra-admin
-    # Host networking so nginx can listen on this computer's localhost and reach the server's loopback-only admin port.
-    network_mode: host
+    # 127.0.0.1 only: the console opens on pc-server itself and never from the LAN.
+    ports:
+      - 127.0.0.1:${ADMIN_PORT:-5173}:8080
+    # Docker Desktop already provides host.docker.internal; this line makes it work on other Docker engines too.
+    extra_hosts:
+      - host.docker.internal:host-gateway
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     environment:
-      ADMIN_PORT: ${ADMIN_PORT:-5173}
+      SERVER_HOST: host.docker.internal
       SERVER_PORT: ${SERVER_PORT:-5000}
