@@ -1,0 +1,10 @@
+services:
+  admin:
+    build: .
+    image: lykantra-admin
+    # Host networking so nginx can listen on this computer's localhost and reach the server's loopback-only admin port.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ADMIN_PORT: ${ADMIN_PORT:-5173}
+      SERVER_PORT: ${SERVER_PORT:-5000}
