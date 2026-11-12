@@ -11,6 +11,5 @@ CLAUDE.local.md
 Dockerfile
 compose.yaml
 DOCKER.md
-WINDOWS.md
 update.ps1
 logs
