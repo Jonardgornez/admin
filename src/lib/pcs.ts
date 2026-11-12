@@ -220,6 +220,16 @@ export function getPcIdsToUpdateClient(pcs: RegisteredPc[], selectedIds: number[
   return pcs.filter((pc) => selectedIds.includes(pc.id) && isPcOnline(pc)).map((pc) => pc.id)
 }
 
+// The selected PCs whose always awake setting differs from the one asked for, so a PC already in that
+// state is left out.
+function getSelectedPcsToChangeKeepAwake(
+  pcs: RegisteredPc[],
+  selectedIds: number[],
+  keepAwake: boolean,
+): RegisteredPc[] {
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && Boolean(pc.keepAwake) !== keepAwake)
+}
+
 // Turning always awake on needs the client, so offline PCs are left out. Turning it off goes to every
 // selected PC, since a PC held at the sign-in screen reads as offline but its service still applies it.
 export function getPcIdsToKeepAwake(
@@ -227,9 +237,14 @@ export function getPcIdsToKeepAwake(
   selectedIds: number[],
   keepAwake: boolean,
 ): number[] {
-  return pcs
-    .filter((pc) => selectedIds.includes(pc.id) && (!keepAwake || isPcOnline(pc)))
+  return getSelectedPcsToChangeKeepAwake(pcs, selectedIds, keepAwake)
+    .filter((pc) => !keepAwake || isPcOnline(pc))
     .map((pc) => pc.id)
+}
+
+// The selected PCs that turning always awake on would skip: not yet always awake, and offline.
+export function countOfflinePcsToKeepAwake(pcs: RegisteredPc[], selectedIds: number[]): number {
+  return getSelectedPcsToChangeKeepAwake(pcs, selectedIds, true).filter((pc) => !isPcOnline(pc)).length
 }
 
 // Re-checks a bulk time dialog's PCs against the latest list when it is confirmed. A PC whose session ended, or that

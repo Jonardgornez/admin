@@ -228,10 +228,11 @@ describe('DashboardPage always awake', () => {
   }, DASHBOARD_TEST_TIMEOUT_MS)
 
   it('turns it off on every selected PC, offline ones too, with no skipped count', async () => {
-    const offlinePc = { ...serverPc(2), isOnline: false, session: null }
+    const awakePc = (id: number) => ({ ...serverPc(id), keepAwake: true })
+    const offlinePc = { ...awakePc(2), isOnline: false, session: null }
     const fetchMock = stubApi({
       ...standardRoutes(),
-      'GET /api/pcs': () => Response.json([serverPc(1), offlinePc, serverPc(3)]),
+      'GET /api/pcs': () => Response.json([awakePc(1), offlinePc, awakePc(3)]),
       'POST /api/pcs/keep-awake': () => Response.json({ affected: 3 }),
     })
     const notify = vi.fn()
@@ -249,9 +250,35 @@ describe('DashboardPage always awake', () => {
     )
   }, DASHBOARD_TEST_TIMEOUT_MS)
 
-  it('shows the server error when the change fails', async () => {
+  it('lets only Off be clicked when every selected PC is already always awake', async () => {
+    const awakePc = (id: number) => ({ ...serverPc(id), keepAwake: true })
     stubApi({
       ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([awakePc(1), awakePc(2)]),
+    })
+    renderDashboard(vi.fn())
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    const group = within(screen.getByRole('group', { name: 'Always awake' }))
+    expect(group.getByRole('button', { name: 'On' })).toHaveProperty('disabled', true)
+    expect(group.getByRole('button', { name: 'Off (2)' })).toHaveProperty('disabled', false)
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('lets only On be clicked when no selected PC is always awake', async () => {
+    stubApi(standardRoutes())
+    renderDashboard(vi.fn())
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    const group = within(screen.getByRole('group', { name: 'Always awake' }))
+    expect(group.getByRole('button', { name: 'On (2)' })).toHaveProperty('disabled', false)
+    expect(group.getByRole('button', { name: 'Off' })).toHaveProperty('disabled', true)
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('shows the server error when the change fails', async () => {
+    const awakePc = (id: number) => ({ ...serverPc(id), keepAwake: true })
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([awakePc(1), awakePc(2)]),
       'POST /api/pcs/keep-awake': () => Response.json({ error: 'Server busy.' }, { status: 503 }),
     })
     const notify = vi.fn()

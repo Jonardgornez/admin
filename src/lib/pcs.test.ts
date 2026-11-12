@@ -38,6 +38,7 @@ import {
   countPcsHiddenFromView,
   canViewPcScreen,
   describeBulkWallpaperResult,
+  countOfflinePcsToKeepAwake,
   describeKeepAwakeResult,
   getPcIdsToKeepAwake,
   anyPcHasWallpaper,
@@ -1234,8 +1235,42 @@ describe('getPcIdsToKeepAwake', () => {
     expect(getPcIdsToKeepAwake(pcs, [2, 4], true)).toEqual([])
   })
 
-  it('keeps every selected PC, offline ones too, when turning it off', () => {
-    expect(getPcIdsToKeepAwake(pcs, [1, 2, 4], false)).toEqual([1, 2, 4])
+  it('keeps every selected PC that is always awake, offline ones too, when turning it off', () => {
+    const awakePcs = pcs.map((pc) => ({ ...pc, keepAwake: true }))
+    expect(getPcIdsToKeepAwake(awakePcs, [1, 2, 4], false)).toEqual([1, 2, 4])
+  })
+
+  it('leaves out PCs that are already always awake when turning it on', () => {
+    const mixedPcs = pcs.map((pc) => ({ ...pc, keepAwake: pc.id === 1 }))
+    expect(getPcIdsToKeepAwake(mixedPcs, [1, 3], true)).toEqual([3])
+  })
+
+  it('leaves out PCs that are not always awake when turning it off', () => {
+    const mixedPcs = pcs.map((pc) => ({ ...pc, keepAwake: pc.id === 1 }))
+    expect(getPcIdsToKeepAwake(mixedPcs, [1, 3], false)).toEqual([1])
+  })
+
+  it('is empty for both on and off as they match the state of every selected PC', () => {
+    const awakePcs = pcs.map((pc) => ({ ...pc, keepAwake: true }))
+    expect(getPcIdsToKeepAwake(awakePcs, [1, 3], true)).toEqual([])
+    expect(getPcIdsToKeepAwake(pcs, [1, 3], false)).toEqual([])
+  })
+})
+
+describe('countOfflinePcsToKeepAwake', () => {
+  const pcs: RegisteredPc[] = [
+    { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
+    { id: 2, name: 'PC-02', status: 'offline', lastSeen: '1h ago' },
+    { id: 3, name: 'PC-03', status: 'offline', lastSeen: '1h ago', keepAwake: true },
+    { id: 4, name: 'PC-04', status: 'shutdown', lastSeen: '2h ago' },
+  ]
+
+  it('counts selected offline PCs that are not yet always awake', () => {
+    expect(countOfflinePcsToKeepAwake(pcs, [1, 2, 3, 4])).toBe(2)
+  })
+
+  it('is zero when the offline PCs are already always awake or not selected', () => {
+    expect(countOfflinePcsToKeepAwake(pcs, [1, 3])).toBe(0)
   })
 })
 
