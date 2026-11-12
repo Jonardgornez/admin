@@ -1,0 +1,14 @@
+.git
+.claude
+node_modules
+dist
+dist-ssr
+desing_system
+CLAUDE.md
+CLAUDE.local.md
+*.local
+*.log
+Dockerfile
+compose.yaml
+deploy.ps1
+DOCKER.md
