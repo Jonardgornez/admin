@@ -11,6 +11,7 @@ import { PcGrid } from '../component/pc/pc-grid'
 import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
+import { RenamePcDialog } from '../component/pc/rename-pc-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { WallpaperDialog } from '../component/pc/wallpaper-dialog'
 import { useClientUpdates } from '../component/pc/use-client-updates'
@@ -36,6 +37,7 @@ import {
   describeSinglePowerResult,
   describeBulkWallpaperResult,
   describeKeepAwakeResult,
+  describeRename,
   describeTimeEdit,
   filterPcs,
   formatLastUpdate,
@@ -56,11 +58,11 @@ import {
   getScreenHref,
   getServerPcPowerNote,
   toggleSelectAll,
-  toggleSelectedName,
+  toggleSelectedId,
   toPcTimeCommand,
   type MessageTargets,
 } from '../lib/pcs'
-import type { BulkCommandResult } from '../lib/pcs-api'
+import type { BulkCommandResult, RenamedPc } from '../lib/pcs-api'
 import type {
   PcLockAction,
   PcTimeCommand,
@@ -70,6 +72,7 @@ import type {
   WallpaperCommand,
 } from '../types'
 
+const NOT_FOUND_STATUS = 404
 const NO_PCS_MESSAGE =
   'No PCs registered yet. Install the client on a PC and register it to see it here.'
 const POWER_NOTICE_ICON: Record<PowerCommand, IconName> = { shutdown: 'power', reboot: 'refresh' }
@@ -93,6 +96,7 @@ export function DashboardPage() {
     isBulkCommandBusy,
     retry,
     removePc,
+    renamePc,
     lockPc,
     unlockPc,
     editPcTime,
@@ -117,52 +121,56 @@ export function DashboardPage() {
     queuePcIds: queueClientUpdates,
     cancelPcIds: cancelClientUpdates,
   })
-  const [detailPcName, setDetailPcName] = useState<string | null>(null)
+  // Dialogs and the selection are kept by id, since a rename can give another PC a tracked PC's old name.
+  const [detailPcId, setDetailPcId] = useState<number | null>(null)
   // Null follows the saved default until the admin picks a mode in the detail dialog.
   const [detailViewMode, setDetailViewMode] = useState<ViewMode | null>(null)
-  const [timeEditPcName, setTimeEditPcName] = useState<string | null>(null)
+  const [timeEditPcId, setTimeEditPcId] = useState<number | null>(null)
   // The PCs are fixed when the dialog opens, so the count shown matches what the command changes.
   const [bulkTimeEditPcs, setBulkTimeEditPcs] = useState<RegisteredPc[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pcToRemove, setPcToRemove] = useState<RegisteredPc | null>(null)
+  // Kept by id, since the name changes once the rename succeeds.
+  const [renamePcId, setRenamePcId] = useState<number | null>(null)
   const [lockAction, setLockAction] = useState<LockAction | null>(null)
   const [restrictionTargetPcs, setRestrictionTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
   const [wallpaperTargetPcs, setWallpaperTargetPcs] = useState<RegisteredPc[] | null>(null)
-  const [selectedNames, setSelectedNames] = useState<string[]>([])
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
   const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
 
   const isLoaded = loadState.status === 'loaded'
-  const detailPc = pcs.find((pc) => pc.name === detailPcName)
-  // The PC is found by name, so each poll shows its latest state.
-  const timeEditPc = pcs.find((pc) => pc.name === timeEditPcName)
+  const detailPc = pcs.find((pc) => pc.id === detailPcId)
+  const pcToRename = pcs.find((pc) => pc.id === renamePcId)
+  // The PC is found by id, so each poll shows its latest state.
+  const timeEditPc = pcs.find((pc) => pc.id === timeEditPcId)
   const editablePc = timeEditPc && canEditPcTime(timeEditPc) ? timeEditPc : undefined
   // Closes the time dialog once its PC stops qualifying, so it cannot reopen by itself later.
-  if (timeEditPcName !== null && !editablePc) setTimeEditPcName(null)
+  if (timeEditPcId !== null && !editablePc) setTimeEditPcId(null)
   const visiblePcs = filterPcs(pcs, searchQuery)
-  const visiblePcNames = visiblePcs.map((pc) => pc.name)
-  // Names of PCs that were removed drop out here, so the selection never points at a missing PC.
-  const selectedPcNames = selectedNames.filter((name) => pcs.some((pc) => pc.name === name))
-  const lockPcIds = getPcIdsToLock(pcs, selectedPcNames)
-  const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcNames)
-  const editTimePcIds = getPcIdsToEditTime(pcs, selectedPcNames)
-  const shutDownPcIds = getPcIdsToShutDown(pcs, selectedPcNames)
-  const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcNames)
-  const rebootPcIds = getPcIdsToReboot(pcs, selectedPcNames)
-  const rebootPcNames = getPcNamesToReboot(pcs, selectedPcNames)
-  const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcNames)
-  const selectedMessageTargets = getMessageTargets(pcs, selectedPcNames)
-  const selectedPcs = pcs.filter((pc) => selectedPcNames.includes(pc.name))
+  const visiblePcIds = visiblePcs.map((pc) => pc.id)
+  // Ids of PCs that were removed drop out here, so the selection never points at a missing PC.
+  const selectedPcIds = selectedIds.filter((id) => pcs.some((pc) => pc.id === id))
+  const lockPcIds = getPcIdsToLock(pcs, selectedPcIds)
+  const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcIds)
+  const editTimePcIds = getPcIdsToEditTime(pcs, selectedPcIds)
+  const shutDownPcIds = getPcIdsToShutDown(pcs, selectedPcIds)
+  const shutDownPcNames = getPcNamesToShutDown(pcs, selectedPcIds)
+  const rebootPcIds = getPcIdsToReboot(pcs, selectedPcIds)
+  const rebootPcNames = getPcNamesToReboot(pcs, selectedPcIds)
+  const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcIds)
+  const selectedMessageTargets = getMessageTargets(pcs, selectedPcIds)
+  const selectedPcs = pcs.filter((pc) => selectedPcIds.includes(pc.id))
   const wallpaperTargetIds = wallpaperTargetPcs?.map((pc) => pc.id) ?? []
   // The server PC keeps its internet, so it is not counted for Restrictions.
   const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
-  const clientUpdatePcIds = getPcIdsToUpdateClient(pcs, selectedPcNames)
+  const clientUpdatePcIds = getPcIdsToUpdateClient(pcs, selectedPcIds)
   const cancelClientUpdatePcIds = selectedPcs.filter((pc) => Boolean(pc.clientUpdate)).map((pc) => pc.id)
   const selectedServerPc = selectedPcs.find((pc) => pc.isServerPc)
-  const keepAwakeOnPcIds = getPcIdsToKeepAwake(pcs, selectedPcNames, true)
-  const keepAwakeOffPcIds = getPcIdsToKeepAwake(pcs, selectedPcNames, false)
+  const keepAwakeOnPcIds = getPcIdsToKeepAwake(pcs, selectedPcIds, true)
+  const keepAwakeOffPcIds = getPcIdsToKeepAwake(pcs, selectedPcIds, false)
   const keepAwakeOfflineCount = keepAwakeOffPcIds.length - keepAwakeOnPcIds.length
   const isLockBusy =
     lockAction && 'pc' in lockAction
@@ -173,36 +181,40 @@ export function DashboardPage() {
       ? powerPendingPcIds.includes(powerAction.pc.id)
       : isBulkCommandBusy
 
+  function findPc(pcId: number): RegisteredPc | undefined {
+    return pcs.find((candidate) => candidate.id === pcId)
+  }
+
   function closeDetail() {
-    setDetailPcName(null)
+    setDetailPcId(null)
     setDetailViewMode(null)
   }
 
-  function toggleSelectedPc(pcName: string) {
-    setSelectedNames((current) => toggleSelectedName(current, pcName))
+  function toggleSelectedPc(pcId: number) {
+    setSelectedIds((current) => toggleSelectedId(current, pcId))
   }
 
-  function isTimeEditDisabled(pcName: string): boolean {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function isTimeEditDisabled(pcId: number): boolean {
+    const pc = findPc(pcId)
     return isDisconnected || (pc !== undefined && timeEditingPcIds.includes(pc.id))
   }
 
   function toggleSelectAllVisiblePcs() {
-    setSelectedNames(toggleSelectAll(visiblePcNames, selectedPcNames))
+    setSelectedIds(toggleSelectAll(visiblePcIds, selectedPcIds))
   }
 
-  function isRemoveDisabled(pcName: string): boolean {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function isRemoveDisabled(pcId: number): boolean {
+    const pc = findPc(pcId)
     return isDisconnected || (pc !== undefined && removingPcIds.includes(pc.id))
   }
 
-  function isLockDisabled(pcName: string): boolean {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function isLockDisabled(pcId: number): boolean {
+    const pc = findPc(pcId)
     return isDisconnected || (pc !== undefined && lockingPcIds.includes(pc.id))
   }
 
-  function isPowerDisabled(pcName: string): boolean {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function isPowerDisabled(pcId: number): boolean {
+    const pc = findPc(pcId)
     return isDisconnected || (pc !== undefined && powerPendingPcIds.includes(pc.id))
   }
 
@@ -222,15 +234,15 @@ export function DashboardPage() {
   }
 
   // Locking asks for an optional message first. Unlocking takes effect at once.
-  function toggleLockOfPcNamed(pcName: string) {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function toggleLockOfPc(pcId: number) {
+    const pc = findPc(pcId)
     if (!pc) return
     if (getLockToggleTarget(pc) === 'lock') setLockAction({ kind: 'lock', pc })
     else void unlockOnePc(pc)
   }
 
-  function openPowerOfPcNamed(kind: PowerCommand, pcName: string) {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function openPowerOfPc(kind: PowerCommand, pcId: number) {
+    const pc = findPc(pcId)
     if (pc) setPowerAction({ kind, pc })
   }
 
@@ -295,8 +307,8 @@ export function DashboardPage() {
     else if (!isSessionExpired(result)) notify(result.error, 'alert')
   }
 
-  function cancelPowerOfPcNamed(pcName: string) {
-    const pc = pcs.find((candidate) => candidate.name === pcName)
+  function cancelPowerOfPc(pcId: number) {
+    const pc = findPc(pcId)
     if (pc) void cancelOnePcPower(pc)
   }
 
@@ -350,7 +362,7 @@ export function DashboardPage() {
     // Null means the PC has no running session or the same edit is still running.
     if (!result) return
     if (result.success) {
-      setTimeEditPcName(null)
+      setTimeEditPcId(null)
       notify(describeTimeEdit(pc.name, command), 'clock')
     } else if (!isSessionExpired(result)) {
       notify(result.error, 'alert')
@@ -374,6 +386,19 @@ export function DashboardPage() {
     } else if (!isSessionExpired(result)) {
       notify(result.error, 'alert')
     }
+  }
+
+  // A PC that is gone closes the dialog, since the refresh removes it from the list.
+  async function renameOnePc(pc: RegisteredPc, number: number): Promise<ApiResult<RenamedPc>> {
+    const result = await renamePc(pc, number)
+    if (result.success) {
+      setRenamePcId(null)
+      notify(describeRename(result.data.name), 'check')
+    } else if (result.status === NOT_FOUND_STATUS) {
+      setRenamePcId(null)
+      notify(result.error, 'alert')
+    }
+    return result
   }
 
   async function removeConfirmedPc(pc: RegisteredPc) {
@@ -447,8 +472,8 @@ export function DashboardPage() {
             keepAwakeOfflineCount={keepAwakeOfflineCount}
             isKeepAwakeDisabled={isDisconnected || isBulkCommandBusy}
             onKeepAwake={(keepAwake) => void setSelectedPcsKeepAwake(keepAwake)}
-            selectionState={getSelectionState(visiblePcNames, selectedPcNames)}
-            selectedCount={selectedPcNames.length}
+            selectionState={getSelectionState(visiblePcIds, selectedPcIds)}
+            selectedCount={selectedPcIds.length}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onToggleSelectAll={toggleSelectAllVisiblePcs}
@@ -512,7 +537,7 @@ export function DashboardPage() {
         <PcGrid
           pcs={visiblePcs}
           now={lastUpdatedAt}
-          selectedNames={selectedPcNames}
+          selectedIds={selectedPcIds}
           viewMode={consoleDefaults.defaultViewMode}
           emptyMessage={`No PCs match "${searchQuery}".`}
           isLockDisabled={isLockDisabled}
@@ -520,14 +545,14 @@ export function DashboardPage() {
           isRemoveDisabled={isRemoveDisabled}
           isPowerDisabled={isPowerDisabled}
           onToggleSelect={toggleSelectedPc}
-          onOpenDetail={setDetailPcName}
+          onOpenDetail={setDetailPcId}
           onViewScreen={(href) => navigate(href)}
-          onToggleLock={toggleLockOfPcNamed}
-          onAddTime={setTimeEditPcName}
-          onReboot={(pcName) => openPowerOfPcNamed('reboot', pcName)}
-          onShutdown={(pcName) => openPowerOfPcNamed('shutdown', pcName)}
-          onCancelPower={cancelPowerOfPcNamed}
-          onRemove={(pcName) => setPcToRemove(pcs.find((pc) => pc.name === pcName) ?? null)}
+          onToggleLock={toggleLockOfPc}
+          onAddTime={setTimeEditPcId}
+          onReboot={(pcId) => openPowerOfPc('reboot', pcId)}
+          onShutdown={(pcId) => openPowerOfPc('shutdown', pcId)}
+          onCancelPower={cancelPowerOfPc}
+          onRemove={(pcId) => setPcToRemove(findPc(pcId) ?? null)}
         />
       )}
 
@@ -536,21 +561,30 @@ export function DashboardPage() {
           pc={detailPc}
           viewMode={detailScreenMode}
           onViewModeChange={setDetailViewMode}
-          screenHref={getScreenHref(detailPc.name, detailScreenMode)}
-          isLockDisabled={isLockDisabled(detailPc.name)}
-          isTimeEditDisabled={isTimeEditDisabled(detailPc.name)}
-          isPowerDisabled={isPowerDisabled(detailPc.name)}
+          screenHref={getScreenHref(detailPc.id, detailScreenMode)}
+          isLockDisabled={isLockDisabled(detailPc.id)}
+          isTimeEditDisabled={isTimeEditDisabled(detailPc.id)}
+          isPowerDisabled={isPowerDisabled(detailPc.id)}
           onClose={closeDetail}
           onLock={() => setLockAction({ kind: 'lock', pc: detailPc })}
           onUnlock={() => void unlockOnePc(detailPc)}
           onReboot={() => setPowerAction({ kind: 'reboot', pc: detailPc })}
           onShutdown={() => setPowerAction({ kind: 'shutdown', pc: detailPc })}
           onCancelPower={() => void cancelOnePcPower(detailPc)}
-          onAddTime={() => setTimeEditPcName(detailPc.name)}
+          onAddTime={() => setTimeEditPcId(detailPc.id)}
           isSendMessageDisabled={isDisconnected}
           onSendMessage={() =>
-            setMessageTargets(getMessageTargets([detailPc], [detailPc.name]))
+            setMessageTargets(getMessageTargets([detailPc], [detailPc.id]))
           }
+          onRename={() => setRenamePcId(detailPc.id)}
+        />
+      )}
+
+      {pcToRename && (
+        <RenamePcDialog
+          pc={pcToRename}
+          onRename={(number) => renameOnePc(pcToRename, number)}
+          onClose={() => setRenamePcId(null)}
         />
       )}
 
@@ -560,7 +594,7 @@ export function DashboardPage() {
           isBusy={timeEditingPcIds.includes(editablePc.id)}
           onConfirm={(choice) => void submitTimeEdit(editablePc, toPcTimeCommand(choice))}
           onTimeOut={() => void submitTimeEdit(editablePc, { action: 'time-out' })}
-          onCancel={() => setTimeEditPcName(null)}
+          onCancel={() => setTimeEditPcId(null)}
         />
       )}
 
@@ -578,7 +612,7 @@ export function DashboardPage() {
         <LockDialog
           action={lockAction}
           defaultMessage={consoleDefaults.lockMessage}
-          hiddenPcCount={countPcsHiddenFromView(getLockActionPcIds(lockAction), pcs, visiblePcNames)}
+          hiddenPcCount={countPcsHiddenFromView(getLockActionPcIds(lockAction), pcs, visiblePcIds)}
           isBusy={isLockBusy}
           onConfirm={(message) => void confirmLock(lockAction, message)}
           onCancel={() => setLockAction(null)}
@@ -625,7 +659,7 @@ export function DashboardPage() {
         hiddenPcCount={countPcsHiddenFromView(
           getSelectedPowerPcIds(powerAction),
           pcs,
-          visiblePcNames,
+          visiblePcIds,
         )}
         isBusy={isPowerBusy}
         onConfirm={() => powerAction && void confirmPowerAction(powerAction)}

@@ -28,7 +28,7 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
-          { path: '/pc/:pcName/screen', element: <ViewScreenPage /> },
+          { path: '/pc/:pcId/screen', element: <ViewScreenPage /> },
           { path: '/accounts', element: <AccountsPage /> },
           { path: '/requests', element: <RequestsPage /> },
           { path: '/logs', element: <LogsPage /> },

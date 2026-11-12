@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLIENT_UPDATE_HINT } from '../../lib/internet'
 import { TestProviders } from '../../test/test-providers'
@@ -80,5 +80,23 @@ describe('PcDetailDialog wallpaper', () => {
   it('shows no wallpaper badge when the PC has none', () => {
     renderDetail({ ...onlinePc, wallpaperId: null })
     expect(screen.queryByText('Wallpaper set')).toBeNull()
+  })
+})
+
+describe('PcDetailDialog rename', () => {
+  it('shows no Rename button without a rename handler', () => {
+    renderDetail(onlinePc)
+    expect(screen.queryByRole('button', { name: 'Rename PC-01' })).toBeNull()
+  })
+
+  it('calls the rename handler from the Rename button', () => {
+    const onRename = vi.fn()
+    render(
+      <TestProviders>
+        <PcDetailDialog pc={onlinePc} onClose={vi.fn()} onRename={onRename} />
+      </TestProviders>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Rename PC-01' }))
+    expect(onRename).toHaveBeenCalledTimes(1)
   })
 })

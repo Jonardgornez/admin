@@ -130,32 +130,33 @@ export interface MessageTargets {
 }
 
 // Only online PCs can receive a message. Selected offline PCs are counted so the dialog can say so.
-export function getMessageTargets(pcs: RegisteredPc[], selectedNames: string[]): MessageTargets {
-  const selectedPcs = pcs.filter((pc) => selectedNames.includes(pc.name))
+export function getMessageTargets(pcs: RegisteredPc[], selectedIds: number[]): MessageTargets {
+  const selectedPcs = pcs.filter((pc) => selectedIds.includes(pc.id))
   const recipients = selectedPcs.filter(isPcOnline)
   return { recipients, offlineCount: selectedPcs.length - recipients.length }
 }
 
-export function getSelectionState(visibleNames: string[], selectedNames: string[]): SelectionState {
-  const selectedVisibleCount = visibleNames.filter((name) => selectedNames.includes(name)).length
+export function getSelectionState<T>(visibleItems: T[], selectedItems: T[]): SelectionState {
+  const selectedVisibleCount = visibleItems.filter((item) => selectedItems.includes(item)).length
   if (selectedVisibleCount === 0) return 'none'
-  return selectedVisibleCount === visibleNames.length ? 'all' : 'some'
+  return selectedVisibleCount === visibleItems.length ? 'all' : 'some'
 }
 
-export function toggleSelectAll(visibleNames: string[], selectedNames: string[]): string[] {
-  if (getSelectionState(visibleNames, selectedNames) === 'all') {
-    return selectedNames.filter((name) => !visibleNames.includes(name))
+export function toggleSelectAll<T>(visibleItems: T[], selectedItems: T[]): T[] {
+  if (getSelectionState(visibleItems, selectedItems) === 'all') {
+    return selectedItems.filter((item) => !visibleItems.includes(item))
   }
-  return [...new Set([...selectedNames, ...visibleNames])]
+  return [...new Set([...selectedItems, ...visibleItems])]
 }
 
-export function toggleSelectedName(selectedNames: string[], pcName: string): string[] {
-  return selectedNames.includes(pcName)
-    ? selectedNames.filter((name) => name !== pcName)
-    : [...selectedNames, pcName]
+// Selection is kept by id, since a rename can give another PC a selected PC's old name.
+export function toggleSelectedId(selectedIds: number[], pcId: number): number[] {
+  return selectedIds.includes(pcId)
+    ? selectedIds.filter((id) => id !== pcId)
+    : [...selectedIds, pcId]
 }
 
-export function filterPcs(pcs: Pc[], query: string): Pc[] {
+export function filterPcs<T extends Pc>(pcs: T[], query: string): T[] {
   const needle = query.trim().toLowerCase()
   if (needle === '') return pcs
   return pcs.filter(
@@ -197,37 +198,37 @@ export function canUnlockPc(pc: Pc): boolean {
 export function countPcsHiddenFromView(
   pcIds: number[],
   pcs: RegisteredPc[],
-  visibleNames: string[],
+  visibleIds: number[],
 ): number {
-  return pcs.filter((pc) => pcIds.includes(pc.id) && !visibleNames.includes(pc.name)).length
+  return pcs.filter((pc) => pcIds.includes(pc.id) && !visibleIds.includes(pc.id)).length
 }
 
-export function getPcIdsToLock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && canLockPc(pc)).map((pc) => pc.id)
+export function getPcIdsToLock(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && canLockPc(pc)).map((pc) => pc.id)
 }
 
-export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && canUnlockPc(pc)).map((pc) => pc.id)
+export function getPcIdsToUnlock(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && canUnlockPc(pc)).map((pc) => pc.id)
 }
 
-export function getPcIdsToEditTime(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && canEditPcTime(pc)).map((pc) => pc.id)
+export function getPcIdsToEditTime(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && canEditPcTime(pc)).map((pc) => pc.id)
 }
 
 // A client update is offered only to online PCs, so an offline PC in the selection is left out.
-export function getPcIdsToUpdateClient(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && isPcOnline(pc)).map((pc) => pc.id)
+export function getPcIdsToUpdateClient(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && isPcOnline(pc)).map((pc) => pc.id)
 }
 
 // Turning always awake on needs the client, so offline PCs are left out. Turning it off goes to every
 // selected PC, since a PC held at the sign-in screen reads as offline but its service still applies it.
 export function getPcIdsToKeepAwake(
   pcs: RegisteredPc[],
-  selectedNames: string[],
+  selectedIds: number[],
   keepAwake: boolean,
 ): number[] {
   return pcs
-    .filter((pc) => selectedNames.includes(pc.name) && (!keepAwake || isPcOnline(pc)))
+    .filter((pc) => selectedIds.includes(pc.id) && (!keepAwake || isPcOnline(pc)))
     .map((pc) => pc.id)
 }
 
@@ -263,26 +264,26 @@ export function canRebootPc(pc: Pc): boolean {
 
 function getSelectedPcs(
   pcs: RegisteredPc[],
-  selectedNames: string[],
+  selectedIds: number[],
   canRun: (pc: Pc) => boolean,
 ): RegisteredPc[] {
-  return pcs.filter((pc) => selectedNames.includes(pc.name) && canRun(pc))
+  return pcs.filter((pc) => selectedIds.includes(pc.id) && canRun(pc))
 }
 
-export function getPcIdsToShutDown(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return getSelectedPcs(pcs, selectedNames, canShutDownPc).map((pc) => pc.id)
+export function getPcIdsToShutDown(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return getSelectedPcs(pcs, selectedIds, canShutDownPc).map((pc) => pc.id)
 }
 
-export function getPcNamesToShutDown(pcs: RegisteredPc[], selectedNames: string[]): string[] {
-  return getSelectedPcs(pcs, selectedNames, canShutDownPc).map((pc) => pc.name)
+export function getPcNamesToShutDown(pcs: RegisteredPc[], selectedIds: number[]): string[] {
+  return getSelectedPcs(pcs, selectedIds, canShutDownPc).map((pc) => pc.name)
 }
 
-export function getPcIdsToReboot(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return getSelectedPcs(pcs, selectedNames, canRebootPc).map((pc) => pc.id)
+export function getPcIdsToReboot(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return getSelectedPcs(pcs, selectedIds, canRebootPc).map((pc) => pc.id)
 }
 
-export function getPcNamesToReboot(pcs: RegisteredPc[], selectedNames: string[]): string[] {
-  return getSelectedPcs(pcs, selectedNames, canRebootPc).map((pc) => pc.name)
+export function getPcNamesToReboot(pcs: RegisteredPc[], selectedIds: number[]): string[] {
+  return getSelectedPcs(pcs, selectedIds, canRebootPc).map((pc) => pc.name)
 }
 
 // Only a PC in a shutdown or restart countdown can be cancelled. Cancelling does not wait for a confirm.
@@ -300,8 +301,8 @@ export function getCancelPowerLabel(pc: Pc): string {
   return pc.isRestarting ? 'Cancel restart' : 'Cancel shutdown'
 }
 
-export function getPcIdsToCancelPower(pcs: RegisteredPc[], selectedNames: string[]): number[] {
-  return getSelectedPcs(pcs, selectedNames, canCancelPcPower).map((pc) => pc.id)
+export function getPcIdsToCancelPower(pcs: RegisteredPc[], selectedIds: number[]): number[] {
+  return getSelectedPcs(pcs, selectedIds, canCancelPcPower).map((pc) => pc.id)
 }
 
 export function getServerPcPowerNote(pcName: string): string {
@@ -374,6 +375,23 @@ export function describeKeepAwakeResult(
   return `${result} ${skippedOfflineCount} offline ${skippedOfflineCount === 1 ? 'PC' : 'PCs'} skipped.`
 }
 
+export const PC_NAME_PREFIX = 'PC-'
+export const MAX_PC_NUMBER = 999_999_999
+
+const PC_NAME_PATTERN = /^PC-(\d+)$/i
+
+// The number after the PC- prefix in any case, as the server reads it, or null when the name has another shape or an out-of-range number.
+export function getPcNumberFromName(name: string): number | null {
+  const match = PC_NAME_PATTERN.exec(name)
+  if (!match) return null
+  const number = Number(match[1])
+  return number >= 1 && number <= MAX_PC_NUMBER ? number : null
+}
+
+export function describeRename(newName: string): string {
+  return `Renamed to ${newName}.`
+}
+
 export function getLogsHref(pcName: string): string {
   return `/logs?pc=${encodeURIComponent(pcName)}`
 }
@@ -441,6 +459,14 @@ export function canViewPcScreen(pc: Pc): boolean {
   return !isPcOff(pc)
 }
 
-export function getScreenHref(pcName: string, viewMode: ViewMode): string {
-  return `/pc/${encodeURIComponent(pcName)}/screen?mode=${viewMode}`
+// The PC id from the screen route, or null when it is not a positive whole number.
+export function parsePcIdParam(param: string | undefined): number | null {
+  if (param === undefined || !/^\d+$/.test(param)) return null
+  const pcId = Number(param)
+  return pcId >= 1 && Number.isSafeInteger(pcId) ? pcId : null
+}
+
+// Keyed by id, so a rename elsewhere cannot point an open view at another PC.
+export function getScreenHref(pcId: number, viewMode: ViewMode): string {
+  return `/pc/${pcId}/screen?mode=${viewMode}`
 }

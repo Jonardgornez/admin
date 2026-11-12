@@ -68,6 +68,19 @@ export async function listPcs({ isBackground = false }: ListPcsOptions = {}): Pr
   )
 }
 
+const renamedPcSchema = z.object({ name: z.string() })
+
+export type RenamedPc = z.infer<typeof renamedPcSchema>
+
+// Only the number changes. The server keeps the PC- prefix and answers with the new name.
+export async function renamePc(id: number, number: number): Promise<ApiResult<RenamedPc>> {
+  return parseBody(
+    await apiRequest<unknown>(`/api/pcs/${id}/name`, { method: 'PUT', body: { number } }),
+    renamedPcSchema,
+    OK_STATUS,
+  )
+}
+
 export function removePc(id: number): Promise<ApiResult<undefined>> {
   return apiRequest(`/api/pcs/${id}`, { method: 'DELETE' })
 }

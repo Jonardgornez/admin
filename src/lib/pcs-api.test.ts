@@ -32,6 +32,8 @@ import {
 
   removePc,
 
+  renamePc,
+
   setPcsKeepAwake,
 
   setPcsWallpaper,
@@ -448,6 +450,36 @@ describe('pcs api', () => {
   })
 
 
+
+  describe('renamePc', () => {
+    it('sends the new number and reads the new name', async () => {
+      const fetchMock = stubFetch(Response.json({ name: 'PC-9', extra: 'dropped' }))
+
+      expect(await renamePc(7, 9)).toEqual({ success: true, data: { name: 'PC-9' } })
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/pcs/7/name',
+        expect.objectContaining({ method: 'PUT', body: '{"number":9}' }),
+      )
+    })
+
+    it.each([400, 404, 409])('returns the server message on %i', async (status) => {
+      stubFetch(Response.json({ error: 'PC-9 is already used by another PC.' }, { status }))
+      expect(await renamePc(7, 9)).toEqual({
+        success: false,
+        status,
+        error: 'PC-9 is already used by another PC.',
+      })
+    })
+
+    it('fails with the fallback message when the answer has no name', async () => {
+      stubFetch(Response.json({}))
+      expect(await renamePc(7, 9)).toEqual({
+        success: false,
+        status: 200,
+        error: FALLBACK_ERROR_MESSAGE,
+      })
+    })
+  })
 
   describe('removePc', () => {
 

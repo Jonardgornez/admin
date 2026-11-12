@@ -341,3 +341,64 @@ describe('DashboardPage wallpaper', () => {
     expect(within(dialog).queryByRole('button', { name: 'Remove wallpaper' })).toBeNull()
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
+
+describe('DashboardPage rename', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('renames a PC from its detail dialog and keeps the dialog on the new name', async () => {
+    let listedPcs = [serverPc(1), serverPc(2)]
+    const fetchMock = stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json(listedPcs),
+      'PUT /api/pcs/1/name': () => {
+        listedPcs = [serverPc(2), { ...serverPc(1), name: 'PC-9' }]
+        return Response.json({ name: 'PC-9' })
+      },
+    })
+    const notify = vi.fn()
+    renderDashboard(notify)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'PC-01' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rename PC-01' }))
+    const dialog = screen.getByRole('heading', { name: 'Rename PC-01' }).closest('dialog')
+    if (!dialog) throw new Error('The rename dialog is not open')
+    fireEvent.change(within(dialog).getByLabelText('PC number'), { target: { value: '9' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Renamed to PC-9.', 'check'))
+    const renameCall = fetchMock.mock.calls.find(([input]) => String(input) === '/api/pcs/1/name')
+    expect(renameCall?.[1]?.body).toBe('{"number":9}')
+    // The detail dialog stays open under the new name, next to the renamed card.
+    expect(await screen.findAllByRole('heading', { name: 'PC-9' })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Rename PC-9' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Rename PC-01' })).toBeNull()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('keeps the selection on the same PC when another PC takes its old name', async () => {
+    let listedPcs = [serverPc(1), serverPc(2)]
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json(listedPcs),
+      // The server also reports PC 1 renamed and a new PC 3 that now has PC 1's old name.
+      'PUT /api/pcs/2/name': () => {
+        listedPcs = [{ ...serverPc(3), name: 'PC-01' }, { ...serverPc(2), name: 'PC-5' }, { ...serverPc(1), name: 'PC-9' }]
+        return Response.json({ name: 'PC-5' })
+      },
+    })
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select PC-01' }))
+    fireEvent.click(screen.getByRole('button', { name: 'PC-02' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rename PC-02' }))
+    const dialog = screen.getByRole('heading', { name: 'Rename PC-02' }).closest('dialog')
+    if (!dialog) throw new Error('The rename dialog is not open')
+    fireEvent.change(within(dialog).getByLabelText('PC number'), { target: { value: '5' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }))
+
+    const renamedFirst = await screen.findByRole<HTMLInputElement>('checkbox', { name: 'Select PC-9' })
+    expect(renamedFirst.checked).toBe(true)
+    expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'Select PC-01' }).checked).toBe(false)
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})

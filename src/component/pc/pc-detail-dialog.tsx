@@ -38,6 +38,7 @@ interface PcDetailDialogProps {
   onAddTime?: () => void
   isSendMessageDisabled?: boolean
   onSendMessage?: () => void
+  onRename?: () => void
   viewMode?: ViewMode
   onViewModeChange?: (viewMode: ViewMode) => void
   screenHref?: string
@@ -73,6 +74,7 @@ export function PcDetailDialog({
   onAddTime,
   isSendMessageDisabled = false,
   onSendMessage,
+  onRename,
   viewMode = 'notified',
   onViewModeChange,
   screenHref,
@@ -85,10 +87,21 @@ export function PcDetailDialog({
   return (
     <Modal isOpen size="sm" labelledBy={titleId} closesOnBackdropClick onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 id={titleId} className="m-0 font-mono text-xl font-semibold">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id={titleId} className="m-0 min-w-0 break-all font-mono text-xl font-semibold">
             {pc.name}
           </h2>
+          {onRename && (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`Rename ${pc.name}`}
+              className="mr-auto"
+              onClick={onRename}
+            >
+              Rename
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

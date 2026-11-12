@@ -17,13 +17,14 @@ import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
-import { canViewPcScreen } from '../lib/pcs'
+import { canViewPcScreen, parsePcIdParam } from '../lib/pcs'
 import { getTakeControlBlockMessage } from '../lib/remote-control'
 import { buildScreenshotFilename, getScreenPlaceholderText } from '../lib/screen-stream'
 import type { ViewMode } from '../types'
 
 export function ViewScreenPage() {
-  const { pcName } = useParams()
+  const { pcId: pcIdParam } = useParams()
+  const pcId = parsePcIdParam(pcIdParam)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const notify = useNotify()
@@ -33,7 +34,8 @@ export function ViewScreenPage() {
   const screenStopButtonRef = useRef<HTMLButtonElement>(null)
   const [hasUsedReleaseShortcut, setHasUsedReleaseShortcut] = useState(false)
 
-  const pc = pcs.find((candidate) => candidate.name === pcName)
+  // Found by id, so a rename elsewhere keeps this view on the same PC and shows its current name.
+  const pc = pcId === null ? undefined : pcs.find((candidate) => candidate.id === pcId)
   const isOffline = pc !== undefined && !canViewPcScreen(pc)
   const viewMode: ViewMode = searchParams.get('mode') === 'anonymous' ? 'anonymous' : 'notified'
   const screen = useScreenStream({
@@ -99,7 +101,7 @@ export function ViewScreenPage() {
       <>
         <BackToDashboardLink />
         <PageHeader title="PC not found" />
-        <p className="m-0 text-ink-muted">There is no PC named "{pcName}".</p>
+        <p className="m-0 text-ink-muted">This PC is no longer registered.</p>
       </>
     )
   }
