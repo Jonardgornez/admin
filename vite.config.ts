@@ -31,7 +31,7 @@ import { defineConfig } from 'vitest/config'
 const apiProxy = {
   '/api': {
     target: 'http://server:5000',
-    changeOrigin: true,
+    changeOrigin: false,
     ws: true,
   },
 }
