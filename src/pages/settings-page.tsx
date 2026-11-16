@@ -11,6 +11,7 @@ import { ScreenBackgroundsCard } from '../component/settings/screen-backgrounds-
 import { ServerCard } from '../component/settings/server-card'
 import { SettingsCard } from '../component/settings/settings-card'
 import { SettingsSection } from '../component/settings/settings-section'
+import { UninstallPasswordCard } from '../component/settings/uninstall-password-card'
 import { useSettingsEditor } from '../component/settings/use-settings-editor'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
@@ -99,12 +100,13 @@ export function SettingsPage() {
         <SettingsSection
           id="settings-server-account"
           title="Server and account"
-          description="This server's network details and your admin password."
+          description="This server's network details, your admin password and the uninstall password for lab PCs."
         >
           <ServerCard />
           <SettingsCard title="Admin password">
             <ChangePasswordForm />
           </SettingsCard>
+          <UninstallPasswordCard />
         </SettingsSection>
       </div>
     </>
