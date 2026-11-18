@@ -27,7 +27,9 @@ import {
   type RemoteMouseButton,
   type WheelUnits,
 } from '../../lib/remote-input'
+import { isPasteShortcut, type PasteOutcome } from '../../lib/paste-text'
 import { isPictureScreenState, type ScreenStreamStatus } from '../../lib/screen-stream'
+import { usePasteText, type PasteTextResult } from './use-paste-text'
 import type { ScreenSocketEvent, ScreenStream } from './use-screen-stream'
 
 // The server gives up after 5 s. The admin waits a little longer, then stops on its own side too.
@@ -38,6 +40,8 @@ const CONTROL_RESTART_COOLDOWN_MS = 1100
 interface UseRemoteControlOptions {
   screen: Pick<ScreenStream, 'canvasRef' | 'status' | 'sendMessage' | 'subscribe'>
   onReleaseShortcut: () => void
+  // A clipboard paste on the screen was refused (nothing to paste, too long, already pasting).
+  onPasteRefused: (message: string) => void
 }
 
 export interface RemoteControl {
@@ -46,6 +50,11 @@ export interface RemoteControl {
   start: () => void
   stop: () => void
   sendSecureAttention: () => void
+  // Null while no pasted text is being typed on the PC.
+  pasteProgressPercent: number | null
+  pasteOutcome: PasteOutcome | null
+  pasteText: (text: string) => PasteTextResult
+  stopPaste: () => void
 }
 
 // A paused screen (a protected screen the PC can't stream) has its own message. Any other status
@@ -56,7 +65,11 @@ function getScreenEndReason(kind: ScreenStreamStatus['kind']): RemoteControlEndR
 
 // Drives Take control. Input listeners exist only while control is on, and every input message
 // is sent on the screen socket. The server relays input only after the PC confirms control.
-export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControlOptions): RemoteControl {
+export function useRemoteControl({
+  screen,
+  onReleaseShortcut,
+  onPasteRefused,
+}: UseRemoteControlOptions): RemoteControl {
   const { canvasRef, status, sendMessage, subscribe } = screen
   const [state, setState] = useState<RemoteControlState>(CONTROL_OFF_STATE)
   const [trackedStatusKind, setTrackedStatusKind] = useState(status.kind)
@@ -67,6 +80,12 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
   const isActiveRef = useRef(false)
   const startRequestedRef = useRef(false)
   const reportReleaseShortcut = useEffectEvent(onReleaseShortcut)
+  const paste = usePasteText({ isEnabled: isOn, sendMessage })
+
+  const pasteClipboardText = useEffectEvent((text: string) => {
+    const result = paste.pasteText(text)
+    if (!result.success) onPasteRefused(result.error)
+  })
 
   // A picture that stops (anything but live or secure) ends control on this side. The socket may
   // still be open (paused), so the server is told to stop in handleSocketEvent.
@@ -141,6 +160,11 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     const controller = new AbortController()
     const { signal } = controller
     const heldButtons = new Set<RemoteMouseButton>()
+    // Keys whose key-down reached the PC. Their key-up is always sent, so none stays held.
+    const sentKeyCodes = new Set<string>()
+    // Keys of a paste shortcut whose key-down was kept from the PC. Their auto-repeat and key-up
+    // are kept back too, even once Ctrl is let go.
+    const pasteShortcutCodes = new Set<string>()
     // Set by the release shortcut. Key events stay ignored until the screen is focused again.
     let isKeyInputPaused = false
 
@@ -170,6 +194,8 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
       moves.cancel()
       wheel.cancel()
       heldButtons.clear()
+      sentKeyCodes.clear()
+      pasteShortcutCodes.clear()
       sendMessage(RELEASE_MESSAGE)
     }
 
@@ -235,8 +261,23 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     }
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (isKeyInputPaused) {
+        event.preventDefault()
+        return
+      }
+      if (pasteShortcutCodes.has(event.code)) {
+        event.preventDefault()
+        return
+      }
+      // A key already held on the PC (V pressed before Ctrl) is sent as usual, so its key-up matches.
+      if (isPasteShortcut(event) && !sentKeyCodes.has(event.code)) {
+        // Not prevented, so the browser fires the paste event that types the clipboard text. The
+        // key itself never reaches the PC. Auto-repeat is prevented, so holding it pastes once.
+        if (event.repeat) event.preventDefault()
+        pasteShortcutCodes.add(event.code)
+        return
+      }
       event.preventDefault()
-      if (isKeyInputPaused) return
       if (isReleaseShortcut(event)) {
         // The Ctrl, Alt and Shift key-downs already reached the PC. This release lets go of them
         // with everything else it holds. The shortcut's own key-up and any auto-repeat are then
@@ -247,14 +288,25 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
         return
       }
       const message = buildKeyMessage(event.code, true)
-      if (message) sendMessage(message)
+      if (message && sendMessage(message)) sentKeyCodes.add(event.code)
     }
 
     function handleKeyUp(event: KeyboardEvent) {
       event.preventDefault()
+      if (pasteShortcutCodes.delete(event.code)) return
       if (isKeyInputPaused) return
+      sentKeyCodes.delete(event.code)
       const message = buildKeyMessage(event.code, false)
       if (message) sendMessage(message)
+    }
+
+    // Chrome fires the paste of a focused element that isn't editable at the element or the body,
+    // and it bubbles to the document either way. Only a paste while the screen has focus is taken,
+    // so pasting into a text field elsewhere on the page works as usual.
+    function handlePaste(event: ClipboardEvent) {
+      if (document.activeElement !== canvas || isKeyInputPaused) return
+      event.preventDefault()
+      pasteClipboardText(event.clipboardData?.getData('text/plain') ?? '')
     }
 
     function preventDefault(event: Event) {
@@ -281,6 +333,7 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     canvas.addEventListener('focus', rearmKeyInput, { signal })
     canvas.addEventListener('blur', sendRelease, { signal })
     document.addEventListener('visibilitychange', handleVisibilityChange, { signal })
+    document.addEventListener('paste', handlePaste, { signal })
 
     return () => {
       controller.abort()
@@ -305,6 +358,7 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
   // The state changes at once, so the UI never waits for the PC's reply.
   function stop() {
     if (state.kind === 'off') return
+    paste.stopPaste()
     if (state.kind === 'on') sendMessage(RELEASE_MESSAGE)
     sendMessage(buildControlMessage(false))
     setState(endControl(state, 'stopped'))
@@ -316,5 +370,15 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
     sendMessage(SECURE_ATTENTION_MESSAGE)
   }
 
-  return { state, isCoolingDown, start, stop, sendSecureAttention }
+  return {
+    state,
+    isCoolingDown,
+    start,
+    stop,
+    sendSecureAttention,
+    pasteProgressPercent: paste.progressPercent,
+    pasteOutcome: paste.outcome,
+    pasteText: paste.pasteText,
+    stopPaste: paste.stopPaste,
+  }
 }

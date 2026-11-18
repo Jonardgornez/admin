@@ -54,7 +54,11 @@ export function ViewScreenPage() {
     stopButton?.focus()
   }
 
-  const control = useRemoteControl({ screen, onReleaseShortcut: focusStopControl })
+  const control = useRemoteControl({
+    screen,
+    onReleaseShortcut: focusStopControl,
+    onPasteRefused: (message) => notify(message, 'alert'),
+  })
   const isControlling = control.state.kind === 'on'
   const isControlActive = isControlling || control.state.kind === 'requesting'
   const navigationBlocker = useBlocker(isControlActive)
@@ -184,6 +188,10 @@ export function ViewScreenPage() {
         stopButtonRef={screenStopButtonRef}
         onStopControl={control.stop}
         onSendSecureAttention={control.sendSecureAttention}
+        pasteProgressPercent={control.pasteProgressPercent}
+        pasteOutcome={control.pasteOutcome}
+        onPasteText={control.pasteText}
+        onStopPaste={control.stopPaste}
       />
 
       {!isControlling && viewMode === 'notified' && (
