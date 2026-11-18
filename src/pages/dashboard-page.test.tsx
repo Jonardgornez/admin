@@ -429,3 +429,23 @@ describe('DashboardPage rename', () => {
     expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'Select PC-01' }).checked).toBe(false)
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
+
+describe('DashboardPage send file', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('opens Send file for every selected PC and closes it again', async () => {
+    stubApi(standardRoutes())
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send file (2)' }))
+    const dialog = screen.getByRole('heading', { name: 'Send file to 2 PCs' }).closest('dialog')
+    if (!dialog) throw new Error('The send file dialog is not open')
+    expect(within(dialog).getByText('PC-01, PC-02')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('heading', { name: 'Send file to 2 PCs' })).toBeNull()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})
