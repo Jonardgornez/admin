@@ -34,6 +34,10 @@ function controlOff(): RemoteControl {
     start: vi.fn(),
     stop: vi.fn(),
     sendSecureAttention: vi.fn(),
+    pasteProgressPercent: null,
+    pasteOutcome: null,
+    pasteText: vi.fn(() => ({ success: true as const })),
+    stopPaste: vi.fn(),
   }
 }
 
@@ -145,5 +149,35 @@ describe('ViewScreenPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'PC-03 screen' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Send Ctrl+Alt+Del' })).toBeNull()
+  })
+})
+
+describe('ViewScreenPage paste text', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    hooks.stream = null
+    hooks.control = null
+  })
+
+  it('shows Paste text and the typing progress while controlling', async () => {
+    stubPcs([serverPc(3, 'PC-03', true)])
+    hooks.stream = { ...idleStream(), status: { kind: 'live' }, hasFrame: true }
+    const control = { ...controlOff(), state: { kind: 'on' } as const, pasteProgressPercent: 55 }
+    hooks.control = control
+    renderPage('/pc/3/screen?mode=notified')
+
+    expect(await screen.findByRole('button', { name: 'Paste text' })).toBeTruthy()
+    expect(screen.getByText('Typing… 55%')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop typing' }))
+    expect(control.stopPaste).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides Paste text while control is off', async () => {
+    stubPcs([serverPc(3, 'PC-03', true)])
+    hooks.stream = { ...idleStream(), status: { kind: 'live' }, hasFrame: true }
+    renderPage('/pc/3/screen?mode=notified')
+
+    expect(await screen.findByRole('heading', { name: 'PC-03 screen' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Paste text' })).toBeNull()
   })
 })

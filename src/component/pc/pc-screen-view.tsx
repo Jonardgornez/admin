@@ -5,7 +5,11 @@ import { Button } from '../ui/button'
 import { Icon } from '../ui/icon'
 import { useNotify } from '../ui/notification-context'
 import { getKeyboardLock } from '../../lib/keyboard-lock'
+import { getPasteAnnouncement, type PasteOutcome } from '../../lib/paste-text'
 import { PROTECTED_SCREEN_LABEL } from '../../lib/screen-stream'
+import { PasteProgress } from './paste-progress'
+import { PasteTextDialog } from './paste-text-dialog'
+import type { PasteTextResult } from './use-paste-text'
 
 const RELEASE_HINT = 'Press Ctrl+Alt+Shift+X to release the keyboard.'
 const STOP_HINT = 'Stop control is focused. Press Enter to stop control.'
@@ -51,6 +55,11 @@ interface PcScreenViewProps {
   onStopControl: () => void
   // Left out while the PC client can't act on Ctrl+Alt+Del, so the button isn't shown.
   onSendSecureAttention?: () => void
+  // Null while no pasted text is being typed on the PC.
+  pasteProgressPercent: number | null
+  pasteOutcome: PasteOutcome | null
+  onPasteText: (text: string) => PasteTextResult
+  onStopPaste: () => void
 }
 
 export function PcScreenView({
@@ -67,6 +76,10 @@ export function PcScreenView({
   stopButtonRef,
   onStopControl,
   onSendSecureAttention,
+  pasteProgressPercent,
+  pasteOutcome,
+  onPasteText,
+  onStopPaste,
 }: PcScreenViewProps) {
   const notify = useNotify()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -74,6 +87,10 @@ export function PcScreenView({
   const exitButtonRef = useRef<HTMLButtonElement>(null)
   const hasEnteredFullViewRef = useRef(false)
   const [isFullView, setIsFullView] = useState(false)
+  const [isPasteDialogOpen, setIsPasteDialogOpen] = useState(false)
+
+  // The dialog closes when control ends, so it never reopens by itself on the next Take control.
+  if (!isControlling && isPasteDialogOpen) setIsPasteDialogOpen(false)
 
   useEffect(() => {
     function syncFullView() {
@@ -119,11 +136,19 @@ export function PcScreenView({
   }
 
   // Shown in whichever toolbar is on screen: the full-view header or the footer row, never both.
-  const secureAttentionButton = isControlling && onSendSecureAttention && (
-    <Button variant="secondary" aria-label="Send Ctrl+Alt+Del" onClick={onSendSecureAttention}>
-      <Icon name="shield" />
-      Ctrl+Alt+Del
-    </Button>
+  const controlActionButtons = isControlling && (
+    <>
+      {onSendSecureAttention && (
+        <Button variant="secondary" aria-label="Send Ctrl+Alt+Del" onClick={onSendSecureAttention}>
+          <Icon name="shield" />
+          Ctrl+Alt+Del
+        </Button>
+      )}
+      <Button variant="secondary" onClick={() => setIsPasteDialogOpen(true)}>
+        <Icon name="message" />
+        Paste text
+      </Button>
+    </>
   )
 
   return (
@@ -147,7 +172,7 @@ export function PcScreenView({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {secureAttentionButton}
+            {controlActionButtons}
             {isControlling && (
               <Button ref={stopButtonRef} variant="secondary" onClick={stopControl}>
                 <Icon name="x" />
@@ -186,6 +211,13 @@ export function PcScreenView({
           </p>
         )}
       </div>
+      {pasteProgressPercent !== null && (
+        <PasteProgress percent={pasteProgressPercent} onStop={onStopPaste} />
+      )}
+      {/* Always mounted, so the end of a paste is announced after the progress row is gone. */}
+      <p aria-live="polite" className="sr-only">
+        {getPasteAnnouncement(pasteProgressPercent, pasteOutcome)}
+      </p>
       {isControlling && (
         <p role="status" className="m-0 text-sm text-ink-muted">
           {isStopHintShown ? STOP_HINT : RELEASE_HINT}
@@ -200,7 +232,7 @@ export function PcScreenView({
             </p>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {secureAttentionButton}
+            {controlActionButtons}
             <Button
               ref={fullViewButtonRef}
               variant="secondary"
@@ -212,6 +244,15 @@ export function PcScreenView({
             </Button>
           </div>
         </div>
+      )}
+      {/* Inside the full-view container, so the dialog shows in full view too. */}
+      {isControlling && isPasteDialogOpen && (
+        <PasteTextDialog
+          pcName={pcName}
+          isSending={pasteProgressPercent !== null}
+          onPasteText={onPasteText}
+          onClose={() => setIsPasteDialogOpen(false)}
+        />
       )}
     </div>
   )
