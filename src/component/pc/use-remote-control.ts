@@ -27,7 +27,7 @@ import {
   type RemoteMouseButton,
   type WheelUnits,
 } from '../../lib/remote-input'
-import type { ScreenStreamStatus } from '../../lib/screen-stream'
+import { isPictureScreenState, type ScreenStreamStatus } from '../../lib/screen-stream'
 import type { ScreenSocketEvent, ScreenStream } from './use-screen-stream'
 
 // The server gives up after 5 s. The admin waits a little longer, then stops on its own side too.
@@ -48,7 +48,8 @@ export interface RemoteControl {
   sendSecureAttention: () => void
 }
 
-// A paused screen (for example a UAC prompt) has its own message. Any other non-live status is a connection problem.
+// A paused screen (a protected screen the PC can't stream) has its own message. Any other status
+// without a picture is a connection problem.
 function getScreenEndReason(kind: ScreenStreamStatus['kind']): RemoteControlEndReason {
   return kind === 'paused' ? 'paused' : 'connection'
 }
@@ -67,11 +68,11 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
   const startRequestedRef = useRef(false)
   const reportReleaseShortcut = useEffectEvent(onReleaseShortcut)
 
-  // A picture that stops being live ends control on this side. The socket may still be open
-  // (paused), so the server is told to stop in handleSocketEvent.
+  // A picture that stops (anything but live or secure) ends control on this side. The socket may
+  // still be open (paused), so the server is told to stop in handleSocketEvent.
   if (status.kind !== trackedStatusKind) {
     setTrackedStatusKind(status.kind)
-    if (status.kind !== 'live') {
+    if (!isPictureScreenState(status.kind)) {
       setState((previous) => endControl(previous, getScreenEndReason(status.kind)))
     }
   }
@@ -101,7 +102,7 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
       setState((previous) => endControl(previous, 'connection'))
       return
     }
-    if (event.state === 'live' || state.kind === 'off') return
+    if (isPictureScreenState(event.state) || state.kind === 'off') return
     sendMessage(RELEASE_MESSAGE)
     sendMessage(buildControlMessage(false))
     setState((previous) => endControl(previous, getScreenEndReason(event.state)))
@@ -290,7 +291,7 @@ export function useRemoteControl({ screen, onReleaseShortcut }: UseRemoteControl
 
   // Only one start per off state, so a double click sends one control on.
   function start() {
-    if (state.kind !== 'off' || status.kind !== 'live' || isCoolingDown) return
+    if (state.kind !== 'off' || !isPictureScreenState(status.kind) || isCoolingDown) return
     if (startRequestedRef.current) return
     startRequestedRef.current = true
     if (!sendMessage(buildControlMessage(true))) {

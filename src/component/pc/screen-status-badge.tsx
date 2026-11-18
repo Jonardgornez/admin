@@ -15,6 +15,7 @@ const STATUS_DISPLAY: Record<ScreenStreamStatus['kind'], StatusDisplay> = {
   connecting: { variant: 'offline', icon: 'refresh' },
   waiting: { variant: 'locked', icon: 'clock' },
   live: { variant: 'in-use', icon: 'eye' },
+  secure: { variant: 'in-use', icon: 'shield' },
   paused: { variant: 'rebooting', icon: 'shield' },
   ended: { variant: 'shutdown', icon: 'alert' },
 }

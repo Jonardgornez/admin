@@ -91,9 +91,9 @@ describe('timeOutControlRequest', () => {
 })
 
 describe('getControlEndMessage', () => {
-  it('explains a screen that paused without blaming the connection', () => {
+  it('explains a protected screen the PC cannot show without blaming the connection', () => {
     expect(getControlEndMessage(endControl(ON, 'paused'))).toBe(
-      "The PC's screen paused (for example a UAC prompt), so control stopped.",
+      "The PC is showing a protected screen that can't be shown, so control stopped. Update the PC's client to 0.25.0 to see these screens.",
     )
   })
 
@@ -131,6 +131,16 @@ describe('getControlEndMessage', () => {
 describe('getTakeControlBlockMessage', () => {
   it('allows Take control for a live, actionable PC ', () => {
     expect(getTakeControlBlockMessage(pcWith(), LIVE)).toBeNull()
+  })
+
+  it('allows Take control while the PC streams a protected screen', () => {
+    expect(getTakeControlBlockMessage(pcWith(), { kind: 'secure' })).toBeNull()
+  })
+
+  it('refuses while the screen is paused with no picture', () => {
+    expect(getTakeControlBlockMessage(pcWith(), { kind: 'paused' })).toBe(
+      'Wait for the live picture before taking control.',
+    )
   })
 
   it("refuses the server's own PC", () => {

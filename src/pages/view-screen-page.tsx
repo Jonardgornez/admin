@@ -19,7 +19,11 @@ import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import { canViewPcScreen, parsePcIdParam } from '../lib/pcs'
 import { getTakeControlBlockMessage } from '../lib/remote-control'
-import { buildScreenshotFilename, getScreenPlaceholderText } from '../lib/screen-stream'
+import {
+  buildScreenshotFilename,
+  getScreenPlaceholderText,
+  isPictureScreenState,
+} from '../lib/screen-stream'
 import type { ViewMode } from '../types'
 
 export function ViewScreenPage() {
@@ -55,8 +59,9 @@ export function ViewScreenPage() {
   const isControlActive = isControlling || control.state.kind === 'requesting'
   const navigationBlocker = useBlocker(isControlActive)
 
-  // The last picture is shown or saved only while the stream is live, never as if it were current.
-  const isFrameVisible = screen.hasFrame && !isOffline && screen.status.kind === 'live'
+  // The last picture is shown or saved only while frames flow (live or secure), never as if it were current.
+  const isFrameVisible =
+    screen.hasFrame && !isOffline && isPictureScreenState(screen.status.kind)
   const endedMessage = screen.status.kind === 'ended' ? screen.status.message : null
 
   useEffect(() => {
@@ -171,12 +176,14 @@ export function ViewScreenPage() {
         isControlling={isControlling}
         isStopHintShown={isControlling && hasUsedReleaseShortcut}
         isFrameVisible={isFrameVisible}
+        isProtectedScreen={screen.status.kind === 'secure'}
         placeholderText={getScreenPlaceholderText(screen.status)}
         viewModeLabel={viewModeLabel}
         captionText={captionText}
         canvasRef={screen.canvasRef}
         stopButtonRef={screenStopButtonRef}
         onStopControl={control.stop}
+        onSendSecureAttention={control.sendSecureAttention}
       />
 
       {!isControlling && viewMode === 'notified' && (

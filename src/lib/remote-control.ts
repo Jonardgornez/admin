@@ -1,7 +1,7 @@
 import type { Pc } from '../types'
 import { isPcActionable } from './pcs'
 import type { ControlOffReason, ServerControlMessage } from './remote-input'
-import type { ScreenStreamStatus } from './screen-stream'
+import { isPictureScreenState, type ScreenStreamStatus } from './screen-stream'
 
 // Local-only reasons (never sent on the wire) are added to the server's off reasons.
 export type RemoteControlEndReason = ControlOffReason | 'paused'
@@ -14,6 +14,7 @@ export type RemoteControlState =
 export const CONTROL_OFF_STATE: RemoteControlState = { kind: 'off', reason: null }
 
 export const REQUIRED_CLIENT_VERSION = '0.10.0'
+export const SECURE_SCREEN_CLIENT_VERSION = '0.25.0'
 const SERVER_PC_MESSAGE = "You can't control the server's own PC."
 const LIVE_PICTURE_MESSAGE = 'Wait for the live picture before taking control.'
 
@@ -26,7 +27,8 @@ const CONTROL_END_MESSAGES: Record<RemoteControlEndReason, string | null> = {
   unsupported: `This PC's client is too old for remote control. Update it to ${REQUIRED_CLIENT_VERSION}.`,
   connection: 'The connection to the PC dropped, so control stopped.',
   'pc-ended': 'The PC ended remote control.',
-  paused: "The PC's screen paused (for example a UAC prompt), so control stopped.",
+  // Only a PC without the secure-screen helper pauses. With the helper the screen stays visible.
+  paused: `The PC is showing a protected screen that can't be shown, so control stopped. Update the PC's client to ${SECURE_SCREEN_CLIENT_VERSION} to see these screens.`,
 }
 
 export function startControl(state: RemoteControlState): RemoteControlState {
@@ -73,6 +75,6 @@ export function getTakeControlBlockMessage(
 ): string | null {
   if (pc.isServerPc) return SERVER_PC_MESSAGE
   if (!isPcActionable(pc)) return 'Remote control is unavailable while this PC is off or rebooting.'
-  if (streamStatus.kind !== 'live') return LIVE_PICTURE_MESSAGE
+  if (!isPictureScreenState(streamStatus.kind)) return LIVE_PICTURE_MESSAGE
   return null
 }
