@@ -37,7 +37,7 @@ class FakeWebSocket {
     this.emit('open', {})
   }
 
-  receive(data: string) {
+  receive(data: string | ArrayBuffer) {
     this.emit('message', { data })
   }
 
@@ -102,6 +102,26 @@ describe('openScreenConnection', () => {
     socket.receive('{"state":"live"}')
     expect(onServerState).toHaveBeenCalledWith('live')
     expect(onControlMessage).not.toHaveBeenCalled()
+  })
+
+  it('passes the secure state to onServerState', () => {
+    const { socket, onServerState } = openTestConnection()
+    socket.open()
+    socket.receive('{"state":"secure"}')
+    expect(onServerState).toHaveBeenCalledWith('secure')
+  })
+
+  it('keeps decoding and acknowledging frames after the secure state', async () => {
+    const decode = vi.fn(() => Promise.resolve({ width: 4, height: 3, close: vi.fn() }))
+    vi.stubGlobal('createImageBitmap', decode)
+    const { socket } = openTestConnection()
+    socket.open()
+    socket.receive('{"state":"secure"}')
+
+    socket.receive(new ArrayBuffer(8))
+
+    await vi.waitFor(() => expect(socket.sent).toEqual(['ack']))
+    expect(decode).toHaveBeenCalledTimes(1)
   })
 
   it('ignores text that is neither a state nor a control message', () => {

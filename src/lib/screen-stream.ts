@@ -4,7 +4,7 @@ import type { ViewMode } from '../types'
 const viewModeSchema = z.enum(['notified', 'anonymous'])
 
 const serverScreenStateMessageSchema = z.object({
-  state: z.enum(['waiting', 'live', 'paused']),
+  state: z.enum(['waiting', 'live', 'secure', 'paused']),
 })
 
 export type ServerScreenState = z.infer<typeof serverScreenStateMessageSchema>['state']
@@ -14,6 +14,7 @@ export type ScreenStreamStatus =
   | { kind: 'connecting' }
   | { kind: 'waiting' }
   | { kind: 'live' }
+  | { kind: 'secure' }
   | { kind: 'paused' }
   | { kind: 'ended'; message: string }
 
@@ -30,6 +31,8 @@ export interface ScreenStreamLocation {
 export const PC_GONE_MESSAGE = 'This PC went offline or was removed, so the screen view ended.'
 export const SCREEN_REFUSED_MESSAGE =
   "Couldn't open the screen. The PC may be offline, or your session may have ended."
+// Worded as the PC's report, not a guarantee: the PC decides what it calls a protected screen.
+export const PROTECTED_SCREEN_LABEL = 'PC reports a protected screen'
 export const PAUSED_MESSAGE =
   'The PC is showing a protected screen, such as a Windows security prompt.'
 
@@ -123,8 +126,15 @@ export function isActiveScreenStatus(status: ScreenStreamStatus): boolean {
     status.kind === 'connecting' ||
     status.kind === 'waiting' ||
     status.kind === 'live' ||
+    status.kind === 'secure' ||
     status.kind === 'paused'
   )
+}
+
+// Secure means the PC shows a protected screen (UAC, Ctrl+Alt+Del, lock, sign-in) that its helper
+// still streams, so the picture and control carry on just as when live.
+export function isPictureScreenState(kind: ScreenStreamStatus['kind']): boolean {
+  return kind === 'live' || kind === 'secure'
 }
 
 const STATUS_LABELS: Record<ScreenStreamStatus['kind'], string> = {
@@ -132,6 +142,7 @@ const STATUS_LABELS: Record<ScreenStreamStatus['kind'], string> = {
   connecting: 'Connecting',
   waiting: 'Waiting for the PC',
   live: 'Live',
+  secure: PROTECTED_SCREEN_LABEL,
   paused: 'Paused',
   ended: 'Ended',
 }
@@ -145,6 +156,7 @@ const PLACEHOLDER_TEXTS: Record<ScreenStreamStatus['kind'], string> = {
   connecting: 'Connecting to the screen...',
   waiting: 'Waiting for the PC to send its screen...',
   live: 'Waiting for the first picture...',
+  secure: 'Waiting for the first picture...',
   paused: PAUSED_MESSAGE,
   ended: 'No picture. Reconnect to see the screen again.',
 }

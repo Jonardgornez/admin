@@ -5,6 +5,7 @@ import { Button } from '../ui/button'
 import { Icon } from '../ui/icon'
 import { useNotify } from '../ui/notification-context'
 import { getKeyboardLock } from '../../lib/keyboard-lock'
+import { PROTECTED_SCREEN_LABEL } from '../../lib/screen-stream'
 
 const RELEASE_HINT = 'Press Ctrl+Alt+Shift+X to release the keyboard.'
 const STOP_HINT = 'Stop control is focused. Press Enter to stop control.'
@@ -40,6 +41,8 @@ interface PcScreenViewProps {
   isControlling: boolean
   isStopHintShown: boolean
   isFrameVisible: boolean
+  // The PC shows a protected screen (UAC, lock, sign-in) that still streams.
+  isProtectedScreen: boolean
   placeholderText: string
   viewModeLabel: string
   captionText?: string
@@ -56,6 +59,7 @@ export function PcScreenView({
   isControlling,
   isStopHintShown,
   isFrameVisible,
+  isProtectedScreen,
   placeholderText,
   viewModeLabel,
   captionText,
@@ -131,6 +135,11 @@ export function PcScreenView({
             <Badge variant="locked" icon="eye">
               {viewModeLabel}
             </Badge>
+            {isProtectedScreen && (
+              <Badge variant="in-use" icon="shield">
+                {PROTECTED_SCREEN_LABEL}
+              </Badge>
+            )}
             {isControlling && (
               <Badge variant="rebooting" icon="monitor">
                 Controlling

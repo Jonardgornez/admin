@@ -7,6 +7,7 @@ import {
   getScreenRetryDelayMs,
   getScreenStatusLabel,
   isActiveScreenStatus,
+  isPictureScreenState,
   LatestFrameQueue,
   PAUSED_MESSAGE,
   parseScreenStateMessage,
@@ -40,6 +41,7 @@ describe('parseScreenStateMessage', () => {
     expect(parseScreenStateMessage('{"state":"waiting"}')).toBe('waiting')
     expect(parseScreenStateMessage('{"state":"live"}')).toBe('live')
     expect(parseScreenStateMessage('{"state":"paused"}')).toBe('paused')
+    expect(parseScreenStateMessage('{"state":"secure"}')).toBe('secure')
   })
 
   it('returns null for text that is not JSON', () => {
@@ -106,11 +108,26 @@ describe('isActiveScreenStatus', () => {
     expect(isActiveScreenStatus({ kind: 'waiting' })).toBe(true)
     expect(isActiveScreenStatus({ kind: 'live' })).toBe(true)
     expect(isActiveScreenStatus({ kind: 'paused' })).toBe(true)
+    expect(isActiveScreenStatus({ kind: 'secure' })).toBe(true)
   })
 
   it('is false when idle or ended', () => {
     expect(isActiveScreenStatus({ kind: 'idle' })).toBe(false)
     expect(isActiveScreenStatus({ kind: 'ended', message: 'Done.' })).toBe(false)
+  })
+})
+
+describe('isPictureScreenState', () => {
+  it('is true while frames flow, including a protected screen the helper streams', () => {
+    expect(isPictureScreenState('live')).toBe(true)
+    expect(isPictureScreenState('secure')).toBe(true)
+  })
+
+  it('is false when there is no picture, including the paused fallback', () => {
+    expect(isPictureScreenState('paused')).toBe(false)
+    expect(isPictureScreenState('waiting')).toBe(false)
+    expect(isPictureScreenState('connecting')).toBe(false)
+    expect(isPictureScreenState('ended')).toBe(false)
   })
 })
 
@@ -120,6 +137,7 @@ describe('getScreenStatusLabel', () => {
     expect(getScreenStatusLabel({ kind: 'waiting' })).toBe('Waiting for the PC')
     expect(getScreenStatusLabel({ kind: 'live' })).toBe('Live')
     expect(getScreenStatusLabel({ kind: 'paused' })).toBe('Paused')
+    expect(getScreenStatusLabel({ kind: 'secure' })).toBe('PC reports a protected screen')
     expect(getScreenStatusLabel({ kind: 'ended', message: 'Done.' })).toBe('Ended')
   })
 })
@@ -135,6 +153,7 @@ describe('getScreenPlaceholderText', () => {
       { kind: 'connecting' },
       { kind: 'waiting' },
       { kind: 'live' },
+      { kind: 'secure' },
       { kind: 'paused' },
       { kind: 'ended', message: 'Done.' },
     ]

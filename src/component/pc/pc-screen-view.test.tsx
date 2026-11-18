@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createRef } from 'react'
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ScreenStreamStatus } from '../../lib/screen-stream'
 import { NotificationContext } from '../ui/notification-context'
 import { PcScreenView } from './pc-screen-view'
@@ -10,8 +10,12 @@ import type { ScreenSocketListener } from './use-screen-stream'
 
 const SECURE_ATTENTION_BUTTON_NAME = 'Send Ctrl+Alt+Del'
 
-function renderView(isControlling: boolean, onSendSecureAttention?: () => void) {
-  render(
+function renderView(
+  isControlling: boolean,
+  onSendSecureAttention?: () => void,
+  isProtectedScreen = false,
+) {
+  return render(
     <NotificationContext.Provider value={vi.fn()}>
       <PcScreenView
         pcName="PC-01"
@@ -19,6 +23,7 @@ function renderView(isControlling: boolean, onSendSecureAttention?: () => void) 
         isControlling={isControlling}
         isStopHintShown={false}
         isFrameVisible
+        isProtectedScreen={isProtectedScreen}
         placeholderText=""
         viewModeLabel="Notified view"
         canvasRef={createRef<HTMLCanvasElement>()}
@@ -77,5 +82,61 @@ describe('PcScreenView Ctrl+Alt+Del button', () => {
     fireEvent.click(screen.getByRole('button', { name: SECURE_ATTENTION_BUTTON_NAME }))
 
     expect(sendMessage).toHaveBeenLastCalledWith('{"t":"sas"}')
+  })
+})
+
+describe('PcScreenView protected screen badge', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'fullscreenElement')
+  })
+
+  // The page header is hidden in full view, so the view shows the badge in its own header there.
+  function enterFullView(container: HTMLElement) {
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => container.firstElementChild,
+    })
+    act(() => {
+      document.dispatchEvent(new Event('fullscreenchange'))
+    })
+  }
+
+  it('shows "PC reports a protected screen" as text in full view while the screen is secure', () => {
+    const { container } = renderView(true, vi.fn(), true)
+    enterFullView(container)
+
+    expect(screen.getByText('PC reports a protected screen')).toBeTruthy()
+  })
+
+  it('hides the badge in full view once the screen is live again', () => {
+    const { container, rerender } = renderView(true, vi.fn(), true)
+    enterFullView(container)
+
+    rerender(
+      <NotificationContext.Provider value={vi.fn()}>
+        <PcScreenView
+          pcName="PC-01"
+          isOffline={false}
+          isControlling
+          isStopHintShown={false}
+          isFrameVisible
+          isProtectedScreen={false}
+          placeholderText=""
+          viewModeLabel="Notified view"
+          canvasRef={createRef<HTMLCanvasElement>()}
+          stopButtonRef={createRef<HTMLButtonElement>()}
+          onStopControl={vi.fn()}
+        />
+      </NotificationContext.Provider>,
+    )
+
+    expect(screen.queryByText('PC reports a protected screen')).toBeNull()
+  })
+
+  it('keeps the picture and Ctrl+Alt+Del available while the screen is secure', () => {
+    const { container } = renderView(true, vi.fn(), true)
+
+    expect(container.querySelector('canvas')?.hidden).toBe(false)
+    expect(screen.getByRole('button', { name: SECURE_ATTENTION_BUTTON_NAME })).toBeTruthy()
   })
 })
