@@ -273,3 +273,52 @@ export type PowerCommand = 'shutdown' | 'reboot'
 export type PendingPcAction =
   | { kind: PowerCommand; pcName: string }
   | { kind: `${PowerCommand}-selected`; pcNames: string[] }
+
+// The known folders on a PC that a shared file can be saved under.
+export const SHARE_FOLDERS = ['desktop', 'documents', 'downloads'] as const
+
+export type ShareFolder = (typeof SHARE_FOLDERS)[number]
+
+// waiting, downloading, exists and applying can still change. The rest are final.
+export const FILE_TRANSFER_STATUSES = [
+  'waiting',
+  'downloading',
+  'exists',
+  'applying',
+  'saved',
+  'skipped',
+  'failed',
+  'expired',
+] as const
+
+export type FileTransferStatus = (typeof FILE_TRANSFER_STATUSES)[number]
+
+// What a PC does when the file is already in the folder.
+export const FILE_TRANSFER_DECISIONS = ['overwrite', 'keepBoth', 'skip'] as const
+
+export type FileTransferDecision = (typeof FILE_TRANSFER_DECISIONS)[number]
+
+// A file the admin uploaded once, to be sent to any number of PCs.
+export interface SharedFile {
+  id: number
+  name: string
+  sizeBytes: number
+  sha256: string
+}
+
+// One PC's copy of a shared file. savedAs is set once saved, error once failed.
+export interface FileTransfer {
+  id: number
+  pcId: number
+  pcName: string
+  fileName: string
+  sizeBytes: number
+  folder: ShareFolder
+  subfolder: string
+  status: FileTransferStatus
+  decision: FileTransferDecision | null
+  savedAs: string | null
+  error: string | null
+  createdUtc: string
+  updatedUtc: string
+}

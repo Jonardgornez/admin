@@ -12,6 +12,7 @@ import { RestrictionsDialog } from '../component/pc/restrictions-dialog'
 import { PowerDialog, type PowerAction } from '../component/pc/power-dialog'
 import { RemovePcDialog } from '../component/pc/remove-pc-dialog'
 import { RenamePcDialog } from '../component/pc/rename-pc-dialog'
+import { SendFileDialog } from '../component/pc/send-file-dialog'
 import { SendMessageDialog } from '../component/pc/send-message-dialog'
 import { WallpaperDialog } from '../component/pc/wallpaper-dialog'
 import { useClientUpdates } from '../component/pc/use-client-updates'
@@ -138,6 +139,7 @@ export function DashboardPage() {
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
   const [wallpaperTargetPcs, setWallpaperTargetPcs] = useState<RegisteredPc[] | null>(null)
+  const [sendFileTargetPcs, setSendFileTargetPcs] = useState<RegisteredPc[] | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
   const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
@@ -458,6 +460,9 @@ export function DashboardPage() {
             wallpaperCount={selectedPcs.length}
             isWallpaperDisabled={isDisconnected || isBulkCommandBusy}
             onWallpaper={() => setWallpaperTargetPcs(selectedPcs)}
+            sendFileCount={selectedPcs.length}
+            isSendFileDisabled={isDisconnected}
+            onSendFile={() => setSendFileTargetPcs(selectedPcs)}
             clientUpdateCount={clientUpdatePcIds.length}
             isClientUpdateDisabled={
               isDisconnected || isBulkCommandBusy || clientUpdates.release === null
@@ -640,6 +645,10 @@ export function DashboardPage() {
           }
           onClose={() => setWallpaperTargetPcs(null)}
         />
+      )}
+
+      {sendFileTargetPcs && (
+        <SendFileDialog targetPcs={sendFileTargetPcs} onClose={() => setSendFileTargetPcs(null)} />
       )}
 
       <ClientUpdateDialog

@@ -184,3 +184,27 @@ describe('PcBulkToolbar wallpaper', () => {
     expect(onWallpaper).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('PcBulkToolbar send file', () => {
+  it('counts every selected PC on the Send file action', () => {
+    renderToolbar({ sendFileCount: 4 })
+    expect(getOtherGroup().getByRole('button', { name: 'Send file (4)' })).toHaveProperty('disabled', false)
+  })
+
+  it('disables Send file when nothing is selected', () => {
+    renderToolbar({ sendFileCount: 0 })
+    expect(getOtherGroup().getByRole('button', { name: 'Send file' })).toHaveProperty('disabled', true)
+  })
+
+  it('disables Send file while it is not allowed, such as when disconnected', () => {
+    renderToolbar({ sendFileCount: 2, isSendFileDisabled: true })
+    expect(getOtherGroup().getByRole('button', { name: 'Send file (2)' })).toHaveProperty('disabled', true)
+  })
+
+  it('opens the send file dialog when Send file is clicked', () => {
+    const onSendFile = vi.fn()
+    renderToolbar({ sendFileCount: 2, onSendFile })
+    fireEvent.click(getOtherGroup().getByRole('button', { name: 'Send file (2)' }))
+    expect(onSendFile).toHaveBeenCalledTimes(1)
+  })
+})

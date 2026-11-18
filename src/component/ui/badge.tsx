@@ -23,6 +23,12 @@ const badgeVariants = cva(
         'service-warning': 'bg-danger-bg text-danger',
         wallpaper: 'bg-surface-300 text-ink',
         'keep-awake': 'bg-surface-300 text-ink',
+        'file-waiting': 'bg-surface-300 text-ink',
+        'file-busy': 'bg-st-locked-bg text-st-locked',
+        'file-attention': 'bg-st-reboot-bg text-st-reboot',
+        'file-saved': 'bg-st-inuse-bg text-st-inuse',
+        'file-skipped': 'bg-st-offline-bg text-st-offline',
+        'file-failed': 'bg-danger-bg text-danger',
       },
     },
     defaultVariants: {

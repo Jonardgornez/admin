@@ -18,6 +18,9 @@ interface PcBulkToolbarProps {
   wallpaperCount?: number
   isWallpaperDisabled?: boolean
   onWallpaper?: () => void
+  sendFileCount?: number
+  isSendFileDisabled?: boolean
+  onSendFile?: () => void
   clientUpdateCount?: number
   isClientUpdateDisabled?: boolean
   onClientUpdate?: () => void
@@ -92,6 +95,9 @@ export function PcBulkToolbar({
   wallpaperCount = 0,
   isWallpaperDisabled = false,
   onWallpaper,
+  sendFileCount = 0,
+  isSendFileDisabled = false,
+  onSendFile,
   clientUpdateCount = 0,
   isClientUpdateDisabled = false,
   onClientUpdate,
@@ -250,6 +256,15 @@ export function PcBulkToolbar({
           >
             <Icon name="image" />
             {withCount('Wallpaper', wallpaperCount)}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isSendFileDisabled || sendFileCount === 0}
+            onClick={onSendFile}
+          >
+            <Icon name="file" />
+            {withCount('Send file', sendFileCount)}
           </Button>
           <Button
             variant="secondary"
