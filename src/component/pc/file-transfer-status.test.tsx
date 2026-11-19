@@ -163,6 +163,29 @@ describe('FileTransferStatus', () => {
     ).toBeTruthy()
   })
 
+  it('shows download progress as a bar and text, without a live region', () => {
+    const MB = 1024 * 1024
+    renderStatus([
+      makeTransfer(1, { status: 'downloading', sizeBytes: 52 * MB, bytesSent: 23.5 * MB }),
+      makeTransfer(2, { status: 'downloading', sizeBytes: 52 * MB, bytesSent: 52 * MB }),
+      makeTransfer(3, { status: 'applying', bytesSent: null }),
+      makeTransfer(4),
+    ])
+
+    const bar = getRow('PC-1').getByRole('progressbar', { name: 'Download progress for PC-1' })
+    expect(bar.getAttribute('aria-valuenow')).toBe('45')
+    expect(bar.getAttribute('aria-valuetext')).toBe('45% — 23.5 MB of 52.0 MB')
+    expect(getRow('PC-1').getByText('45% — 23.5 MB of 52.0 MB').closest('[aria-live]')).toBeNull()
+
+    expect(getRow('PC-2').getByText('Checking and saving…')).toBeTruthy()
+    expect(getRow('PC-2').getByRole('progressbar').getAttribute('aria-valuenow')).toBe('100')
+
+    expect(getRow('PC-3').getByText('Starting download…')).toBeTruthy()
+    expect(getRow('PC-3').getByRole('progressbar').hasAttribute('aria-valuenow')).toBe(false)
+
+    expect(getRow('PC-4').queryByRole('progressbar')).toBeNull()
+  })
+
   it('shows a cancelled transfer with a Cancelled badge and no Cancel button', () => {
     renderStatus([makeTransfer(1, { status: 'cancelled' })])
 

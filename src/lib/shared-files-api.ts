@@ -44,6 +44,7 @@ const fileTransferSchema = z.object({
   error: z.string().nullable(),
   waitingReason: z.enum(FILE_TRANSFER_WAITING_REASONS).nullable(),
   busyWith: z.string().nullable(),
+  bytesSent: z.number().int().nonnegative().nullable(),
   pcClientVersion: z.string().nullable(),
   createdUtc: z.string(),
   updatedUtc: z.string(),

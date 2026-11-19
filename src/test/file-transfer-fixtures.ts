@@ -15,6 +15,7 @@ export function makeTransfer(id: number, overrides: Partial<FileTransfer> = {}):
     error: null,
     waitingReason: null,
     busyWith: null,
+    bytesSent: null,
     pcClientVersion: '0.26.0',
     createdUtc: '2026-11-18T10:00:00Z',
     updatedUtc: '2026-11-18T10:00:00Z',

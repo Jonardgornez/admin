@@ -21,6 +21,7 @@ import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { Field, SelectInput, TextInput } from '../ui/field'
 import { Modal } from '../ui/modal'
+import { ProgressBar } from '../ui/progress-bar'
 import { FileTransferStatus } from './file-transfer-status'
 
 const BAD_REQUEST_STATUS = 400
@@ -48,16 +49,7 @@ function UploadProgress({ percent, onCancel }: UploadProgressProps) {
           </Button>
         )}
       </div>
-      <div
-        role="progressbar"
-        aria-label="Upload progress"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent ?? 100}
-        className="h-2 w-full overflow-hidden rounded-full bg-surface-300"
-      >
-        <div className="h-full bg-brand transition-all" style={{ width: `${percent ?? 100}%` }} />
-      </div>
+      <ProgressBar label="Upload progress" percent={percent ?? 100} />
     </div>
   )
 }
