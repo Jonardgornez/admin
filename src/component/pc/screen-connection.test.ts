@@ -46,7 +46,7 @@ class FakeWebSocket {
   }
 }
 
-function openTestConnection() {
+function openTestConnection(ackDelayMs?: number) {
   const onServerState = vi.fn()
   const onControlMessage = vi.fn()
   const onCursorMessage = vi.fn()
@@ -59,6 +59,7 @@ function openTestConnection() {
     onCursorMessage,
     onFrameDrawn: vi.fn(),
     onClose,
+    ackDelayMs,
   })
   const socket = FakeWebSocket.instances[0]
   return { connection, socket, onServerState, onControlMessage, onCursorMessage, onClose }
@@ -156,3 +157,108 @@ describe('openScreenConnection', () => {
     expect(onClose).toHaveBeenCalledWith(1006, false)
   })
 })
+
+describe('openScreenConnection ack delay', () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = []
+    vi.useFakeTimers()
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => Promise.resolve({ width: 4, height: 3, close: vi.fn() })),
+    )
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('acks a drawn frame at once when no delay is set', async () => {
+    const { socket } = openTestConnection()
+    socket.open()
+
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(socket.sent).toEqual(['ack'])
+  })
+
+  it('holds the ack until the delay has passed since the frame arrived', async () => {
+    const { socket } = openTestConnection(1000)
+    socket.open()
+
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(999)
+    expect(socket.sent).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(socket.sent).toEqual(['ack'])
+  })
+
+  it('spaces the acks of frames that arrive together by the delay', async () => {
+    const { socket } = openTestConnection(1000)
+    socket.open()
+
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(10)
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(990)
+    expect(socket.sent).toEqual(['ack'])
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(socket.sent).toEqual(['ack'])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(socket.sent).toEqual(['ack', 'ack'])
+  })
+
+  it('sends no held ack after the connection is closed', async () => {
+    const { connection, socket } = openTestConnection(1000)
+    socket.open()
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(500)
+
+    connection.close()
+    // The fake socket counts as open again, so only the cancelled timer keeps the ack from going out.
+    socket.readyState = FakeWebSocket.OPEN
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(socket.sent).toEqual([])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('sends no held ack after the server closes the socket', async () => {
+    const { socket } = openTestConnection(1000)
+    socket.open()
+    socket.receive(new ArrayBuffer(8))
+    await vi.advanceTimersByTimeAsync(500)
+
+    socket.close(1006)
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(socket.sent).toEqual([])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('schedules no ack for a frame whose drawing ends after close', async () => {
+    let finishDecoding: (bitmap: { width: number; height: number; close: () => void }) => void =
+      () => undefined
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => new Promise((resolve) => (finishDecoding = resolve))),
+    )
+    const { connection, socket } = openTestConnection(1000)
+    socket.open()
+    socket.receive(new ArrayBuffer(8))
+
+    connection.close()
+    socket.readyState = FakeWebSocket.OPEN
+    finishDecoding({ width: 4, height: 3, close: vi.fn() })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(socket.sent).toEqual([])
+  })
+})
+

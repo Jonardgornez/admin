@@ -19,6 +19,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: 'monitor', activePaths: ['/dashboard', '/pc'] },
+  { label: 'Screens', to: '/screens', icon: 'eye', activePaths: ['/screens'] },
   { label: 'Accounts', to: '/accounts', icon: 'user', activePaths: ['/accounts'] },
   {
     label: 'Login requests',

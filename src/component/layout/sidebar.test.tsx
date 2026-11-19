@@ -54,4 +54,18 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Login requests' })).toBeTruthy()
     expect(screen.queryByText('0')).toBeNull()
   })
+
+  it('links to the screens page and marks it as current there', async () => {
+    stubPendingRequests(0)
+    render(
+      <TestProviders initialPath="/screens">
+        <Sidebar />
+      </TestProviders>,
+    )
+
+    const link = await screen.findByRole('link', { name: 'Screens' })
+    expect(link.getAttribute('href')).toBe('/screens')
+    expect(link.getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('link', { name: 'Dashboard' }).getAttribute('aria-current')).toBeNull()
+  })
 })
