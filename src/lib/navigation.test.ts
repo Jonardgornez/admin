@@ -1,5 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { isNavItemActive } from './navigation'
+import { buildScreensReturnState, isNavItemActive, readScreensReturnTo } from './navigation'
+
+describe('Screens return address', () => {
+  it('keeps the Screens page options', () => {
+    expect(buildScreensReturnState('?mode=anonymous&size=lg')).toEqual({
+      returnTo: '/screens?mode=anonymous&size=lg',
+    })
+    expect(buildScreensReturnState('')).toEqual({ returnTo: '/screens' })
+  })
+
+  it('reads a Screens page address back', () => {
+    expect(readScreensReturnTo({ returnTo: '/screens' })).toBe('/screens')
+    expect(readScreensReturnTo({ returnTo: '/screens?size=sm' })).toBe('/screens?size=sm')
+  })
+
+  it('refuses anything that is not the Screens page', () => {
+    for (const state of [
+      null,
+      undefined,
+      'screens',
+      {},
+      { returnTo: 5 },
+      { returnTo: '/dashboard' },
+      { returnTo: '/screensx' },
+      { returnTo: '/screens/../accounts' },
+      { returnTo: 'https://example.com/screens' },
+      { returnTo: '//evil/screens' },
+    ]) {
+      expect(readScreensReturnTo(state)).toBeNull()
+    }
+  })
+})
 
 const dashboardItem = { activePaths: ['/dashboard', '/pc'] }
 
