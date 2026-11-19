@@ -3,6 +3,7 @@ import { cva } from 'class-variance-authority'
 import {
   describeBusyFileName,
   describeTransferDetail,
+  describeTransferProgress,
   describeTransferSummary,
   FILE_TRANSFER_DECISION_LABELS,
   FILE_TRANSFER_STATUS_LABELS,
@@ -16,6 +17,7 @@ import { Badge, type BadgeVariant } from '../ui/badge'
 import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import type { IconName } from '../ui/icon'
+import { ProgressBar } from '../ui/progress-bar'
 import { useFileTransfers } from './use-file-transfers'
 
 interface TransferStatusDisplay {
@@ -104,6 +106,22 @@ function TransferDetail({ transfer }: { transfer: FileTransfer }) {
   )
 }
 
+// Not a live region: the list polls every 2 seconds, which would flood a screen reader.
+function TransferProgress({ transfer }: { transfer: FileTransfer }) {
+  const progress = describeTransferProgress(transfer)
+  if (!progress) return null
+  return (
+    <div className="flex flex-col gap-1">
+      <ProgressBar
+        label={`Download progress for ${transfer.pcName}`}
+        percent={progress.percent}
+        valueText={progress.text}
+      />
+      <p className={detailVariants()}>{progress.text}</p>
+    </div>
+  )
+}
+
 interface TransferRowProps {
   transfer: FileTransfer
   isPosting: boolean
@@ -126,6 +144,7 @@ function TransferRow({ transfer, isPosting, onDecide, onCancel }: TransferRowPro
         </Badge>
       </div>
       <TransferDetail transfer={transfer} />
+      <TransferProgress transfer={transfer} />
       {transfer.status === 'exists' && (
         <div role="group" aria-label={`Choice for ${transfer.pcName}`} className="flex flex-wrap gap-2">
           <DecisionButtons

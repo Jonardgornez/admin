@@ -314,6 +314,7 @@ export interface SharedFile {
 
 // One PC's copy of a shared file. savedAs is set once saved, error once failed.
 // waitingReason is set only while waiting. busyWith names the file the PC is still receiving when busy.
+// bytesSent is set only while downloading or applying, and never goes above sizeBytes.
 export interface FileTransfer {
   id: number
   pcId: number
@@ -328,6 +329,7 @@ export interface FileTransfer {
   error: string | null
   waitingReason: FileTransferWaitingReason | null
   busyWith: string | null
+  bytesSent: number | null
   pcClientVersion: string | null
   createdUtc: string
   updatedUtc: string

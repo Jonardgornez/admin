@@ -25,6 +25,7 @@ const transfer = {
   error: null,
   waitingReason: 'busy',
   busyWith: 'slides.pptx',
+  bytesSent: null,
   pcClientVersion: '0.26.0',
   createdUtc: '2026-11-18T10:00:00Z',
   updatedUtc: '2026-11-18T10:00:00Z',
@@ -238,6 +239,30 @@ describe('file transfer requests', () => {
       status: 200,
       error: FALLBACK_ERROR_MESSAGE,
     })
+  })
+
+  it('reads the bytes sent while a PC downloads', async () => {
+    const downloading = { ...transfer, status: 'downloading', waitingReason: null, busyWith: null, bytesSent: 3 }
+    stubFetch(Response.json({ transfers: [downloading] }))
+
+    expect(await getFileTransfers([9])).toEqual({ success: true, data: [downloading] })
+  })
+
+  it('refuses a transfer with negative, fractional or missing bytes sent', async () => {
+    const { bytesSent: _omitted, ...withoutBytesSent } = transfer
+    for (const invalid of [
+      { ...transfer, bytesSent: -1 },
+      { ...transfer, bytesSent: 1.5 },
+      withoutBytesSent,
+    ]) {
+      stubFetch(Response.json({ transfers: [invalid] }))
+
+      expect(await getFileTransfers([9])).toEqual({
+        success: false,
+        status: 200,
+        error: FALLBACK_ERROR_MESSAGE,
+      })
+    }
   })
 
   it('posts a cancel for the transfers and returns them', async () => {

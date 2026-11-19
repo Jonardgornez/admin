@@ -37,6 +37,9 @@ const EXPIRED_NOTE = 'The PC did not pick up the file within an hour.'
 const OFFLINE_NOTE = 'PC is offline. It gets the file if it comes back within 1 hour.'
 const UNKNOWN_CLIENT_VERSION = 'an unknown version'
 const BUSY_WITHOUT_NAME = 'another file'
+const STARTING_DOWNLOAD_NOTE = 'Starting download…'
+const CHECKING_NOTE = 'Checking and saving…'
+const FULL_PERCENT = 100
 // The oldest client that can receive files. The server holds files back from older ones.
 export const MIN_FILE_CLIENT_VERSION = '0.26.0'
 
@@ -102,6 +105,25 @@ export function describeTransferDetail(transfer: FileTransfer): string | null {
   }
 }
 
+export interface TransferProgress {
+  // Null until the PC reports its first bytes.
+  percent: number | null
+  text: string
+}
+
+// The download progress of a downloading or applying transfer, or null for any other status.
+export function describeTransferProgress(transfer: FileTransfer): TransferProgress | null {
+  if (transfer.status !== 'downloading' && transfer.status !== 'applying') return null
+  const { bytesSent, sizeBytes } = transfer
+  if (bytesSent === null) return { percent: null, text: STARTING_DOWNLOAD_NOTE }
+  if (bytesSent >= sizeBytes) return { percent: FULL_PERCENT, text: CHECKING_NOTE }
+  const percent = toUploadPercent(bytesSent, sizeBytes)
+  return {
+    percent,
+    text: `${percent}% — ${formatFileSize(bytesSent)} of ${formatFileSize(sizeBytes)}`,
+  }
+}
+
 export function describeTransferSummary(transfers: FileTransfer[]): string {
   const savedCount = transfers.filter((transfer) => transfer.status === 'saved').length
   return `Saved on ${savedCount} of ${transfers.length} ${transfers.length === 1 ? 'PC' : 'PCs'}.`
@@ -113,6 +135,7 @@ export function getSendFileTargetLimitError(pcCount: number): string | undefined
 }
 
 export function formatFileSize(sizeBytes: number): string {
+  if (sizeBytes === 0) return '0 KB'
   if (sizeBytes < BYTES_PER_MB) return `${Math.max(1, Math.round(sizeBytes / BYTES_PER_KB))} KB`
   if (sizeBytes < BYTES_PER_GB) return `${(sizeBytes / BYTES_PER_MB).toFixed(1)} MB`
   return `${(sizeBytes / BYTES_PER_GB).toFixed(2)} GB`

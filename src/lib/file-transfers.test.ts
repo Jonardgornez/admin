@@ -3,6 +3,7 @@ import { makeTransfer } from '../test/file-transfer-fixtures'
 import type { FileTransfer } from '../types'
 import {
   describeTransferDetail,
+  describeTransferProgress,
   describeTransferSummary,
   formatFileSize,
   getCancellableTransfers,
@@ -116,6 +117,58 @@ describe('describeTransferDetail', () => {
   })
 })
 
+describe('describeTransferProgress', () => {
+  const MB = 1024 * 1024
+  const downloading = (bytesSent: number | null, sizeBytes = 52 * MB) =>
+    makeTransfer(1, { status: 'downloading', bytesSent, sizeBytes })
+
+  it('shows 0% before any bytes arrive', () => {
+    expect(describeTransferProgress(downloading(0))).toEqual({
+      percent: 0,
+      text: '0% — 0 KB of 52.0 MB',
+    })
+  })
+
+  it('shows the whole percent and the sizes part way through', () => {
+    expect(describeTransferProgress(downloading(23.5 * MB))).toEqual({
+      percent: 45,
+      text: '45% — 23.5 MB of 52.0 MB',
+    })
+  })
+
+  it('says the PC is checking and saving once every byte has arrived', () => {
+    expect(describeTransferProgress(downloading(52 * MB))).toEqual({
+      percent: 100,
+      text: 'Checking and saving…',
+    })
+  })
+
+  it('says the download is starting before the PC reports any bytes', () => {
+    expect(describeTransferProgress(downloading(null))).toEqual({
+      percent: null,
+      text: 'Starting download…',
+    })
+  })
+
+  it('treats an empty file as fully downloaded', () => {
+    expect(describeTransferProgress(downloading(0, 0))).toEqual({
+      percent: 100,
+      text: 'Checking and saving…',
+    })
+  })
+
+  it('shows progress while applying a choice too', () => {
+    expect(
+      describeTransferProgress(makeTransfer(1, { status: 'applying', bytesSent: 512, sizeBytes: 1024 })),
+    ).toEqual({ percent: 50, text: '50% — 1 KB of 1 KB' })
+  })
+
+  it('has no progress for any other status', () => {
+    expect(describeTransferProgress(makeTransfer(1, { status: 'waiting' }))).toBeNull()
+    expect(describeTransferProgress(makeTransfer(1, { status: 'saved', bytesSent: 1024 }))).toBeNull()
+  })
+})
+
 describe('describeTransferSummary', () => {
   it('counts the saved transfers', () => {
     expect(describeTransferSummary([makeTransfer(1, { status: 'saved' }), makeTransfer(2)])).toBe(
@@ -134,6 +187,7 @@ describe('getSendFileTargetLimitError', () => {
 
 describe('formatFileSize', () => {
   it('uses KB, MB or GB', () => {
+    expect(formatFileSize(0)).toBe('0 KB')
     expect(formatFileSize(10)).toBe('1 KB')
     expect(formatFileSize(5 * 1024 * 1024)).toBe('5.0 MB')
     expect(formatFileSize(3 * 1024 * 1024 * 1024)).toBe('3.00 GB')
