@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
-import { BackToDashboardLink } from '../component/layout/back-link'
+import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { BackLink } from '../component/layout/back-link'
 import { useNavigationLock } from '../component/layout/navigation-lock-context'
 import { PageHeader } from '../component/layout/page-header'
 import { PcControlPanel } from '../component/pc/pc-control-panel'
@@ -17,6 +17,7 @@ import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
+import { readScreensReturnTo } from '../lib/navigation'
 import { canViewPcScreen, parsePcIdParam } from '../lib/pcs'
 import { getTakeControlBlockMessage } from '../lib/remote-control'
 import {
@@ -37,6 +38,13 @@ export function ViewScreenPage() {
   const panelStopButtonRef = useRef<HTMLButtonElement>(null)
   const screenStopButtonRef = useRef<HTMLButtonElement>(null)
   const [hasUsedReleaseShortcut, setHasUsedReleaseShortcut] = useState(false)
+  // Opened from the Screens page: Back and Close return there, with its options kept. Otherwise to the dashboard.
+  const location = useLocation()
+  const screensReturnTo = readScreensReturnTo(location.state)
+  const backTo = screensReturnTo ?? '/dashboard'
+  const backLink = (
+    <BackLink to={backTo} label={screensReturnTo ? 'Back to screens' : 'Back to dashboard'} />
+  )
 
   // Found by id, so a rename elsewhere keeps this view on the same PC and shows its current name.
   const pc = pcId === null ? undefined : pcs.find((candidate) => candidate.id === pcId)
@@ -82,7 +90,7 @@ export function ViewScreenPage() {
   if (loadState.status === 'loading') {
     return (
       <>
-        <BackToDashboardLink />
+        {backLink}
         <p role="status" className="m-0 text-base text-ink-muted">
           Loading PC...
         </p>
@@ -93,7 +101,7 @@ export function ViewScreenPage() {
   if (loadState.status === 'error') {
     return (
       <>
-        <BackToDashboardLink />
+        {backLink}
         <Banner variant="danger" icon="alert" role="alert" title="Can't load this PC">
           {loadState.error}
         </Banner>
@@ -108,7 +116,7 @@ export function ViewScreenPage() {
   if (!pc) {
     return (
       <>
-        <BackToDashboardLink />
+        {backLink}
         <PageHeader title="PC not found" />
         <p className="m-0 text-ink-muted">This PC is no longer registered.</p>
       </>
@@ -134,7 +142,7 @@ export function ViewScreenPage() {
 
   return (
     <>
-      <BackToDashboardLink />
+      {backLink}
       <PageHeader
         title={
           <>
@@ -160,7 +168,7 @@ export function ViewScreenPage() {
           <Icon name="download" />
           Save screenshot
         </Button>
-        <Button variant="ghost" disabled={isControlActive} onClick={() => navigate('/dashboard')}>
+        <Button variant="ghost" disabled={isControlActive} onClick={() => navigate(backTo)}>
           <Icon name="x" />
           Close view
         </Button>

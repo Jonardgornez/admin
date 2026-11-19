@@ -19,7 +19,7 @@ import { useClientUpdates } from '../component/pc/use-client-updates'
 import { usePcs } from '../component/pc/use-pcs'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
-import { Button, ButtonLink } from '../component/ui/button'
+import { Button } from '../component/ui/button'
 import { Icon, type IconName } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
 import type { ApiResult } from '../lib/api'
@@ -432,10 +432,6 @@ export function DashboardPage() {
               Retry now
             </Button>
           )}
-          <ButtonLink to="/screens" variant="secondary">
-            <Icon name="eye" />
-            View all screens
-          </ButtonLink>
         </PageHeader>
 
         {isDisconnected && (

@@ -73,10 +73,16 @@ function stubPcs(pcs: ReturnType<typeof serverPc>[]) {
 }
 
 // The page blocks navigation during remote control, which needs a data router, so it is built here.
-function renderPage(path: string) {
-  const router = createMemoryRouter([{ path: '/pc/:pcId/screen', element: <ViewScreenPage /> }], {
-    initialEntries: [path],
-  })
+function renderPage(path: string, state?: unknown) {
+  const [pathname, query] = path.split('?')
+  const router = createMemoryRouter(
+    [
+      { path: '/pc/:pcId/screen', element: <ViewScreenPage /> },
+      { path: '/screens', element: <h1>Screens page</h1> },
+      { path: '/dashboard', element: <h1>Dashboard page</h1> },
+    ],
+    { initialEntries: [{ pathname, search: query ? `?${query}` : '', state }] },
+  )
   render(
     <AuthContext.Provider
       value={{
@@ -110,6 +116,36 @@ describe('ViewScreenPage', () => {
     renderPage('/pc/3/screen?mode=notified')
 
     expect(await screen.findByRole('heading', { name: 'PC-9 screen' })).toBeTruthy()
+  })
+
+  it('goes back to the dashboard when not opened from the Screens page', async () => {
+    stubPcs([serverPc(3, 'PC-3')])
+    renderPage('/pc/3/screen?mode=notified')
+
+    const back = await screen.findByRole('link', { name: 'Back to dashboard' })
+    expect(back.getAttribute('href')).toBe('/dashboard')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close view' }))
+    expect(await screen.findByRole('heading', { name: 'Dashboard page' })).toBeTruthy()
+  })
+
+  it('goes back to the Screens page, with its options, when opened from it', async () => {
+    stubPcs([serverPc(3, 'PC-3')])
+    renderPage('/pc/3/screen?mode=anonymous', { returnTo: '/screens?mode=anonymous&size=lg' })
+
+    const back = await screen.findByRole('link', { name: 'Back to screens' })
+    expect(back.getAttribute('href')).toBe('/screens?mode=anonymous&size=lg')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close view' }))
+    expect(await screen.findByRole('heading', { name: 'Screens page' })).toBeTruthy()
+  })
+
+  it('ignores a return address that is not the Screens page', async () => {
+    stubPcs([serverPc(3, 'PC-3')])
+    renderPage('/pc/3/screen', { returnTo: '/accounts' })
+
+    const back = await screen.findByRole('link', { name: 'Back to dashboard' })
+    expect(back.getAttribute('href')).toBe('/dashboard')
   })
 
   it('shows not found when no PC has the id', async () => {

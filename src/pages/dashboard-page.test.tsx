@@ -450,17 +450,3 @@ describe('DashboardPage send file', () => {
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
 
-describe('DashboardPage all screens', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('links to the page with every screen', async () => {
-    stubApi(standardRoutes())
-    renderDashboard()
-
-    const link = await screen.findByRole('link', { name: 'View all screens' })
-
-    expect(link.getAttribute('href')).toBe('/screens')
-  }, DASHBOARD_TEST_TIMEOUT_MS)
-})

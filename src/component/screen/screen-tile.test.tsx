@@ -5,6 +5,8 @@ import {
   FakeIntersectionObserver,
   setAllObservedOnScreen,
 } from '../../test/intersection-observer'
+import { Route, Routes, useLocation } from 'react-router'
+import { readScreensReturnTo } from '../../lib/navigation'
 import { TILE_ELSEWHERE_RETRY_MS } from '../../lib/screen-grid'
 import { TestProviders } from '../../test/test-providers'
 import type { ScreenConnectionOptions } from '../pc/screen-connection'
@@ -91,6 +93,32 @@ describe('ScreenTile', () => {
 
     const link = screen.getByRole('link', { name: 'PC-3 screen, live' })
     expect(link.getAttribute('href')).toBe('/pc/3/screen?mode=anonymous')
+  })
+
+  it('tells the full view to come back to this Screens page, options kept', () => {
+    function FullView() {
+      return <p>Return to {readScreensReturnTo(useLocation().state)}</p>
+    }
+    render(
+      <TestProviders initialPath="/screens?size=lg&offline=1">
+        <Routes>
+          <Route
+            path="/screens"
+            element={
+              <ul>
+                <ScreenTile pcId={3} pcName="PC-3" mode="notified" />
+              </ul>
+            }
+          />
+          <Route path="/pc/:pcId/screen" element={<FullView />} />
+        </Routes>
+      </TestProviders>,
+    )
+    showTile()
+
+    fireEvent.click(screen.getByRole('link', { name: /^PC-3 screen/ }))
+
+    expect(screen.getByText('Return to /screens?size=lg&offline=1')).toBeTruthy()
   })
 
   it.each([

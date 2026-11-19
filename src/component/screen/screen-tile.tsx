@@ -1,4 +1,5 @@
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import { buildScreensReturnState } from '../../lib/navigation'
 import { getScreenHref } from '../../lib/pcs'
 import {
   getScreenTileName,
@@ -26,6 +27,7 @@ interface ScreenTileProps {
 export function ScreenTile({ pcId, pcName, mode }: ScreenTileProps) {
   const { tileRef, canvasRef, status, isViewedElsewhere, isFrameVisible, reconnect, takeOver } =
     useScreenTile({ pcId, mode })
+  const { search } = useLocation()
   const errorText = !isViewedElsewhere && status.kind === 'ended' ? status.message : null
   const placeholderText = isViewedElsewhere
     ? VIEWED_ELSEWHERE_TEXT
@@ -35,6 +37,7 @@ export function ScreenTile({ pcId, pcName, mode }: ScreenTileProps) {
     <li ref={tileRef} className={tileClassName}>
       <Link
         to={getScreenHref(pcId, mode)}
+        state={buildScreensReturnState(search)}
         aria-label={getScreenTileName(pcName, status, isViewedElsewhere)}
         className="flex flex-col gap-2 rounded-md text-ink no-underline hover:bg-surface-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
