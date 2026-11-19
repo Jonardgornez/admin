@@ -2,6 +2,11 @@ import { z } from 'zod'
 import { apiRequest, type ApiResult } from './api'
 import { OK_STATUS, parseBody } from './accounts-api'
 import { DEFAULT_LOCK_MESSAGE } from './lock-message-schema'
+import {
+  MAX_IDLE_TIMEOUT_MINUTES,
+  MIN_IDLE_TIMEOUT_MINUTES,
+  NEVER_IDLE_TIMEOUT_MINUTES,
+} from './settings-schemas'
 
 const defaultApprovalSchema = z.object({
   mode: z.enum(['time-limit', 'open-time']),
@@ -14,7 +19,15 @@ const settingsSchema = z.object({
     isEnabled: z.boolean(),
     text: z.string(),
   }),
-  idleTimeoutMinutes: z.number().int(),
+  // 0 means the admin stays signed in until they sign out.
+  idleTimeoutMinutes: z
+    .number()
+    .int()
+    .refine(
+      (minutes) =>
+        minutes === NEVER_IDLE_TIMEOUT_MINUTES ||
+        (minutes >= MIN_IDLE_TIMEOUT_MINUTES && minutes <= MAX_IDLE_TIMEOUT_MINUTES),
+    ),
   defaultViewMode: z.enum(['notified', 'anonymous']),
   powerCountdownSeconds: z.number().int(),
   // An older server omits this, so the built-in default stands in until it is restarted.

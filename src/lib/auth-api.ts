@@ -12,7 +12,8 @@ export function signIn(username: string, password: string): Promise<ApiResult<Ad
 }
 
 export function signOut(): Promise<ApiResult<undefined>> {
-  return apiRequest('/api/auth/logout', { method: 'POST' })
+  // Sent as JSON so a plain cross-page form can't sign the admin out.
+  return apiRequest('/api/auth/logout', { method: 'POST', body: {} })
 }
 
 export function getCurrentAdmin(): Promise<ApiResult<AdminSession>> {

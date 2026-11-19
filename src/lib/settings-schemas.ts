@@ -6,6 +6,10 @@ import type { AppSettings } from './settings-api'
 export const MIN_DEFAULT_MINUTES = 1
 export const MIN_IDLE_TIMEOUT_MINUTES = 5
 export const MAX_IDLE_TIMEOUT_MINUTES = 480
+// The server reads an idle timeout of 0 as "stay signed in until the admin signs out".
+export const NEVER_IDLE_TIMEOUT_MINUTES = 0
+// Shown in the hidden minutes field while the admin stays signed in, so turning it off starts here.
+const FALLBACK_IDLE_TIMEOUT_TEXT = '30'
 export const MIN_POWER_COUNTDOWN_SECONDS = 5
 export const MAX_POWER_COUNTDOWN_SECONDS = 3600
 export const MAX_NOTICE_TEXT_LENGTH = 300
@@ -28,6 +32,10 @@ export function parseWholeNumberInRange(text: string, min: number, max: number):
   return value >= min && value <= max ? value : null
 }
 
+export function parseIdleTimeoutMinutes(text: string): number | null {
+  return parseWholeNumberInRange(text, MIN_IDLE_TIMEOUT_MINUTES, MAX_IDLE_TIMEOUT_MINUTES)
+}
+
 // The default minutes are checked even for open time, because the server requires them.
 export const settingsFormSchema = z
   .object({
@@ -35,6 +43,7 @@ export const settingsFormSchema = z
     defaultMinutes: z.string(),
     isNoticeEnabled: z.boolean(),
     noticeText: z.string(),
+    staySignedIn: z.boolean(),
     idleTimeoutMinutes: z.string(),
     defaultViewMode: z.enum(['notified', 'anonymous']),
     powerCountdownSeconds: z.string(),
@@ -54,13 +63,7 @@ export const settingsFormSchema = z
       })
     }
 
-    if (
-      parseWholeNumberInRange(
-        values.idleTimeoutMinutes,
-        MIN_IDLE_TIMEOUT_MINUTES,
-        MAX_IDLE_TIMEOUT_MINUTES,
-      ) === null
-    ) {
+    if (!values.staySignedIn && parseIdleTimeoutMinutes(values.idleTimeoutMinutes) === null) {
       context.addIssue({
         code: 'custom',
         path: ['idleTimeoutMinutes'],
@@ -106,7 +109,11 @@ export function toSettingsFormValues(settings: AppSettings): SettingsFormValues 
     defaultMinutes: String(settings.defaultApproval.minutes),
     isNoticeEnabled: settings.notice.isEnabled,
     noticeText: settings.notice.text,
-    idleTimeoutMinutes: String(settings.idleTimeoutMinutes),
+    staySignedIn: settings.idleTimeoutMinutes === NEVER_IDLE_TIMEOUT_MINUTES,
+    idleTimeoutMinutes:
+      settings.idleTimeoutMinutes === NEVER_IDLE_TIMEOUT_MINUTES
+        ? FALLBACK_IDLE_TIMEOUT_TEXT
+        : String(settings.idleTimeoutMinutes),
     defaultViewMode: settings.defaultViewMode,
     powerCountdownSeconds: String(settings.powerCountdownSeconds),
     lockMessage: settings.lockMessage,
@@ -120,11 +127,9 @@ export function buildSettingsPayload(values: SettingsFormValues): AppSettings | 
     MIN_DEFAULT_MINUTES,
     MAX_TIME_LIMIT_MINUTES,
   )
-  const idleTimeoutMinutes = parseWholeNumberInRange(
-    values.idleTimeoutMinutes,
-    MIN_IDLE_TIMEOUT_MINUTES,
-    MAX_IDLE_TIMEOUT_MINUTES,
-  )
+  const idleTimeoutMinutes = values.staySignedIn
+    ? NEVER_IDLE_TIMEOUT_MINUTES
+    : parseIdleTimeoutMinutes(values.idleTimeoutMinutes)
   const powerCountdownSeconds = parseWholeNumberInRange(
     values.powerCountdownSeconds,
     MIN_POWER_COUNTDOWN_SECONDS,

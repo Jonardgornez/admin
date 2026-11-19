@@ -30,12 +30,16 @@ describe('auth api', () => {
     expect(await signIn('admin', 'nope')).toMatchObject({ success: false, status: 401 })
   })
 
-  it('signOut posts to logout', async () => {
+  it('signOut posts an empty JSON body to logout', async () => {
     const fetchMock = stubFetch(new Response(null, { status: 204 }))
     expect(await signOut()).toEqual({ success: true, data: undefined })
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/logout',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        body: '{}',
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+      }),
     )
   })
 
