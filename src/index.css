@@ -74,6 +74,9 @@
   --spacing-dialog: 440px;
   --spacing-dialog-wide: 1040px;
   --spacing-pc-card: 300px;
+  --spacing-screen-tile-sm: 220px;
+  --spacing-screen-tile-md: 320px;
+  --spacing-screen-tile-lg: 480px;
 
   --radius-sm: 4px;
   --radius-md: 6px;

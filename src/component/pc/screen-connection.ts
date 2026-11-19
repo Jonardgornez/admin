@@ -21,6 +21,14 @@ export interface ScreenConnectionOptions {
   onFrameDrawn: (size: ScreenSize) => void
   // wasOpen is false when the server refused the upgrade (for example 401, 403, 404 or 409).
   onClose: (code: number, wasOpen: boolean) => void
+  // Holds each ack until this long after its frame arrived, and spaces acks this far apart. With the
+  // server's two-frame window that caps the PC at about one frame per ackDelayMs. 0 acks at once.
+  ackDelayMs?: number
+}
+
+interface ReceivedFrame {
+  data: ArrayBuffer
+  receivedAt: number
 }
 
 export interface ScreenConnection {
@@ -42,12 +50,36 @@ async function decodeFrame(frame: ArrayBuffer): Promise<ImageBitmap | null> {
 export function openScreenConnection(options: ScreenConnectionOptions): ScreenConnection {
   const socket = new WebSocket(options.url)
   socket.binaryType = 'arraybuffer'
+  const ackDelayMs = options.ackDelayMs ?? 0
+  const ackTimers = new Set<ReturnType<typeof setTimeout>>()
+  let nextAckAt = 0
   let wasOpen = false
   let isClosed = false
   let lastSize: ScreenSize | null = null
 
-  function acknowledge() {
-    if (socket.readyState === WebSocket.OPEN) socket.send(ACK_MESSAGE)
+  function sendAck() {
+    if (!isClosed && socket.readyState === WebSocket.OPEN) socket.send(ACK_MESSAGE)
+  }
+
+  function acknowledge(frame: ReceivedFrame) {
+    // A frame still being drawn when the connection closed gets no ack and no timer.
+    if (isClosed) return
+    if (ackDelayMs <= 0) {
+      sendAck()
+      return
+    }
+    const sendAt = Math.max(frame.receivedAt + ackDelayMs, nextAckAt)
+    nextAckAt = sendAt + ackDelayMs
+    const timer = setTimeout(() => {
+      ackTimers.delete(timer)
+      sendAck()
+    }, sendAt - performance.now())
+    ackTimers.add(timer)
+  }
+
+  function cancelPendingAcks() {
+    ackTimers.forEach((timer) => clearTimeout(timer))
+    ackTimers.clear()
   }
 
   function paintBitmap(bitmap: ImageBitmap) {
@@ -64,19 +96,19 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
     }
   }
 
-  async function drawFrame(frame: ArrayBuffer) {
-    const bitmap = await decodeFrame(frame)
+  async function drawFrame(frame: ReceivedFrame) {
+    const bitmap = await decodeFrame(frame.data)
     try {
       if (bitmap && !isClosed) paintBitmap(bitmap)
     } catch {
       // A frame that can't be drawn is skipped, like one that can't be decoded.
     } finally {
       bitmap?.close()
-      acknowledge()
+      acknowledge(frame)
     }
   }
 
-  const frames = new LatestFrameQueue<ArrayBuffer>(drawFrame, acknowledge)
+  const frames = new LatestFrameQueue<ReceivedFrame>(drawFrame, acknowledge)
 
   socket.addEventListener('open', () => {
     wasOpen = true
@@ -98,12 +130,15 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
       if (cursor) options.onCursorMessage(cursor)
       return
     }
-    if (event.data instanceof ArrayBuffer) frames.push(event.data)
+    if (event.data instanceof ArrayBuffer) {
+      frames.push({ data: event.data, receivedAt: performance.now() })
+    }
   })
 
   socket.addEventListener('close', (event: CloseEvent) => {
     if (isClosed) return
     isClosed = true
+    cancelPendingAcks()
     options.onClose(event.code, wasOpen)
   })
 
@@ -111,6 +146,7 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
     close() {
       if (isClosed) return
       isClosed = true
+      cancelPendingAcks()
       socket.close(NORMAL_CLOSE_CODE)
     },
     send(message) {

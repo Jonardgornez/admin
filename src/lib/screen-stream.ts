@@ -41,7 +41,10 @@ const NORMAL_CLOSE_CODE = 1000
 const SERVER_STOPPING_CLOSE_CODE = 1001
 const ABNORMAL_CLOSE_CODE = 1006
 const BROWSER_BEHIND_CLOSE_CODE = 1008
-const REPLACED_CLOSE_CODE = 4001
+// A newer view of the same PC took this one's place, for example the full view opened from a tile.
+export const REPLACED_CLOSE_CODE = 4001
+// A passive view found someone else viewing the PC, so the server left that view alone.
+export const BUSY_CLOSE_CODE = 4005
 const PC_GONE_CLOSE_CODE = 4002
 const SESSION_ENDED_CLOSE_CODE = 4003
 
@@ -61,15 +64,18 @@ interface ScreenCloseOutcome {
   isSessionEnded: boolean
 }
 
+// A passive view (a grid tile) never takes the place of a view that is already open; the server refuses it instead.
 export function buildScreenStreamUrl(
   location: ScreenStreamLocation,
   pcId: number,
   mode: ViewMode,
+  isPassive = false,
 ): string {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
   const validMode = viewModeSchema.parse(mode)
   const pcPath = encodeURIComponent(String(pcId))
-  return `${scheme}://${location.host}/api/pcs/${pcPath}/screen/live?mode=${validMode}`
+  const passiveQuery = isPassive ? '&passive=1' : ''
+  return `${scheme}://${location.host}/api/pcs/${pcPath}/screen/live?mode=${validMode}${passiveQuery}`
 }
 
 export function parseScreenStateMessage(text: string): ServerScreenState | null {
@@ -97,6 +103,8 @@ function getCloseMessage(code: number): string {
       return 'Another admin started viewing this PC, so this view was replaced.'
     case PC_GONE_CLOSE_CODE:
       return PC_GONE_MESSAGE
+    case BUSY_CLOSE_CODE:
+      return 'Someone else is viewing this PC.'
     default:
       return 'The screen view ended unexpectedly.'
   }

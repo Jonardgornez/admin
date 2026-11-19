@@ -38,9 +38,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setState({ status: 'signed-in', username })
   }, [])
 
+  // Only the first call counts, so many views ending together sign out once, with one notice.
   const markSignedOut = useCallback((notice?: string) => {
     latestCheckId.current++
-    setState({ status: 'signed-out', notice })
+    setState((previous) =>
+      previous.status === 'signed-out' ? previous : { status: 'signed-out', notice },
+    )
   }, [])
 
   const retry = useCallback(() => {

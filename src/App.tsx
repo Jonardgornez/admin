@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/dashboard-page'
 import { LogsPage } from './pages/logs-page'
 import { NotFoundPage } from './pages/not-found-page'
 import { RequestsPage } from './pages/requests-page'
+import { ScreensPage } from './pages/screens-page'
 import { SettingsPage } from './pages/settings-page'
 import { SignInPage } from './pages/sign-in-page'
 import { ViewScreenPage } from './pages/view-screen-page'
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/pc/:pcId/screen', element: <ViewScreenPage /> },
+          { path: '/screens', element: <ScreensPage /> },
           { path: '/accounts', element: <AccountsPage /> },
           { path: '/requests', element: <RequestsPage /> },
           { path: '/logs', element: <LogsPage /> },

@@ -25,6 +25,12 @@ describe('buildScreenStreamUrl', () => {
     )
   })
 
+  it('asks for a passive view only when told to', () => {
+    expect(buildScreenStreamUrl({ protocol: 'http:', host: 'localhost' }, 4, 'notified', true)).toBe(
+      'ws://localhost/api/pcs/4/screen/live?mode=notified&passive=1',
+    )
+  })
+
   it('throws for a mode the server does not accept', () => {
     expect(() =>
       buildScreenStreamUrl(
