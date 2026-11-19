@@ -20,6 +20,7 @@ export const FILE_TRANSFER_STATUS_LABELS: Record<FileTransferStatus, string> = {
   skipped: 'Skipped',
   failed: 'Failed',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 }
 
 export const FILE_TRANSFER_DECISION_LABELS: Record<FileTransferDecision, string> = {
@@ -33,6 +34,11 @@ const BYTES_PER_MB = BYTES_PER_KB * 1024
 const BYTES_PER_GB = BYTES_PER_MB * 1024
 const FAILED_WITHOUT_REASON = 'The PC did not say why it failed.'
 const EXPIRED_NOTE = 'The PC did not pick up the file within an hour.'
+const OFFLINE_NOTE = 'PC is offline. It gets the file if it comes back within 1 hour.'
+const UNKNOWN_CLIENT_VERSION = 'an unknown version'
+const BUSY_WITHOUT_NAME = 'another file'
+// The oldest client that can receive files. The server holds files back from older ones.
+export const MIN_FILE_CLIENT_VERSION = '0.26.0'
 
 export function isFinalTransferStatus(status: FileTransferStatus): boolean {
   return !PENDING_STATUSES.has(status)
@@ -44,6 +50,28 @@ export function hasPendingTransfers(transfers: FileTransfer[]): boolean {
 
 export function getExistingTransfers(transfers: FileTransfer[]): FileTransfer[] {
   return transfers.filter((transfer) => transfer.status === 'exists')
+}
+
+// Every transfer that has not reached a final status can still be cancelled.
+export function getCancellableTransfers(transfers: FileTransfer[]): FileTransfer[] {
+  return transfers.filter((transfer) => !isFinalTransferStatus(transfer.status))
+}
+
+export function describeBusyFileName(transfer: FileTransfer): string {
+  return transfer.busyWith ?? BUSY_WITHOUT_NAME
+}
+
+function describeWaitingReason(transfer: FileTransfer): string | null {
+  switch (transfer.waitingReason) {
+    case 'offline':
+      return OFFLINE_NOTE
+    case 'busy':
+      return `PC is still receiving ${describeBusyFileName(transfer)}.`
+    case 'clientTooOld':
+      return `PC needs client ${MIN_FILE_CLIENT_VERSION} or newer (it has ${transfer.pcClientVersion ?? UNKNOWN_CLIENT_VERSION}). Update it from the dashboard.`
+    default:
+      return null
+  }
 }
 
 // Keeps whichever copy of each transfer changed last, so a slow poll can't undo a newer decision.
@@ -59,6 +87,8 @@ export function mergeTransfers(current: FileTransfer[], incoming: FileTransfer[]
 // The line under a PC's status, or null when the badge says enough.
 export function describeTransferDetail(transfer: FileTransfer): string | null {
   switch (transfer.status) {
+    case 'waiting':
+      return describeWaitingReason(transfer)
     case 'saved':
       return transfer.savedAs ? `Saved as ${transfer.savedAs}` : null
     case 'exists':

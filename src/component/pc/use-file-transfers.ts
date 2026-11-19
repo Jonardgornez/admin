@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { hasPendingTransfers, mergeTransfers } from '../../lib/file-transfers'
 import { startPollLoop } from '../../lib/poll-loop'
-import { decideFileTransfers, getFileTransfers } from '../../lib/shared-files-api'
+import type { ApiResult } from '../../lib/api'
+import {
+  cancelFileTransfers,
+  decideFileTransfers,
+  getFileTransfers,
+} from '../../lib/shared-files-api'
 import type { FileTransfer, FileTransferDecision } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
@@ -14,9 +19,9 @@ export function useFileTransfers(initialTransfers: FileTransfer[]) {
   const request = useSessionRequest()
   const [transfers, setTransfers] = useState(initialTransfers)
   const [pollError, setPollError] = useState<string | null>(null)
-  const [decisionError, setDecisionError] = useState<string | null>(null)
-  const [isDeciding, setIsDeciding] = useState(false)
-  const isDecidingRef = useRef(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [isPosting, setIsPosting] = useState(false)
+  const isPostingRef = useRef(false)
   const isPending = hasPendingTransfers(transfers)
   const transferIdsKey = transfers.map((transfer) => transfer.id).join(',')
 
@@ -45,20 +50,29 @@ export function useFileTransfers(initialTransfers: FileTransfer[]) {
     }
   }, [isPending, transferIdsKey, request])
 
-  async function decide(transferIds: number[], decision: FileTransferDecision) {
-    if (isDecidingRef.current) return
-    isDecidingRef.current = true
-    setIsDeciding(true)
-    setDecisionError(null)
+  // One action at a time, so a decision and a cancel can't race each other.
+  async function postAction(send: () => Promise<ApiResult<FileTransfer[]>>) {
+    if (isPostingRef.current) return
+    isPostingRef.current = true
+    setIsPosting(true)
+    setActionError(null)
     try {
-      const result = await request(decideFileTransfers(transferIds, decision))
+      const result = await request(send())
       if (result.success) setTransfers((current) => mergeTransfers(current, result.data))
-      else setDecisionError(result.error)
+      else setActionError(result.error)
     } finally {
-      isDecidingRef.current = false
-      setIsDeciding(false)
+      isPostingRef.current = false
+      setIsPosting(false)
     }
   }
 
-  return { transfers, isPending, pollError, decisionError, isDeciding, decide }
+  function decide(transferIds: number[], decision: FileTransferDecision) {
+    return postAction(() => decideFileTransfers(transferIds, decision))
+  }
+
+  function cancel(transferIds: number[]) {
+    return postAction(() => cancelFileTransfers(transferIds))
+  }
+
+  return { transfers, isPending, pollError, actionError, isPosting, decide, cancel }
 }

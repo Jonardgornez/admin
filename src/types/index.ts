@@ -289,6 +289,7 @@ export const FILE_TRANSFER_STATUSES = [
   'skipped',
   'failed',
   'expired',
+  'cancelled',
 ] as const
 
 export type FileTransferStatus = (typeof FILE_TRANSFER_STATUSES)[number]
@@ -297,6 +298,11 @@ export type FileTransferStatus = (typeof FILE_TRANSFER_STATUSES)[number]
 export const FILE_TRANSFER_DECISIONS = ['overwrite', 'keepBoth', 'skip'] as const
 
 export type FileTransferDecision = (typeof FILE_TRANSFER_DECISIONS)[number]
+
+// Why a waiting transfer has not been handed to its PC yet.
+export const FILE_TRANSFER_WAITING_REASONS = ['offline', 'busy', 'clientTooOld'] as const
+
+export type FileTransferWaitingReason = (typeof FILE_TRANSFER_WAITING_REASONS)[number]
 
 // A file the admin uploaded once, to be sent to any number of PCs.
 export interface SharedFile {
@@ -307,6 +313,7 @@ export interface SharedFile {
 }
 
 // One PC's copy of a shared file. savedAs is set once saved, error once failed.
+// waitingReason is set only while waiting. busyWith names the file the PC is still receiving when busy.
 export interface FileTransfer {
   id: number
   pcId: number
@@ -319,6 +326,9 @@ export interface FileTransfer {
   decision: FileTransferDecision | null
   savedAs: string | null
   error: string | null
+  waitingReason: FileTransferWaitingReason | null
+  busyWith: string | null
+  pcClientVersion: string | null
   createdUtc: string
   updatedUtc: string
 }

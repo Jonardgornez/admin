@@ -113,7 +113,7 @@ describe('useFileTransfers', () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe('/api/pcs/files/transfers/decision')
     expect(result.current.transfers[0].status).toBe('applying')
-    expect(result.current.isDeciding).toBe(false)
+    expect(result.current.isPosting).toBe(false)
   })
 
   it('shows the error when a decision fails', async () => {
@@ -124,6 +124,55 @@ describe('useFileTransfers', () => {
       await result.current.decide([1], 'skip')
     })
 
-    expect(result.current.decisionError).toBe('Transfer not found.')
+    expect(result.current.actionError).toBe('Transfer not found.')
+  })
+
+  it('stops polling once every transfer is cancelled', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const fetchMock = stubFetch(transfersReply([makeTransfer(1, { status: 'cancelled', updatedUtc: LATER })]))
+    const { result } = renderTransfers([makeTransfer(1)])
+
+    await advancePoll(4)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current.isPending).toBe(false)
+  })
+
+  it('posts a cancel and merges the returned transfers', async () => {
+    const fetchMock = stubFetch(transfersReply([makeTransfer(1, { status: 'cancelled', updatedUtc: LATER })]))
+    const { result } = renderTransfers([makeTransfer(1), makeTransfer(2, { status: 'downloading' })])
+
+    await act(async () => {
+      await result.current.cancel([1])
+    })
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/pcs/files/transfers/cancel')
+    expect(JSON.parse(init.body as string)).toEqual({ transferIds: [1] })
+    expect(result.current.transfers.map((transfer) => transfer.status)).toEqual(['cancelled', 'downloading'])
+    expect(result.current.isPosting).toBe(false)
+  })
+
+  it('keeps a newer status when the cancel reply is older', async () => {
+    stubFetch(transfersReply([makeTransfer(1, { status: 'cancelled' })]))
+    const { result } = renderTransfers([makeTransfer(1, { status: 'saved', updatedUtc: LATER })])
+
+    await act(async () => {
+      await result.current.cancel([1])
+    })
+
+    expect(result.current.transfers[0].status).toBe('saved')
+  })
+
+  it('shows the error when a cancel fails', async () => {
+    stubFetch(() => Response.json({ error: 'Server is busy.' }, { status: 500 }))
+    const { result } = renderTransfers([makeTransfer(1)])
+
+    await act(async () => {
+      await result.current.cancel([1])
+    })
+
+    expect(result.current.actionError).toBe('Server is busy.')
+    expect(result.current.transfers[0].status).toBe('waiting')
   })
 })
