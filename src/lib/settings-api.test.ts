@@ -91,6 +91,19 @@ describe('settings api', () => {
       })
     })
 
+    it.each([0, 5, 480])('accepts an idle timeout of %d', async (idleTimeoutMinutes) => {
+      stubFetch(Response.json({ ...settings, idleTimeoutMinutes }))
+      expect(await getSettings()).toEqual({
+        success: true,
+        data: { ...settings, idleTimeoutMinutes },
+      })
+    })
+
+    it.each([-1, 1, 4, 481])('fails on an idle timeout of %d', async (idleTimeoutMinutes) => {
+      stubFetch(Response.json({ ...settings, idleTimeoutMinutes }))
+      expect(await getSettings()).toMatchObject({ success: false, error: FALLBACK_ERROR_MESSAGE })
+    })
+
     it('fails when the power countdown is missing', async () => {
       const { powerCountdownSeconds: _countdown, ...withoutCountdown } = settings
       stubFetch(Response.json(withoutCountdown))

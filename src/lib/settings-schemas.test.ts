@@ -14,6 +14,7 @@ const valid: SettingsFormValues = {
   defaultMinutes: '60',
   isNoticeEnabled: true,
   noticeText: 'This computer may be monitored.',
+  staySignedIn: false,
   idleTimeoutMinutes: '30',
   defaultViewMode: 'notified',
   powerCountdownSeconds: '30',
@@ -90,6 +91,10 @@ describe('settingsFormSchema', () => {
         'Enter a whole number from 5 to 480.',
       )
     })
+
+    it.each(['', '4', 'soon'])('ignores %j when the admin stays signed in', (idleTimeoutMinutes) => {
+      expect(errorsFor({ staySignedIn: true, idleTimeoutMinutes })).toEqual({})
+    })
   })
 
   describe('power countdown', () => {
@@ -145,10 +150,25 @@ describe('toSettingsFormValues', () => {
       defaultMinutes: '90',
       isNoticeEnabled: false,
       noticeText: 'Off for now.',
+      staySignedIn: false,
       idleTimeoutMinutes: '15',
       defaultViewMode: 'anonymous',
       powerCountdownSeconds: '45',
       lockMessage: 'Back at 10:00.',
+    })
+  })
+
+  it('ticks stay signed in and shows 30 minutes when the timeout is 0', () => {
+    expect(toSettingsFormValues({ ...savedSettings, idleTimeoutMinutes: 0 })).toMatchObject({
+      staySignedIn: true,
+      idleTimeoutMinutes: '30',
+    })
+  })
+
+  it('leaves stay signed in off and shows the minutes for 45', () => {
+    expect(toSettingsFormValues({ ...savedSettings, idleTimeoutMinutes: 45 })).toMatchObject({
+      staySignedIn: false,
+      idleTimeoutMinutes: '45',
     })
   })
 })
@@ -179,9 +199,32 @@ describe('buildSettingsPayload', () => {
     expect(buildSettingsPayload(toSettingsFormValues(savedSettings))).toEqual(savedSettings)
   })
 
+  it('round-trips a timeout of 0', () => {
+    const neverSignOut = { ...savedSettings, idleTimeoutMinutes: 0 }
+    expect(buildSettingsPayload(toSettingsFormValues(neverSignOut))).toEqual(neverSignOut)
+  })
+
+  it('sends 0 when the admin stays signed in, whatever the minutes field holds', () => {
+    expect(
+      buildSettingsPayload({ ...valid, staySignedIn: true, idleTimeoutMinutes: 'soon' })
+        ?.idleTimeoutMinutes,
+    ).toBe(0)
+  })
+
+  it.each([
+    ['5', 5],
+    ['480', 480],
+  ])('sends %j minutes as %d when stay signed in is off', (idleTimeoutMinutes, expected) => {
+    expect(buildSettingsPayload({ ...valid, idleTimeoutMinutes })?.idleTimeoutMinutes).toBe(
+      expected,
+    )
+  })
+
   it('returns null when a number does not parse', () => {
     expect(buildSettingsPayload({ ...valid, defaultMinutes: 'abc' })).toBeNull()
     expect(buildSettingsPayload({ ...valid, idleTimeoutMinutes: '' })).toBeNull()
+    expect(buildSettingsPayload({ ...valid, idleTimeoutMinutes: '4' })).toBeNull()
+    expect(buildSettingsPayload({ ...valid, idleTimeoutMinutes: '481' })).toBeNull()
     expect(buildSettingsPayload({ ...valid, powerCountdownSeconds: '' })).toBeNull()
   })
 })
