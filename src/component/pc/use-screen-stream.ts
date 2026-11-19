@@ -14,6 +14,7 @@ import {
 import type { ViewMode } from '../../types'
 import { useAuth } from '../auth/auth-context'
 import type { ServerControlMessage } from '../../lib/remote-input'
+import type { ServerCursorMessage } from '../../lib/remote-cursor'
 import { openScreenConnection, type ScreenConnection } from './screen-connection'
 
 interface UseScreenStreamOptions {
@@ -23,10 +24,11 @@ interface UseScreenStreamOptions {
   onRefused: () => void
 }
 
-// Control messages, server states and closes, delivered as they happen on the socket.
+// Control and cursor messages, server states and closes, delivered as they happen on the socket.
 export type ScreenSocketEvent =
   | { kind: 'server-state'; state: ServerScreenState }
   | { kind: 'control'; message: ServerControlMessage }
+  | { kind: 'cursor'; message: ServerCursorMessage }
   | { kind: 'closed' }
 
 export type ScreenSocketListener = (event: ScreenSocketEvent) => void
@@ -133,6 +135,7 @@ export function useScreenStream({ pcId, mode, onRefused }: UseScreenStreamOption
         notifyListeners({ kind: 'server-state', state: serverState })
       },
       onControlMessage: (message) => notifyListeners({ kind: 'control', message }),
+      onCursorMessage: (message) => notifyListeners({ kind: 'cursor', message }),
       onFrameDrawn: (size) => setState((previous) => ({ ...previous, size })),
       onClose: handleClose,
     })

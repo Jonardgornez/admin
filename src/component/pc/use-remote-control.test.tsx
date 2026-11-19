@@ -402,3 +402,37 @@ describe('useRemoteControl paste', () => {
     vi.useRealTimers()
   })
 })
+
+describe('useRemoteControl pointer shape', () => {
+  it('shows the PC pointer shape on the canvas only while control is on', () => {
+    const mock = mockScreen()
+    const canvas = document.createElement('canvas')
+    mock.screen.canvasRef.current = canvas
+    const listeners = new Set<ScreenSocketListener>()
+    const screen = {
+      ...mock.screen,
+      subscribe: (listener: ScreenSocketListener) => {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
+    }
+    const emit = (event: Parameters<ScreenSocketListener>[0]) =>
+      act(() => listeners.forEach((listener) => listener(event)))
+    const { result } = renderHook(() =>
+      useRemoteControl({ screen, onReleaseShortcut: vi.fn(), onPasteRefused: vi.fn() }),
+    )
+
+    emit({ kind: 'cursor', message: { cursor: 'text' } })
+    expect(canvas.style.cursor).toBe('')
+
+    act(() => result.current.start())
+    emit({ kind: 'control', message: { control: 'on' } })
+    emit({ kind: 'cursor', message: { cursor: 'text' } })
+    expect(canvas.style.cursor).toBe('text')
+
+    act(() => result.current.stop())
+    expect(canvas.style.cursor).toBe('')
+  })
+})

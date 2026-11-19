@@ -1,3 +1,4 @@
+import { parseServerCursorMessage, type ServerCursorMessage } from '../../lib/remote-cursor'
 import { parseServerControlMessage, type ServerControlMessage } from '../../lib/remote-input'
 import {
   LatestFrameQueue,
@@ -15,6 +16,7 @@ export interface ScreenConnectionOptions {
   getCanvas: () => HTMLCanvasElement | null
   onServerState: (state: ServerScreenState) => void
   onControlMessage: (message: ServerControlMessage) => void
+  onCursorMessage: (message: ServerCursorMessage) => void
   // Called only when the frame size changes.
   onFrameDrawn: (size: ScreenSize) => void
   // wasOpen is false when the server refused the upgrade (for example 401, 403, 404 or 409).
@@ -88,7 +90,12 @@ export function openScreenConnection(options: ScreenConnectionOptions): ScreenCo
         return
       }
       const control = parseServerControlMessage(event.data)
-      if (control) options.onControlMessage(control)
+      if (control) {
+        options.onControlMessage(control)
+        return
+      }
+      const cursor = parseServerCursorMessage(event.data)
+      if (cursor) options.onCursorMessage(cursor)
       return
     }
     if (event.data instanceof ArrayBuffer) frames.push(event.data)

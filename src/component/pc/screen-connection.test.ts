@@ -49,17 +49,19 @@ class FakeWebSocket {
 function openTestConnection() {
   const onServerState = vi.fn()
   const onControlMessage = vi.fn()
+  const onCursorMessage = vi.fn()
   const onClose = vi.fn()
   const connection = openScreenConnection({
     url: 'ws://test.local/api/pcs/1/screen/live?mode=notified',
     getCanvas: () => null,
     onServerState,
     onControlMessage,
+    onCursorMessage,
     onFrameDrawn: vi.fn(),
     onClose,
   })
   const socket = FakeWebSocket.instances[0]
-  return { connection, socket, onServerState, onControlMessage, onClose }
+  return { connection, socket, onServerState, onControlMessage, onCursorMessage, onClose }
 }
 
 describe('openScreenConnection', () => {
@@ -94,6 +96,22 @@ describe('openScreenConnection', () => {
     socket.receive('{"control":"on"}')
     expect(onControlMessage).toHaveBeenCalledWith({ control: 'on' })
     expect(onServerState).not.toHaveBeenCalled()
+  })
+
+  it('passes cursor messages to onCursorMessage only', () => {
+    const { socket, onServerState, onControlMessage, onCursorMessage } = openTestConnection()
+    socket.open()
+    socket.receive('{"cursor":"text"}')
+    expect(onCursorMessage).toHaveBeenCalledWith({ cursor: 'text' })
+    expect(onServerState).not.toHaveBeenCalled()
+    expect(onControlMessage).not.toHaveBeenCalled()
+  })
+
+  it('drops an invalid cursor message', () => {
+    const { socket, onCursorMessage } = openTestConnection()
+    socket.open()
+    socket.receive('{"cursor":"url(evil)"}')
+    expect(onCursorMessage).not.toHaveBeenCalled()
   })
 
   it('still passes stream states to onServerState and not to onControlMessage', () => {
