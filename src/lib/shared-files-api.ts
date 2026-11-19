@@ -12,6 +12,7 @@ import { toUploadPercent } from './file-transfers'
 import {
   FILE_TRANSFER_DECISIONS,
   FILE_TRANSFER_STATUSES,
+  FILE_TRANSFER_WAITING_REASONS,
   SHARE_FOLDERS,
   type FileTransfer,
   type FileTransferDecision,
@@ -41,6 +42,9 @@ const fileTransferSchema = z.object({
   decision: z.enum(FILE_TRANSFER_DECISIONS).nullable(),
   savedAs: z.string().nullable(),
   error: z.string().nullable(),
+  waitingReason: z.enum(FILE_TRANSFER_WAITING_REASONS).nullable(),
+  busyWith: z.string().nullable(),
+  pcClientVersion: z.string().nullable(),
   createdUtc: z.string(),
   updatedUtc: z.string(),
 })
@@ -152,6 +156,15 @@ export async function decideFileTransfers(
     await apiRequest<unknown>('/api/pcs/files/transfers/decision', {
       method: 'POST',
       body: { transferIds, decision },
+    }),
+  )
+}
+
+export async function cancelFileTransfers(transferIds: number[]): Promise<ApiResult<FileTransfer[]>> {
+  return readTransfers(
+    await apiRequest<unknown>('/api/pcs/files/transfers/cancel', {
+      method: 'POST',
+      body: { transferIds },
     }),
   )
 }

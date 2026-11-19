@@ -5,6 +5,7 @@ import {
   describeTransferDetail,
   describeTransferSummary,
   formatFileSize,
+  getCancellableTransfers,
   getExistingTransfers,
   getSendFileTargetLimitError,
   hasPendingTransfers,
@@ -14,8 +15,8 @@ import {
 } from './file-transfers'
 
 describe('isFinalTransferStatus and hasPendingTransfers', () => {
-  it('treats saved, skipped, failed and expired as final', () => {
-    expect(['saved', 'skipped', 'failed', 'expired'].every((status) =>
+  it('treats saved, skipped, failed, expired and cancelled as final', () => {
+    expect(['saved', 'skipped', 'failed', 'expired', 'cancelled'].every((status) =>
       isFinalTransferStatus(status as FileTransfer['status']),
     )).toBe(true)
     expect(['waiting', 'downloading', 'exists', 'applying'].some((status) =>
@@ -33,6 +34,18 @@ describe('getExistingTransfers', () => {
   it('keeps only the transfers waiting for a decision', () => {
     const existing = makeTransfer(2, { status: 'exists' })
     expect(getExistingTransfers([makeTransfer(1), existing])).toEqual([existing])
+  })
+})
+
+describe('getCancellableTransfers', () => {
+  it('keeps the transfers that have not reached a final status', () => {
+    const pending = (['waiting', 'downloading', 'exists', 'applying'] as const).map((status, index) =>
+      makeTransfer(index + 1, { status }),
+    )
+    const final = (['saved', 'skipped', 'failed', 'expired', 'cancelled'] as const).map((status, index) =>
+      makeTransfer(index + 10, { status }),
+    )
+    expect(getCancellableTransfers([...pending, ...final])).toEqual(pending)
   })
 })
 
@@ -69,9 +82,37 @@ describe('describeTransferDetail', () => {
     )
   })
 
-  it('has no detail while waiting or downloading', () => {
+  it('has no detail while waiting without a reason, downloading or cancelled', () => {
     expect(describeTransferDetail(makeTransfer(1))).toBeNull()
     expect(describeTransferDetail(makeTransfer(1, { status: 'downloading' }))).toBeNull()
+    expect(describeTransferDetail(makeTransfer(1, { status: 'cancelled' }))).toBeNull()
+  })
+
+  it('says why a transfer is still waiting', () => {
+    expect(describeTransferDetail(makeTransfer(1, { waitingReason: 'offline' }))).toBe(
+      'PC is offline. It gets the file if it comes back within 1 hour.',
+    )
+    expect(describeTransferDetail(makeTransfer(1, { waitingReason: 'busy', busyWith: 'slides.pptx' }))).toBe(
+      'PC is still receiving slides.pptx.',
+    )
+    expect(describeTransferDetail(makeTransfer(1, { waitingReason: 'busy' }))).toBe(
+      'PC is still receiving another file.',
+    )
+  })
+
+  it('names the needed and the installed client version when the client is too old', () => {
+    expect(
+      describeTransferDetail(makeTransfer(1, { waitingReason: 'clientTooOld', pcClientVersion: '0.25.3' })),
+    ).toBe('PC needs client 0.26.0 or newer (it has 0.25.3). Update it from the dashboard.')
+    expect(
+      describeTransferDetail(makeTransfer(1, { waitingReason: 'clientTooOld', pcClientVersion: null })),
+    ).toBe('PC needs client 0.26.0 or newer (it has an unknown version). Update it from the dashboard.')
+  })
+
+  it('ignores a waiting reason once the transfer has moved on', () => {
+    expect(
+      describeTransferDetail(makeTransfer(1, { status: 'downloading', waitingReason: 'offline' })),
+    ).toBeNull()
   })
 })
 

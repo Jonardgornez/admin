@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_ERROR_MESSAGE, NETWORK_ERROR_MESSAGE } from './api'
 import {
+  cancelFileTransfers,
   decideFileTransfers,
   getFileTransfers,
   sendFileToPcs,
@@ -22,6 +23,9 @@ const transfer = {
   decision: null,
   savedAs: null,
   error: null,
+  waitingReason: 'busy',
+  busyWith: 'slides.pptx',
+  pcClientVersion: '0.26.0',
   createdUtc: '2026-11-18T10:00:00Z',
   updatedUtc: '2026-11-18T10:00:00Z',
 }
@@ -224,5 +228,36 @@ describe('file transfer requests', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/pcs/files/transfers/decision')
     expect(JSON.parse(init.body as string)).toEqual({ transferIds: [9], decision: 'keepBoth' })
+  })
+
+  it('refuses a transfer with an unknown waiting reason', async () => {
+    stubFetch(Response.json({ transfers: [{ ...transfer, waitingReason: 'asleep' }] }))
+
+    expect(await getFileTransfers([9])).toEqual({
+      success: false,
+      status: 200,
+      error: FALLBACK_ERROR_MESSAGE,
+    })
+  })
+
+  it('posts a cancel for the transfers and returns them', async () => {
+    const cancelled = { ...transfer, status: 'cancelled', waitingReason: null, busyWith: null }
+    const fetchMock = stubFetch(Response.json({ transfers: [cancelled] }))
+
+    expect(await cancelFileTransfers([9, 10])).toEqual({ success: true, data: [cancelled] })
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/pcs/files/transfers/cancel')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ transferIds: [9, 10] })
+  })
+
+  it('shows the server error when a cancel is refused', async () => {
+    stubFetch(Response.json({ error: 'Too many transfers.' }, { status: 400 }))
+
+    expect(await cancelFileTransfers([9])).toEqual({
+      success: false,
+      status: 400,
+      error: 'Too many transfers.',
+    })
   })
 })
