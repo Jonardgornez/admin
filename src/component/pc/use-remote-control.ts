@@ -30,6 +30,7 @@ import {
 import { isPasteShortcut, type PasteOutcome } from '../../lib/paste-text'
 import { isPictureScreenState, type ScreenStreamStatus } from '../../lib/screen-stream'
 import { usePasteText, type PasteTextResult } from './use-paste-text'
+import { useRemoteCursor } from './use-remote-cursor'
 import type { ScreenSocketEvent, ScreenStream } from './use-screen-stream'
 
 // The server gives up after 5 s. The admin waits a little longer, then stops on its own side too.
@@ -81,6 +82,7 @@ export function useRemoteControl({
   const startRequestedRef = useRef(false)
   const reportReleaseShortcut = useEffectEvent(onReleaseShortcut)
   const paste = usePasteText({ isEnabled: isOn, sendMessage })
+  useRemoteCursor({ canvasRef, controlKind: state.kind, subscribe })
 
   const pasteClipboardText = useEffectEvent((text: string) => {
     const result = paste.pasteText(text)
@@ -121,6 +123,7 @@ export function useRemoteControl({
       setState((previous) => endControl(previous, 'connection'))
       return
     }
+    if (event.kind === 'cursor') return
     if (isPictureScreenState(event.state) || state.kind === 'off') return
     sendMessage(RELEASE_MESSAGE)
     sendMessage(buildControlMessage(false))
