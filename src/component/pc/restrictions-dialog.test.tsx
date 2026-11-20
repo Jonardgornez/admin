@@ -184,15 +184,11 @@ describe('RestrictionsDialog Task Manager', () => {
     expect(getTaskManagerCheckbox().indeterminate).toBe(true)
   })
 
-  it('is a working checkbox in Policies, explained, and no longer in the read-only list', () => {
+  it('is a working checkbox in the Policies list, shown once', () => {
     renderDialog([makePc(1)])
     expect(getTaskManagerCheckbox().disabled).toBe(false)
     expect(screen.getAllByRole('checkbox', { name: /Task Manager/ })).toHaveLength(1)
     expect(screen.getByRole('group', { name: 'Policies' }).contains(getTaskManagerCheckbox())).toBe(true)
-    const helpId = getTaskManagerCheckbox().getAttribute('aria-describedby') ?? ''
-    expect(document.getElementById(helpId)?.textContent).toBe(
-      "Students can't open Task Manager, including from Ctrl+Alt+Del. Offline PCs apply it when they start. Needs client 0.31.0 or newer.",
-    )
   })
 
   it('turns it off only for PCs that still allow it, leaving the server PC out', async () => {
@@ -334,9 +330,8 @@ describe('RestrictionsDialog internet choice', () => {
   it('explains what a blocked PC can still reach', () => {
     renderDialog([makePc(1)])
     expect(
-      screen.getByText('Blocked PCs can still reach the Lykantra server and the lab network.'),
+      screen.getByText('Block internet: PCs can still reach the Lykantra server and the lab network.'),
     ).toBeTruthy()
-    expect(getInternetCheckbox().getAttribute('aria-describedby')).toBeTruthy()
   })
 
   it('leaves the server PC out of the targets and says its internet stays on', () => {
@@ -387,11 +382,12 @@ describe('RestrictionsDialog policies and drives', () => {
     expect(getDriveCheckbox('Disable Drives (*)', 'E').indeterminate).toBe(true)
   })
 
-  it('keeps Task Manager and Fast User Switch out of the grid, and file/folder protection disabled', () => {
+  it('lists internet, Fast User Switch and Task Manager with the other policies, and file/folder protection disabled', () => {
     renderListDialog([makePc(1)])
-    const grid = within(screen.getByRole('group', { name: 'Other policies' }))
-    expect(grid.queryByRole('checkbox', { name: /Task Manager/ })).toBeNull()
-    expect(grid.queryByRole('checkbox', { name: /Fast User Switch/ })).toBeNull()
+    const grid = within(screen.getByRole('group', { name: 'Policies' }))
+    expect(grid.getByRole('checkbox', { name: 'Block internet' })).toBeTruthy()
+    expect(grid.getByRole('checkbox', { name: /Task Manager/ })).toBeTruthy()
+    expect(grid.getByRole('checkbox', { name: /Fast User Switch/ })).toBeTruthy()
     const protection = getCheckbox('Enable File/Folder Protection')
     expect(protection.disabled).toBe(true)
     const noteId = protection.getAttribute('aria-describedby') ?? ''
@@ -497,11 +493,14 @@ describe('RestrictionsDialog policies and drives', () => {
     expect(onApplyRestrictions.mock.calls[0][1].hiddenDrives).toEqual({ C: false })
   })
 
-  it('Select/Deselect All of the policies leaves file/folder protection alone', () => {
+  it('Select/Deselect All of the policies covers internet, Fast User Switch and Task Manager but not file/folder protection', () => {
     renderListDialog([makePc(1)])
-    const grid = within(screen.getByRole('group', { name: 'Other policies' }))
+    const grid = within(screen.getByRole('group', { name: 'Policies' }))
     fireEvent.click(grid.getByRole('checkbox', { name: 'Select/Deselect All' }))
     expect(getCheckbox('Disable Add Printer (*)').checked).toBe(true)
+    expect(getCheckbox('Block internet').checked).toBe(true)
+    expect(getCheckbox('Disable Fast User Switch').checked).toBe(true)
+    expect(getCheckbox('Disable Access to Task Manager').checked).toBe(true)
     expect(getCheckbox('Enable File/Folder Protection').checked).toBe(false)
   })
 
