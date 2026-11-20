@@ -26,7 +26,7 @@ import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
 import { getLockActionPcIds, type LockAction } from '../lib/pc-lock-action'
 import { describeInternetResult } from '../lib/internet'
-import { describeFastUserSwitchingResult } from '../lib/restrictions'
+import { describeRestrictionResult, describeRestrictionsResult } from '../lib/restrictions'
 import {
   canEditPcTime,
   countOnlinePcs,
@@ -70,6 +70,7 @@ import {
 import type { BulkCommandResult, RenamedPc } from '../lib/pcs-api'
 import type {
   PcLockAction,
+  PcRestrictionsChange,
   PcTimeCommand,
   PowerCommand,
   RegisteredPc,
@@ -124,6 +125,8 @@ export function DashboardPage() {
     applyPcsWallpaper,
     setPcsKeepAwake,
     setPcsFastUserSwitchingDisabled,
+    setPcsTaskManagerDisabled,
+    setPcsRestrictions,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,
@@ -339,7 +342,23 @@ export function DashboardPage() {
 
   async function applyRestrictionsFastUserSwitching(pcIds: number[], disabled: boolean) {
     const result = await setPcsFastUserSwitchingDisabled(pcIds, disabled)
-    if (result?.success) notify(describeFastUserSwitchingResult(disabled, result.data.affected))
+    if (result?.success) {
+      notify(describeRestrictionResult('fastUserSwitchingDisabled', disabled, result.data.affected))
+    }
+    return result
+  }
+
+  async function applyRestrictionsTaskManager(pcIds: number[], disabled: boolean) {
+    const result = await setPcsTaskManagerDisabled(pcIds, disabled)
+    if (result?.success) {
+      notify(describeRestrictionResult('taskManagerDisabled', disabled, result.data.affected))
+    }
+    return result
+  }
+
+  async function applyRestrictionLists(pcIds: number[], change: PcRestrictionsChange) {
+    const result = await setPcsRestrictions(pcIds, change)
+    if (result?.success) notify(describeRestrictionsResult(result.data.affected))
     return result
   }
 
@@ -652,6 +671,8 @@ export function DashboardPage() {
           targetPcs={restrictionTargetPcs}
           onApplyInternet={applyRestrictionsInternet}
           onApplyFastUserSwitching={applyRestrictionsFastUserSwitching}
+          onApplyTaskManager={applyRestrictionsTaskManager}
+          onApplyRestrictions={applyRestrictionLists}
           onClose={() => setRestrictionTargetPcs(null)}
         />
       )}

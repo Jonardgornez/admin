@@ -13,7 +13,7 @@ import * as internetApi from '../../lib/internet-api'
 import * as pcsApi from '../../lib/pcs-api'
 import { sendPcMessage, type PcMessageDelivery } from '../../lib/messages-api'
 import * as wallpapersApi from '../../lib/wallpapers-api'
-import type { Pc, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
+import type { Pc, PcRestrictionsChange, PcTimeCommand, RegisteredPc, ServerPc } from '../../types'
 import { useSessionRequest } from '../auth/use-session-request'
 
 export const POLL_INTERVAL_MS = 5000
@@ -336,6 +336,18 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const setPcsTaskManagerDisabled = useCallback(
+    (pcIds: number[], disabled: boolean) =>
+      runBulkCommand(() => pcsApi.setPcsTaskManagerDisabled(pcIds, disabled)),
+    [runBulkCommand],
+  )
+
+  const setPcsRestrictions = useCallback(
+    (pcIds: number[], change: PcRestrictionsChange) =>
+      runBulkCommand(() => pcsApi.setPcsRestrictions(pcIds, change)),
+    [runBulkCommand],
+  )
+
   // The upload runs inside the same guard as the assign, so a second click cannot start another upload.
   const applyPcsWallpaper = useCallback(
     (pcIds: number[], file: File) =>
@@ -384,6 +396,8 @@ export function usePcs() {
     applyPcsWallpaper,
     setPcsKeepAwake,
     setPcsFastUserSwitchingDisabled,
+    setPcsTaskManagerDisabled,
+    setPcsRestrictions,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,

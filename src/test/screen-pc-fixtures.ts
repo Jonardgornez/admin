@@ -21,5 +21,7 @@ export function makeServerPc(id: number, name: string, isOnline: boolean): Serve
     service: null,
     keepAwake: false,
     fastUserSwitchingDisabled: false,
+    taskManagerDisabled: false,
+    restrictions: { policies: [], hiddenDrives: [], disabledDrives: [] },
   }
 }

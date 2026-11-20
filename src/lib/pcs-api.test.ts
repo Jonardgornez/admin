@@ -35,6 +35,8 @@ import {
   renamePc,
 
   setPcsFastUserSwitchingDisabled,
+  setPcsTaskManagerDisabled,
+  setPcsRestrictions,
   setPcsKeepAwake,
 
   setPcsWallpaper,
@@ -85,6 +87,8 @@ const serverPc = {
 
   fastUserSwitchingDisabled: false,
 
+  taskManagerDisabled: false,
+  restrictions: { policies: [], hiddenDrives: [], disabledDrives: [] },
 }
 
 
@@ -176,6 +180,41 @@ describe('pcs api', () => {
       const { fastUserSwitchingDisabled: _omitted, ...olderServerPc } = serverPc
       stubFetch(Response.json([olderServerPc]))
       expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+    })
+
+    it('reads the Task Manager setting, and an older server without it as allowed', async () => {
+      stubFetch(Response.json([{ ...serverPc, taskManagerDisabled: true }]))
+      expect(await listPcs()).toEqual({
+        success: true,
+        data: [{ ...serverPc, taskManagerDisabled: true }],
+      })
+
+      const { taskManagerDisabled: _omitted, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc]))
+      expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+    })
+
+    it('reads the restrictions, skipping unknown policy ids', async () => {
+      stubFetch(
+        Response.json([
+          {
+            ...serverPc,
+            restrictions: { policies: ['run-command', 'future-policy'], hiddenDrives: ['C'], disabledDrives: ['D'] },
+          },
+        ]),
+      )
+      expect(await listPcs()).toEqual({
+        success: true,
+        data: [
+          { ...serverPc, restrictions: { policies: ['run-command'], hiddenDrives: ['C'], disabledDrives: ['D'] } },
+        ],
+      })
+    })
+
+    it('reads missing or malformed restrictions as none without hiding the PC', async () => {
+      const { restrictions: _omitted, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc, { ...serverPc, id: 10, restrictions: { hiddenDrives: ['c'] } }]))
+      expect(await listPcs()).toEqual({ success: true, data: [serverPc, { ...serverPc, id: 10 }] })
     })
 
     it('reads a malformed service report as null without hiding the other PCs', async () => {
@@ -1115,6 +1154,72 @@ describe('setPcsFastUserSwitchingDisabled', () => {
       '/api/pcs/fast-user-switching',
       expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"disabled":true}' }),
     )
+  })
+})
+
+describe('setPcsTaskManagerDisabled', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the PC ids and the setting and returns how many changed', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 2 }))
+    expect(await setPcsTaskManagerDisabled([3, 7], true)).toEqual({
+      success: true,
+      data: { affected: 2 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/task-manager',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"disabled":true}' }),
+    )
+  })
+
+  it('sends false to allow it again', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 1 }))
+    expect(await setPcsTaskManagerDisabled([3], false)).toEqual({ success: true, data: { affected: 1 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/task-manager',
+      expect.objectContaining({ body: '{"ids":[3],"disabled":false}' }),
+    )
+  })
+
+  it('returns the server error when the command is refused', async () => {
+    stubFetch(Response.json({ error: 'Invalid request.' }, { status: 400 }))
+    expect(await setPcsTaskManagerDisabled([3], true)).toEqual({
+      success: false,
+      status: 400,
+      error: 'Invalid request.',
+    })
+  })
+})
+
+describe('setPcsRestrictions', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the PC ids and only the listed changes and returns how many changed', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 2 }))
+    const change = {
+      policies: { 'registry-editor': true, 'run-command': false },
+      hiddenDrives: { C: true },
+      disabledDrives: {},
+      applyNow: true,
+    }
+    expect(await setPcsRestrictions([3, 7], change)).toEqual({ success: true, data: { affected: 2 } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/restrictions',
+      expect.objectContaining({
+        method: 'POST',
+        body: '{"ids":[3,7],"policies":{"registry-editor":true,"run-command":false},"hiddenDrives":{"C":true},"disabledDrives":{},"applyNow":true}',
+      }),
+    )
+  })
+
+  it('returns the server error when the command is refused', async () => {
+    stubFetch(Response.json({ error: 'Invalid request.' }, { status: 400 }))
+    const change = { policies: {}, hiddenDrives: {}, disabledDrives: {}, applyNow: false }
+    expect(await setPcsRestrictions([3], change)).toEqual({ success: false, status: 400, error: 'Invalid request.' })
   })
 })
 

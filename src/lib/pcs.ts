@@ -82,6 +82,8 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     service: serverPc.service ?? null,
     keepAwake: serverPc.keepAwake,
     fastUserSwitchingDisabled: serverPc.fastUserSwitchingDisabled,
+    taskManagerDisabled: serverPc.taskManagerDisabled,
+    restrictions: serverPc.restrictions,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),

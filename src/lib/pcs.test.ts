@@ -927,6 +927,8 @@ const serverPc: ServerPc = {
   service: null,
   keepAwake: false,
   fastUserSwitchingDisabled: false,
+  taskManagerDisabled: false,
+  restrictions: { policies: [], hiddenDrives: [], disabledDrives: [] },
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -1077,6 +1079,8 @@ describe('toRegisteredPc', () => {
       service: null,
       keepAwake: false,
       fastUserSwitchingDisabled: false,
+      taskManagerDisabled: false,
+      restrictions: { policies: [], hiddenDrives: [], disabledDrives: [] },
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })
@@ -1195,13 +1199,17 @@ describe('toRegisteredPc', () => {
     )
   })
 
-  it('does not invent a user, time, or restrictions', () => {
+  it('does not invent a user or time', () => {
     const pc = toRegisteredPc(serverPc, now)
     expect(pc.user).toBeUndefined()
     expect(pc.timeUsed).toBeUndefined()
     expect(pc.minutesLeft).toBeUndefined()
     expect(pc.isOpenTime).toBeUndefined()
-    expect(pc.restrictions).toBeUndefined()
+  })
+
+  it('keeps the restrictions the server sent', () => {
+    const restrictions = { policies: ['run-command' as const], hiddenDrives: ['D' as const], disabledDrives: [] }
+    expect(toRegisteredPc({ ...serverPc, restrictions }, now).restrictions).toEqual(restrictions)
   })
 
   it('leaves the address out when the server has none', () => {

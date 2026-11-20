@@ -30,6 +30,8 @@ export interface Pc {
   keepAwake?: boolean
   // True hides Windows "Switch user", so a student can't leave the client's session for another account.
   fastUserSwitchingDisabled?: boolean
+  // True blocks Task Manager for the signed-in student, including from Ctrl+Alt+Del.
+  taskManagerDisabled?: boolean
   // Null when the Lykantra service has not reported, e.g. a server older than the diagnostics feature.
   service?: PcServiceStatus | null
 }
@@ -95,6 +97,8 @@ export interface ServerPc {
   service: PcServiceStatus | null
   keepAwake: boolean
   fastUserSwitchingDisabled: boolean
+  taskManagerDisabled: boolean
+  restrictions: PcRestrictions
 }
 
 export interface ServerPcWallpaper {
@@ -143,33 +147,55 @@ export interface RegisteredPc extends Pc {
   id: number
 }
 
+// The Restrictions policies the server stores per PC and the PC's service writes for the signed-in student.
+export const USER_POLICY_IDS = [
+  'registry-editor',
+  'command-prompt',
+  'run-command',
+  'control-panel',
+  'add-printer',
+  'remove-printer',
+  'windows-logout',
+  'windows-shutdown',
+] as const
+
+export type UserPolicyId = (typeof USER_POLICY_IDS)[number]
+
+// Task Manager and Fast User Switch have their own settings, and file/folder protection is not built yet.
 export type RestrictionPolicyId =
+  | UserPolicyId
   | 'task-manager'
-  | 'registry-editor'
-  | 'command-prompt'
-  | 'run-command'
-  | 'control-panel'
-  | 'add-printer'
-  | 'remove-printer'
-  | 'windows-logout'
   | 'fast-user-switch'
-  | 'windows-shutdown'
   | 'file-folder-protection'
 
-export type DriveLetter =
-  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
-  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+export const DRIVE_LETTERS = [
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+] as const
+
+export type DriveLetter = (typeof DRIVE_LETTERS)[number]
 
 export interface RestrictionPolicy {
   id: RestrictionPolicyId
   label: string
-  needsReboot: boolean
+  // True for File Explorer options, which apply when Explorer starts: at the next sign-in, or at once when Explorer is restarted.
+  appliesWhenExplorerStarts: boolean
 }
 
+// What the administrator chose for a PC under Restrictions, as the server sends it.
 export interface PcRestrictions {
-  policies: RestrictionPolicyId[]
+  policies: UserPolicyId[]
   hiddenDrives: DriveLetter[]
   disabledDrives: DriveLetter[]
+}
+
+// A Restrictions change for several PCs. Only the listed keys change, so PCs that differ keep their other choices.
+// applyNow restarts File Explorer on the PCs so its options apply in a few seconds.
+export interface PcRestrictionsChange {
+  policies: Partial<Record<UserPolicyId, boolean>>
+  hiddenDrives: Partial<Record<DriveLetter, boolean>>
+  disabledDrives: Partial<Record<DriveLetter, boolean>>
+  applyNow: boolean
 }
 
 export type TimeUnit = 'minutes' | 'hours'
