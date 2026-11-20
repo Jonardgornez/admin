@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState } from 'react'
 import type { ApiResult } from '../../lib/api'
 import { restrictionPolicies, driveLetters } from '../../data/restrictions'
 import {
@@ -15,6 +15,7 @@ import {
   getCheckStates,
   getPcIdsToSetRestriction,
   getRestrictionChoice,
+  type CheckState,
   type CheckStates,
   type RestrictionChoice,
   type RestrictionFlag,
@@ -34,18 +35,20 @@ import { Checkbox } from '../ui/choice'
 import { Modal } from '../ui/modal'
 import { CheckboxGroup, type CheckboxGroupOption } from './checkbox-group'
 
-// These policies have their own checkboxes above the grid, so they are left out of it.
-const OWN_SECTION_POLICY_IDS: RestrictionPolicyId[] = ['fast-user-switch', 'task-manager']
+// Internet, Fast User Switching and Task Manager sit in the Policies list but are applied by their own commands.
+const INTERNET_ID = 'internet'
+const FAST_USER_SWITCH_ID = 'fast-user-switch'
+const TASK_MANAGER_ID = 'task-manager'
 const NOT_BUILT_POLICY_ID = 'file-folder-protection'
 // Hiding or blocking it hides the student's own folders too, so it gets a warning.
 const SYSTEM_DRIVE = 'C'
 
-// The policies in the grid: the ones the PCs apply, and file/folder protection, shown but not built.
-type GridPolicyId = UserPolicyId | typeof NOT_BUILT_POLICY_ID
+type PolicyListId = RestrictionPolicyId | typeof INTERNET_ID
 
-function isGridPolicyId(id: RestrictionPolicyId): id is GridPolicyId {
-  return !OWN_SECTION_POLICY_IDS.includes(id)
-}
+const internetToState: Record<InternetChoice, CheckState> = { blocked: 'on', open: 'off', mixed: 'mixed' }
+const stateToInternet: Record<CheckState, InternetChoice> = { on: 'blocked', off: 'open', mixed: 'mixed' }
+const choiceToState: Record<RestrictionChoice, CheckState> = { disabled: 'on', allowed: 'off', mixed: 'mixed' }
+const stateToChoice: Record<CheckState, RestrictionChoice> = { on: 'disabled', off: 'allowed', mixed: 'mixed' }
 
 type ApplyRestriction = (
   pcIds: number[],
@@ -68,23 +71,26 @@ interface RestrictionsDialogProps {
   onClose: () => void
 }
 
-const policyOptions: CheckboxGroupOption<GridPolicyId>[] = restrictionPolicies.flatMap((policy) =>
-  isGridPolicyId(policy.id)
-    ? [
-        {
-          value: policy.id,
-          label: policy.appliesWhenExplorerStarts ? `${policy.label} (*)` : policy.label,
-          disabledNote: policy.id === NOT_BUILT_POLICY_ID ? 'Not available yet' : undefined,
-        },
-      ]
-    : [],
-)
+const policyOptions: CheckboxGroupOption<PolicyListId>[] = [
+  { value: INTERNET_ID, label: 'Block internet' },
+  ...restrictionPolicies.map((policy) => ({
+    value: policy.id,
+    label: policy.appliesWhenExplorerStarts ? `${policy.label} (*)` : policy.label,
+    disabledNote: policy.id === NOT_BUILT_POLICY_ID ? 'Not available yet' : undefined,
+  })),
+]
 
 const driveOptions = driveLetters.map((letter) => ({ value: letter, label: letter }))
 
-// The grid's states without file/folder protection, which is never sent.
-function toUserPolicyStates(states: CheckStates<GridPolicyId>): CheckStates<UserPolicyId> {
-  const { [NOT_BUILT_POLICY_ID]: _notBuilt, ...userPolicyStates } = states
+// The list's states without the items that have their own commands, or that are never sent.
+function toUserPolicyStates(states: CheckStates<PolicyListId>): CheckStates<UserPolicyId> {
+  const {
+    [INTERNET_ID]: _internet,
+    [FAST_USER_SWITCH_ID]: _switching,
+    [TASK_MANAGER_ID]: _taskManager,
+    [NOT_BUILT_POLICY_ID]: _notBuilt,
+    ...userPolicyStates
+  } = states
   return userPolicyStates
 }
 
@@ -92,38 +98,6 @@ function toUserPolicyStates(states: CheckStates<GridPolicyId>): CheckStates<User
 function getFailure(result: ApiResult<unknown> | null): string | null | undefined {
   if (!result) return undefined
   return result.success ? null : result.error
-}
-
-interface RestrictionCheckboxProps {
-  label: string
-  help: ReactNode
-  choice: RestrictionChoice
-  disabled: boolean
-  onChange: (choice: RestrictionChoice) => void
-}
-
-// A tri-state checkbox: indeterminate while the PCs differ, until the administrator picks one.
-function RestrictionCheckbox({ label, help, choice, disabled, onChange }: RestrictionCheckboxProps) {
-  const helpId = useId()
-  return (
-    <>
-      <label className="flex items-center gap-2 text-ink">
-        <Checkbox
-          ref={(checkbox) => {
-            if (checkbox) checkbox.indeterminate = choice === 'mixed'
-          }}
-          checked={choice === 'disabled'}
-          disabled={disabled}
-          aria-describedby={helpId}
-          onChange={(event) => onChange(event.target.checked ? 'disabled' : 'allowed')}
-        />
-        {label}
-      </label>
-      <p id={helpId} className="m-0 text-sm text-ink-muted">
-        {help}
-      </p>
-    </>
-  )
 }
 
 // The administrator's choice for one restriction flag, and whether it differs from what the PCs have now.
@@ -158,7 +132,6 @@ export function RestrictionsDialog({
   onClose,
 }: RestrictionsDialogProps) {
   const titleId = useId()
-  const internetHelpId = useId()
   const listedPcs = targetPcs.filter((pc) => !pc.isServerPc)
   const hasServerPc = targetPcs.some((pc) => pc.isServerPc)
   const initialInternetChoice = getInternetChoice(listedPcs)
@@ -177,6 +150,20 @@ export function RestrictionsDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const hasInternetChange =
     internetChoice !== 'mixed' && internetChoice !== initialInternetChoice
+  const policyListStates: CheckStates<PolicyListId> = {
+    [INTERNET_ID]: internetToState[internetChoice],
+    ...policies.states,
+    [TASK_MANAGER_ID]: choiceToState[taskManager.choice],
+    [FAST_USER_SWITCH_ID]: choiceToState[switching.choice],
+    [NOT_BUILT_POLICY_ID]: 'off',
+  }
+
+  function changePolicyList(states: CheckStates<PolicyListId>) {
+    setInternetChoice(stateToInternet[states[INTERNET_ID]])
+    switching.setChoice(stateToChoice[states[FAST_USER_SWITCH_ID]])
+    taskManager.setChoice(stateToChoice[states[TASK_MANAGER_ID]])
+    policies.setStates(toUserPolicyStates(states))
+  }
 
   async function applyInternet(): Promise<string | null | undefined> {
     if (!hasInternetChange) return null
@@ -236,68 +223,13 @@ export function RestrictionsDialog({
           <span className="font-semibold">To: </span>
           <span className="font-mono text-sm">{listedPcs.map((pc) => pc.name).join(', ')}</span>
         </p>
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-          <legend className="p-0 pb-2 text-xs font-semibold tracking-label text-ink-muted">
-            Internet
-          </legend>
-          <label className="flex items-center gap-2 text-ink">
-            <Checkbox
-              ref={(checkbox) => {
-                if (checkbox) checkbox.indeterminate = internetChoice === 'mixed'
-              }}
-              checked={internetChoice === 'blocked'}
-              disabled={isApplying}
-              aria-describedby={internetHelpId}
-              onChange={(event) => setInternetChoice(event.target.checked ? 'blocked' : 'open')}
-            />
-            Block internet
-          </label>
-          <p id={internetHelpId} className="m-0 text-sm text-ink-muted">
-            Blocked PCs can still reach the Lykantra server and the lab network.
-          </p>
-          {hasServerPc && <p className="m-0 text-sm text-ink-muted">{SERVER_PC_INTERNET_NOTE}</p>}
-        </fieldset>
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-          <legend className="p-0 pb-2 text-xs font-semibold tracking-label text-ink-muted">
-            Sign-in
-          </legend>
-          <RestrictionCheckbox
-            label="Disable Fast User Switch"
-            help={
-              <>
-                Hides &quot;Switch user&quot;, so a student can&apos;t leave the Lykantra session for
-                another account. Offline PCs apply it when they start. Needs client 0.29.0 or newer.
-              </>
-            }
-            choice={switching.choice}
-            disabled={isApplying}
-            onChange={switching.setChoice}
-          />
-        </fieldset>
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-          <legend className="p-0 pb-2 text-xs font-semibold tracking-label text-ink-muted">
-            Policies
-          </legend>
-          <RestrictionCheckbox
-            label="Disable Access to Task Manager"
-            help={
-              <>
-                Students can&apos;t open Task Manager, including from Ctrl+Alt+Del. Offline PCs apply
-                it when they start. Needs client 0.31.0 or newer.
-              </>
-            }
-            choice={taskManager.choice}
-            disabled={isApplying}
-            onChange={taskManager.setChoice}
-          />
-        </fieldset>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <CheckboxGroup
-            legend="Other policies"
+            legend="Policies"
             options={policyOptions}
-            states={{ ...policies.states, [NOT_BUILT_POLICY_ID]: 'off' }}
+            states={policyListStates}
             disabled={isApplying}
-            onChange={(states) => policies.setStates(toUserPolicyStates(states))}
+            onChange={changePolicyList}
           />
           <CheckboxGroup
             legend="Hide Drives (*)"
@@ -331,6 +263,14 @@ export function RestrictionsDialog({
           Apply without restarting computer
         </label>
         <div id={applyNowHelpId} className="flex flex-col gap-1 text-sm text-ink-muted">
+          <p className="m-0">
+            Block internet: PCs can still reach the Lykantra server and the lab network.
+          </p>
+          {hasServerPc && <p className="m-0">{SERVER_PC_INTERNET_NOTE}</p>}
+          <p className="m-0">
+            Disable Fast User Switch hides &quot;Switch user&quot;. Disable Access to Task Manager also
+            blocks it from Ctrl+Alt+Del.
+          </p>
           <p className="m-0">
             * File Explorer options. When &quot;Apply without restarting computer&quot; is ticked, File
             Explorer restarts on the PCs so they apply in a few seconds, and open File Explorer
