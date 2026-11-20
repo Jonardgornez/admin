@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ApiResult } from '../../lib/api'
 import type { InternetResult } from '../../lib/internet-api'
+import type { BulkCommandResult } from '../../lib/pcs-api'
 import type { RegisteredPc } from '../../types'
 import { RestrictionsDialog } from './restrictions-dialog'
 
@@ -24,16 +25,141 @@ function getInternetCheckbox() {
   return screen.getByRole('checkbox', { name: 'Block internet' }) as HTMLInputElement
 }
 
+function getSwitchingCheckbox() {
+  return screen.getByRole('checkbox', { name: 'Disable Fast User Switch' }) as HTMLInputElement
+}
+
+type ApplyInternet = (pcIds: number[], blocked: boolean) => Promise<ApiResult<InternetResult[]> | null>
+type ApplySwitching = (pcIds: number[], disabled: boolean) => Promise<ApiResult<BulkCommandResult> | null>
+
 function renderDialog(
   targetPcs: RegisteredPc[],
-  onApplyInternet: (pcIds: number[], blocked: boolean) => Promise<ApiResult<InternetResult[]> | null> = vi.fn(
-    async () => null,
-  ),
+  onApplyInternet: ApplyInternet = vi.fn(async () => null),
+  onApplyFastUserSwitching: ApplySwitching = vi.fn(async () => null),
 ) {
   const onClose = vi.fn()
-  render(<RestrictionsDialog targetPcs={targetPcs} onApplyInternet={onApplyInternet} onClose={onClose} />)
-  return { onApplyInternet, onClose }
+  render(
+    <RestrictionsDialog
+      targetPcs={targetPcs}
+      onApplyInternet={onApplyInternet}
+      onApplyFastUserSwitching={onApplyFastUserSwitching}
+      onClose={onClose}
+    />,
+  )
+  return { onApplyInternet, onApplyFastUserSwitching, onClose }
 }
+
+const affected = (count: number): ApiResult<BulkCommandResult> => ({
+  success: true,
+  data: { affected: count },
+})
+
+describe('RestrictionsDialog Fast User Switching', () => {
+  it('shows the current choice: checked, unchecked or mixed', () => {
+    const { unmount } = render(
+      <RestrictionsDialog
+        targetPcs={[makePc(1, { fastUserSwitchingDisabled: true })]}
+        onApplyInternet={vi.fn(async () => null)}
+        onApplyFastUserSwitching={vi.fn(async () => null)}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(getSwitchingCheckbox().checked).toBe(true)
+    unmount()
+
+    renderDialog([makePc(1), makePc(2, { fastUserSwitchingDisabled: true })])
+    expect(getSwitchingCheckbox().checked).toBe(false)
+    expect(getSwitchingCheckbox().indeterminate).toBe(true)
+  })
+
+  it('is a working checkbox and is no longer in the read-only policy list', () => {
+    renderDialog([makePc(1)])
+    expect(getSwitchingCheckbox().disabled).toBe(false)
+    expect(screen.getAllByRole('checkbox', { name: /Fast User Switch/ })).toHaveLength(1)
+  })
+
+  it('turns it off only for PCs that still allow it, and closes when done', async () => {
+    const onApplyFastUserSwitching = vi.fn(async () => affected(1))
+    const { onApplyInternet, onClose } = renderDialog(
+      [makePc(1), makePc(2, { fastUserSwitchingDisabled: true }), makePc(3, { isServerPc: true })],
+      undefined,
+      onApplyFastUserSwitching,
+    )
+
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(getSwitchingCheckbox())
+    expect(getSwitchingCheckbox().checked).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(onApplyFastUserSwitching).toHaveBeenCalledWith([1], true)
+    expect(onApplyInternet).not.toHaveBeenCalled()
+  })
+
+  it('allows it again for every PC that has it off', async () => {
+    const onApplyFastUserSwitching = vi.fn(async () => affected(2))
+    renderDialog(
+      [makePc(1, { fastUserSwitchingDisabled: true }), makePc(2, { fastUserSwitchingDisabled: true })],
+      undefined,
+      onApplyFastUserSwitching,
+    )
+
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    await waitFor(() => expect(onApplyFastUserSwitching).toHaveBeenCalledWith([1, 2], false))
+  })
+
+  it('applies internet first and then Fast User Switching', async () => {
+    const calls: string[] = []
+    const onApplyInternet = vi.fn(async () => {
+      calls.push('internet')
+      return { success: true as const, data: [] }
+    })
+    const onApplyFastUserSwitching = vi.fn(async () => {
+      calls.push('switching')
+      return affected(1)
+    })
+    const { onClose } = renderDialog([makePc(1)], onApplyInternet, onApplyFastUserSwitching)
+
+    fireEvent.click(getInternetCheckbox())
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(calls).toEqual(['internet', 'switching'])
+  })
+
+  it('stops after a failed internet change and keeps the dialog open', async () => {
+    const onApplyInternet = vi.fn(async () => ({ success: false as const, status: 500, error: 'Server down.' }))
+    const onApplyFastUserSwitching = vi.fn(async () => affected(1))
+    const { onClose } = renderDialog([makePc(1)], onApplyInternet, onApplyFastUserSwitching)
+
+    fireEvent.click(getInternetCheckbox())
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Server down.')
+    expect(onApplyFastUserSwitching).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('shows the error when the Fast User Switching change fails', async () => {
+    const onApplyFastUserSwitching = vi.fn(async () => ({
+      success: false as const,
+      status: 400,
+      error: 'Invalid request.',
+    }))
+    const { onClose } = renderDialog([makePc(1)], undefined, onApplyFastUserSwitching)
+
+    fireEvent.click(getSwitchingCheckbox())
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Invalid request.')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
 
 describe('RestrictionsDialog internet choice', () => {
   it('checks Block internet when every target PC is blocked', () => {
@@ -99,9 +225,9 @@ describe('RestrictionsDialog restriction options', () => {
     expect(screen.getByRole('checkbox', { name: 'Disable Access to Task Manager' })).toHaveProperty('checked', true)
   })
 
-  it('says the restrictions are not available yet', () => {
+  it('says the other restrictions are not available yet', () => {
     renderDialog([makePc(1)])
-    expect(screen.getByText("These restrictions aren't available yet.")).toBeTruthy()
+    expect(screen.getByText("The other policies and drives aren't available yet.")).toBeTruthy()
   })
 })
 

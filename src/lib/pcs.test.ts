@@ -47,6 +47,7 @@ import {
   getServiceWarning,
   isServiceReportFresh,
   getSelectionState,
+  isPcSelectable,
   getTimeLeftLabel,
   isPcActionable,
   isPcOff,
@@ -61,6 +62,7 @@ import {
   getPcIdsToShutDown,
   getPcNamesToReboot,
   getPcNamesToShutDown,
+  getPcsToSendFile,
   getServerPcPowerNote,
   toggleSelectAll,
   toggleSelectedId,
@@ -351,6 +353,18 @@ describe('getMessageTargets', () => {
   })
 })
 
+describe('isPcSelectable', () => {
+  it('allows only online PCs', () => {
+    const pc = (status: RegisteredPc['status']): RegisteredPc => ({ id: 1, name: 'PC-1', status, lastSeen: 'Now' })
+    expect(isPcSelectable(pc('in-use'))).toBe(true)
+    expect(isPcSelectable(pc('locked'))).toBe(true)
+    expect(isPcSelectable(pc('frozen'))).toBe(true)
+    expect(isPcSelectable(pc('offline'))).toBe(false)
+    expect(isPcSelectable(pc('shutdown'))).toBe(false)
+    expect(isPcSelectable(pc('rebooting'))).toBe(false)
+  })
+})
+
 describe('getSelectionState', () => {
   it('reports all, some or none of the visible PCs', () => {
     expect(getSelectionState(['A', 'B'], ['A', 'B'])).toBe('all')
@@ -584,6 +598,23 @@ describe('getPcIdsToReboot and getPcNamesToReboot', () => {
   })
 })
 
+describe('getPcsToSendFile', () => {
+  const pcList: RegisteredPc[] = [
+    { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
+    { id: 2, name: 'PC-02', status: 'offline', lastSeen: '09:00' },
+    { id: 3, name: 'PC-03', status: 'locked', lastSeen: 'Now' },
+    { id: 4, name: 'PC-04', status: 'frozen', lastSeen: 'Now' },
+  ]
+
+  it('keeps only the selected PCs that are online', () => {
+    expect(getPcsToSendFile(pcList, [1, 2, 4]).map((pc) => pc.id)).toEqual([1, 4])
+  })
+
+  it('returns nothing when every selected PC is offline', () => {
+    expect(getPcsToSendFile(pcList, [2])).toEqual([])
+  })
+})
+
 describe('getPcIdsToShutDown and getPcNamesToShutDown', () => {
   const shutDownList: RegisteredPc[] = [
     { id: 1, name: 'PC-01', status: 'in-use', lastSeen: 'Now' },
@@ -727,8 +758,8 @@ describe('getServerPcPowerNote', () => {
 
 describe('getLogsHref', () => {
   it('builds the logs route filtered to the PC', () => {
-    expect(getLogsHref('PC-05')).toBe('/logs?pc=PC-05')
-    expect(getLogsHref('PC 5&x')).toBe('/logs?pc=PC%205%26x')
+    expect(getLogsHref(5, 'PC-05')).toBe('/logs?pcId=5&pcName=PC-05')
+    expect(getLogsHref(7, 'PC 5&x')).toBe('/logs?pcId=7&pcName=PC+5%26x')
   })
 })
 
@@ -895,6 +926,7 @@ const serverPc: ServerPc = {
   wallpaper: null,
   service: null,
   keepAwake: false,
+  fastUserSwitchingDisabled: false,
 }
 
 const startedAt = '2026-11-05T10:00:00.000Z'
@@ -1044,6 +1076,7 @@ describe('toRegisteredPc', () => {
       wallpaperId: null,
       service: null,
       keepAwake: false,
+      fastUserSwitchingDisabled: false,
       lastSeen: 'Now',
       ipAddress: '192.168.1.19',
     })

@@ -1,19 +1,23 @@
-import { getPageRange } from '../../lib/logs'
-import type { SessionLogPage } from '../../types'
-import { Button } from '../ui/button'
+import { getPageRange, type PagedList } from '../../lib/logs'
+import { Button } from './button'
 
-interface SessionLogPaginationProps {
-  page: SessionLogPage
+interface PaginationProps {
+  page: PagedList
+  // Plural, e.g. "sessions".
+  itemLabel: string
+  // Shown after the count, e.g. "server time".
+  note?: string
   onPageChange: (page: number) => void
 }
 
-export function SessionLogPagination({ page, onPageChange }: SessionLogPaginationProps) {
+export function Pagination({ page, itemLabel, note, onPageChange }: PaginationProps) {
   const range = getPageRange(page)
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="text-ink-muted">
-        Showing {range.firstItem}–{range.lastItem} of {page.totalItems} sessions · server time
+        Showing {range.firstItem}–{range.lastItem} of {page.totalItems} {itemLabel}
+        {note && ` · ${note}`}
       </span>
       <div className="flex items-center gap-2">
         <Button

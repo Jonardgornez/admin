@@ -1,4 +1,26 @@
-import type { Pc, PcRestrictions } from '../types'
+import { formatPcCount } from './pcs'
+import type { Pc, PcRestrictions, RegisteredPc } from '../types'
+
+// Hidden on every PC, on none, or on some of them.
+export type FastUserSwitchingChoice = 'disabled' | 'allowed' | 'mixed'
+
+export function getFastUserSwitchingChoice(pcs: Pc[]): FastUserSwitchingChoice {
+  const disabledCount = pcs.filter((pc) => pc.fastUserSwitchingDisabled === true).length
+  if (disabledCount === 0) return 'allowed'
+  return disabledCount === pcs.length ? 'disabled' : 'mixed'
+}
+
+// The PCs not in the wanted state yet, so an unchanged PC isn't sent again.
+export function getPcIdsToSetFastUserSwitching(pcs: RegisteredPc[], disabled: boolean): number[] {
+  return pcs.filter((pc) => (pc.fastUserSwitchingDisabled === true) !== disabled).map((pc) => pc.id)
+}
+
+export function describeFastUserSwitchingResult(disabled: boolean, affected: number): string {
+  if (affected === 0) return 'No PCs had Fast User Switching changed.'
+  return disabled
+    ? `Fast User Switching turned off for ${formatPcCount(affected)}.`
+    : `Fast User Switching allowed again for ${formatPcCount(affected)}.`
+}
 
 export const EMPTY_RESTRICTIONS: PcRestrictions = {
   policies: [],

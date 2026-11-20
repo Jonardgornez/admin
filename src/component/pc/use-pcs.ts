@@ -330,6 +330,12 @@ export function usePcs() {
     [runBulkCommand],
   )
 
+  const setPcsFastUserSwitchingDisabled = useCallback(
+    (pcIds: number[], disabled: boolean) =>
+      runBulkCommand(() => pcsApi.setPcsFastUserSwitchingDisabled(pcIds, disabled)),
+    [runBulkCommand],
+  )
+
   // The upload runs inside the same guard as the assign, so a second click cannot start another upload.
   const applyPcsWallpaper = useCallback(
     (pcIds: number[], file: File) =>
@@ -377,6 +383,7 @@ export function usePcs() {
     setPcsWallpaper,
     applyPcsWallpaper,
     setPcsKeepAwake,
+    setPcsFastUserSwitchingDisabled,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,

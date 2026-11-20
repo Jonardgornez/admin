@@ -8,7 +8,13 @@ import {
   type InternetChoice,
 } from '../../lib/internet'
 import type { InternetResult } from '../../lib/internet-api'
-import { getCommonRestrictions } from '../../lib/restrictions'
+import type { BulkCommandResult } from '../../lib/pcs-api'
+import {
+  getCommonRestrictions,
+  getFastUserSwitchingChoice,
+  getPcIdsToSetFastUserSwitching,
+  type FastUserSwitchingChoice,
+} from '../../lib/restrictions'
 import type { RegisteredPc } from '../../types'
 import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
@@ -16,48 +22,88 @@ import { Checkbox } from '../ui/choice'
 import { Modal } from '../ui/modal'
 import { CheckboxGroup } from './checkbox-group'
 
+const FAST_USER_SWITCH_POLICY_ID = 'fast-user-switch'
+
 interface RestrictionsDialogProps {
   targetPcs: RegisteredPc[]
+  // Null means the same bulk command is still running.
   onApplyInternet: (
     pcIds: number[],
     blocked: boolean,
   ) => Promise<ApiResult<InternetResult[]> | null>
+  onApplyFastUserSwitching: (
+    pcIds: number[],
+    disabled: boolean,
+  ) => Promise<ApiResult<BulkCommandResult> | null>
   onClose: () => void
 }
 
-const policyOptions = restrictionPolicies.map((policy) => ({
-  value: policy.id,
-  label: policy.needsReboot ? `${policy.label} (*)` : policy.label,
-}))
+// Fast User Switching has its own working checkbox, so it is left out of the read-only list.
+const policyOptions = restrictionPolicies
+  .filter((policy) => policy.id !== FAST_USER_SWITCH_POLICY_ID)
+  .map((policy) => ({
+    value: policy.id,
+    label: policy.needsReboot ? `${policy.label} (*)` : policy.label,
+  }))
 
 const driveOptions = driveLetters.map((letter) => ({ value: letter, label: letter }))
 
-// The policy and drive options are read-only until they can be applied.
-export function RestrictionsDialog({ targetPcs, onApplyInternet, onClose }: RestrictionsDialogProps) {
+// A failed or still-running command stops the rest, so the dialog stays open with what went wrong.
+function getFailure(result: ApiResult<unknown> | null): string | null | undefined {
+  if (!result) return undefined
+  return result.success ? null : result.error
+}
+
+// Internet and Fast User Switching apply; the other policy and drive options are read-only until they can.
+export function RestrictionsDialog({
+  targetPcs,
+  onApplyInternet,
+  onApplyFastUserSwitching,
+  onClose,
+}: RestrictionsDialogProps) {
   const titleId = useId()
   const internetHelpId = useId()
+  const switchingHelpId = useId()
   const listedPcs = targetPcs.filter((pc) => !pc.isServerPc)
   const hasServerPc = targetPcs.some((pc) => pc.isServerPc)
   const currentRestrictions = getCommonRestrictions(listedPcs)
   const initialInternetChoice = getInternetChoice(listedPcs)
+  const initialSwitchingChoice = getFastUserSwitchingChoice(listedPcs)
   const [internetChoice, setInternetChoice] = useState<InternetChoice>(initialInternetChoice)
+  const [switchingChoice, setSwitchingChoice] =
+    useState<FastUserSwitchingChoice>(initialSwitchingChoice)
   const [isApplying, setIsApplying] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const hasInternetChange =
     internetChoice !== 'mixed' && internetChoice !== initialInternetChoice
+  const hasSwitchingChange =
+    switchingChoice !== 'mixed' && switchingChoice !== initialSwitchingChoice
 
-  // Null means the same bulk command is still running, so the dialog stays open until it ends.
-  async function applyInternetChoice() {
-    if (!hasInternetChange) {
+  async function applyInternet(): Promise<string | null | undefined> {
+    if (!hasInternetChange) return null
+    const blocked = internetChoice === 'blocked'
+    return getFailure(await onApplyInternet(getPcIdsToSetInternet(listedPcs, blocked), blocked))
+  }
+
+  async function applyFastUserSwitching(): Promise<string | null | undefined> {
+    if (!hasSwitchingChange) return null
+    const disabled = switchingChoice === 'disabled'
+    const pcIds = getPcIdsToSetFastUserSwitching(listedPcs, disabled)
+    return getFailure(await onApplyFastUserSwitching(pcIds, disabled))
+  }
+
+  async function applyChanges() {
+    if (!hasInternetChange && !hasSwitchingChange) {
       onClose()
       return
     }
-    const blocked = internetChoice === 'blocked'
     setIsApplying(true)
     setErrorMessage(null)
-    const result = await onApplyInternet(getPcIdsToSetInternet(listedPcs, blocked), blocked)
+    let failure = await applyInternet()
+    if (failure === null) failure = await applyFastUserSwitching()
     setIsApplying(false)
-    if (result && !result.success) setErrorMessage(result.error)
+    if (failure === null) onClose()
+    else if (failure) setErrorMessage(failure)
   }
 
   return (
@@ -91,6 +137,27 @@ export function RestrictionsDialog({ targetPcs, onApplyInternet, onClose }: Rest
           </p>
           {hasServerPc && <p className="m-0 text-sm text-ink-muted">{SERVER_PC_INTERNET_NOTE}</p>}
         </fieldset>
+        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+          <legend className="p-0 pb-2 text-xs font-semibold tracking-label text-ink-muted">
+            Sign-in
+          </legend>
+          <label className="flex items-center gap-2 text-ink">
+            <Checkbox
+              ref={(checkbox) => {
+                if (checkbox) checkbox.indeterminate = switchingChoice === 'mixed'
+              }}
+              checked={switchingChoice === 'disabled'}
+              disabled={isApplying}
+              aria-describedby={switchingHelpId}
+              onChange={(event) => setSwitchingChoice(event.target.checked ? 'disabled' : 'allowed')}
+            />
+            Disable Fast User Switch
+          </label>
+          <p id={switchingHelpId} className="m-0 text-sm text-ink-muted">
+            Hides &quot;Switch user&quot;, so a student can&apos;t leave the Lykantra session for
+            another account. Offline PCs apply it when they start. Needs client 0.29.0 or newer.
+          </p>
+        </fieldset>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <CheckboxGroup
             legend="Policies"
@@ -118,8 +185,10 @@ export function RestrictionsDialog({ targetPcs, onApplyInternet, onClose }: Rest
           Apply without restarting computer
         </label>
         <div className="flex flex-col gap-1 text-sm text-ink-muted">
-          <p className="m-0">These restrictions aren&apos;t available yet.</p>
-          <p className="m-0">OK applies the Internet setting to every PC listed above.</p>
+          <p className="m-0">The other policies and drives aren&apos;t available yet.</p>
+          <p className="m-0">
+            OK applies Internet and Fast User Switching to every PC listed above.
+          </p>
           <p className="m-0">* It may require rebooting the computer.</p>
         </div>
         {errorMessage && (
@@ -131,7 +200,7 @@ export function RestrictionsDialog({ targetPcs, onApplyInternet, onClose }: Rest
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={isApplying} onClick={() => void applyInternetChoice()}>
+          <Button variant="primary" disabled={isApplying} onClick={() => void applyChanges()}>
             OK
           </Button>
         </div>

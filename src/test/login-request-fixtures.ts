@@ -1,6 +1,7 @@
 import type { LoginRequest } from '../types'
 
-export const LOGIN_REQUEST_LIST_PATH = '/api/login-requests'
+// The first history page, which every load asks for until the administrator pages.
+export const LOGIN_REQUEST_LIST_PATH = '/api/login-requests?historyPage=1'
 export const BACKGROUND_HEADERS = { 'X-Background-Refresh': '1' }
 
 export function makeLoginRequest(id: number, overrides: Partial<LoginRequest> = {}): LoginRequest {
@@ -14,6 +15,10 @@ export function makeLoginRequest(id: number, overrides: Partial<LoginRequest> = 
   }
 }
 
-export function loginRequestListsBody(pending: LoginRequest[], history: LoginRequest[] = []) {
-  return { pending, history }
+export function loginRequestListsBody(
+  pending: LoginRequest[],
+  history: LoginRequest[] = [],
+  { historyTotal = history.length, historyPage = 1, historyPageSize = 10 } = {},
+) {
+  return { pending, history, historyTotal, historyPage, historyPageSize }
 }

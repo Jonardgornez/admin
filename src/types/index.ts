@@ -28,6 +28,8 @@ export interface Pc {
   wallpaperId?: number | null
   // True keeps the PC from sleeping and its screen on.
   keepAwake?: boolean
+  // True hides Windows "Switch user", so a student can't leave the client's session for another account.
+  fastUserSwitchingDisabled?: boolean
   // Null when the Lykantra service has not reported, e.g. a server older than the diagnostics feature.
   service?: PcServiceStatus | null
 }
@@ -92,6 +94,7 @@ export interface ServerPc {
   wallpaper: ServerPcWallpaper | null
   service: PcServiceStatus | null
   keepAwake: boolean
+  fastUserSwitchingDisabled: boolean
 }
 
 export interface ServerPcWallpaper {

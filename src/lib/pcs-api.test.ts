@@ -34,6 +34,7 @@ import {
 
   renamePc,
 
+  setPcsFastUserSwitchingDisabled,
   setPcsKeepAwake,
 
   setPcsWallpaper,
@@ -81,6 +82,8 @@ const serverPc = {
   service: null,
 
   keepAwake: false,
+
+  fastUserSwitchingDisabled: false,
 
 }
 
@@ -159,6 +162,18 @@ describe('pcs api', () => {
 
     it('reads a PC with no always awake setting as off, so an older server still loads', async () => {
       const { keepAwake: _omitted, ...olderServerPc } = serverPc
+      stubFetch(Response.json([olderServerPc]))
+      expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
+    })
+
+    it('reads the Fast User Switching setting, and an older server without it as allowed', async () => {
+      stubFetch(Response.json([{ ...serverPc, fastUserSwitchingDisabled: true }]))
+      expect(await listPcs()).toEqual({
+        success: true,
+        data: [{ ...serverPc, fastUserSwitchingDisabled: true }],
+      })
+
+      const { fastUserSwitchingDisabled: _omitted, ...olderServerPc } = serverPc
       stubFetch(Response.json([olderServerPc]))
       expect(await listPcs()).toEqual({ success: true, data: [serverPc] })
     })
@@ -1082,6 +1097,24 @@ describe('setPcsWallpaper', () => {
       status: 404,
       error: 'Unknown wallpaper.',
     })
+  })
+})
+
+describe('setPcsFastUserSwitchingDisabled', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the PC ids and the setting and returns how many changed', async () => {
+    const fetchMock = stubFetch(Response.json({ affected: 2 }))
+    expect(await setPcsFastUserSwitchingDisabled([3, 7], true)).toEqual({
+      success: true,
+      data: { affected: 2 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pcs/fast-user-switching',
+      expect.objectContaining({ method: 'POST', body: '{"ids":[3,7],"disabled":true}' }),
+    )
   })
 })
 

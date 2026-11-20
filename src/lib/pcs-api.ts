@@ -50,6 +50,8 @@ const serverPcSchema = z.object({
   service: serverPcServiceSchema.nullable().catch(null),
   // An older server omits this, so a missing or odd value reads as off.
   keepAwake: z.boolean().catch(false),
+  // An older server omits this, so a missing or odd value reads as allowed.
+  fastUserSwitchingDisabled: z.boolean().catch(false),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)
@@ -207,6 +209,16 @@ export function setPcsKeepAwake(
 ): Promise<ApiResult<BulkCommandResult>> {
   return sendPcBatches(ids, (batch) =>
     postBulkCommand('/api/pcs/keep-awake', { ids: batch, keepAwake }),
+  )
+}
+
+// Hides or shows Windows "Switch user" on these PCs. Offline PCs change too; each PC's service applies it from its next report.
+export function setPcsFastUserSwitchingDisabled(
+  ids: number[],
+  disabled: boolean,
+): Promise<ApiResult<BulkCommandResult>> {
+  return sendPcBatches(ids, (batch) =>
+    postBulkCommand('/api/pcs/fast-user-switching', { ids: batch, disabled }),
   )
 }
 

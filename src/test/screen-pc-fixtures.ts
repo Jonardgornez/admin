@@ -20,5 +20,6 @@ export function makeServerPc(id: number, name: string, isOnline: boolean): Serve
     wallpaper: null,
     service: null,
     keepAwake: false,
+    fastUserSwitchingDisabled: false,
   }
 }

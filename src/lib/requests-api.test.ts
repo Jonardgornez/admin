@@ -45,24 +45,51 @@ function stubFetch(response: Response | Error) {
   return fetchMock
 }
 
+// The lists as an older server without paging fields reads: the whole history is one page.
+function onePage(pending: unknown[], history: unknown[]) {
+  return {
+    pending,
+    history,
+    historyTotal: history.length,
+    historyPage: 1,
+    historyPageSize: Math.max(history.length, 1),
+  }
+}
+
 describe('login requests api', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
   describe('listLoginRequests', () => {
-    it('gets both lists', async () => {
-      const fetchMock = stubFetch(
-        Response.json({ pending: [pendingEntry], history: [approvedEntry] }),
-      )
-      expect(await listLoginRequests()).toEqual({
-        success: true,
-        data: { pending: [pendingEntry], history: [approvedEntry] },
-      })
+    it('gets both lists and the history page', async () => {
+      const body = {
+        pending: [pendingEntry],
+        history: [approvedEntry],
+        historyTotal: 31,
+        historyPage: 2,
+        historyPageSize: 10,
+      }
+      const fetchMock = stubFetch(Response.json(body))
+      expect(await listLoginRequests({ historyPage: 2 })).toEqual({ success: true, data: body })
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/login-requests',
+        '/api/login-requests?historyPage=2',
         expect.objectContaining({ method: 'GET' }),
       )
+    })
+
+    it('asks for the first history page by default', async () => {
+      const fetchMock = stubFetch(Response.json(onePage([], [])))
+      await listLoginRequests()
+      expect(fetchMock).toHaveBeenCalledWith('/api/login-requests?historyPage=1', expect.anything())
+    })
+
+    it('reads a list without paging fields as one page', async () => {
+      stubFetch(Response.json({ pending: [pendingEntry], history: [approvedEntry] }))
+      expect(await listLoginRequests()).toEqual({
+        success: true,
+        data: onePage([pendingEntry], [approvedEntry]),
+      })
     })
 
     it('fails with the fallback message when a list is missing', async () => {
@@ -90,7 +117,7 @@ describe('login requests api', () => {
       stubFetch(Response.json({ pending: [], history: [cancelledEntry] }))
       expect(await listLoginRequests()).toEqual({
         success: true,
-        data: { pending: [], history: [cancelledEntry] },
+        data: onePage([], [cancelledEntry]),
       })
     })
 
@@ -98,7 +125,7 @@ describe('login requests api', () => {
       const offlineEntry = { ...deniedEntry, reason: 'pc-offline' }
       stubFetch(Response.json({ pending: [], history: [offlineEntry] }))
       const result = await listLoginRequests()
-      expect(result).toEqual({ success: true, data: { pending: [], history: [offlineEntry] } })
+      expect(result).toEqual({ success: true, data: onePage([], [offlineEntry]) })
     })
 
     it('drops a reason it does not know without failing the list', async () => {
@@ -118,7 +145,7 @@ describe('login requests api', () => {
     it('drops a null reason', async () => {
       stubFetch(Response.json({ pending: [], history: [{ ...deniedEntry, reason: null }] }))
       const result = await listLoginRequests()
-      expect(result).toEqual({ success: true, data: { pending: [], history: [deniedEntry] } })
+      expect(result).toEqual({ success: true, data: onePage([], [deniedEntry]) })
     })
 
     it('still fails on a status it does not know', async () => {
@@ -130,7 +157,7 @@ describe('login requests api', () => {
       const fetchMock = stubFetch(Response.json({ pending: [], history: [] }))
       await listLoginRequests({ isBackground: true })
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/login-requests',
+        '/api/login-requests?historyPage=1',
         expect.objectContaining({ headers: { 'X-Background-Refresh': '1' } }),
       )
     })
@@ -138,7 +165,7 @@ describe('login requests api', () => {
     it('strips fields the schema does not name', async () => {
       stubFetch(Response.json({ pending: [{ ...pendingEntry, secret: 'internal' }], history: [] }))
       const result = await listLoginRequests()
-      expect(result).toEqual({ success: true, data: { pending: [pendingEntry], history: [] } })
+      expect(result).toEqual({ success: true, data: onePage([pendingEntry], []) })
       expect(JSON.stringify(result)).not.toContain('internal')
     })
 

@@ -1,4 +1,4 @@
-import { getLogsHref, getScreenHref } from '../../lib/pcs'
+import { getLogsHref, getScreenHref, isPcSelectable } from '../../lib/pcs'
 import type { RegisteredPc, ViewMode } from '../../types'
 import { PcCard } from './pc-card'
 
@@ -64,8 +64,10 @@ export function PcGrid({
               isTimeEditDisabled={isTimeEditDisabled?.(pc.id)}
               isRemoveDisabled={isRemoveDisabled?.(pc.id)}
               isPowerDisabled={isPowerDisabled?.(pc.id)}
-              historyHref={getLogsHref(pc.name)}
-              onToggleSelect={onToggleSelect && (() => onToggleSelect(pc.id))}
+              historyHref={getLogsHref(pc.id, pc.name)}
+              onToggleSelect={
+                onToggleSelect && isPcSelectable(pc) ? () => onToggleSelect(pc.id) : undefined
+              }
               onOpenDetail={() => onOpenDetail(pc.id)}
               onToggleLock={onToggleLock && (() => onToggleLock(pc.id))}
               onViewScreen={onViewScreen && (() => onViewScreen(getScreenHref(pc.id, viewMode)))}

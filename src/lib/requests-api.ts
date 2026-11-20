@@ -18,27 +18,46 @@ const loginRequestSchema = z.object({
   reason: z.enum(LOGIN_REQUEST_REASONS).optional().catch(undefined),
 })
 
-const loginRequestListsSchema = z.object({
-  pending: z.array(loginRequestSchema),
-  history: z.array(loginRequestSchema),
-})
+// An older server sends no paging fields, so its whole history list reads as a single page.
+const loginRequestListsSchema = z
+  .object({
+    pending: z.array(loginRequestSchema),
+    history: z.array(loginRequestSchema),
+    historyTotal: z.number().int().nonnegative().optional(),
+    historyPage: z.number().int().positive().optional(),
+    historyPageSize: z.number().int().positive().optional(),
+  })
+  .transform((lists) => ({
+    pending: lists.pending,
+    history: lists.history,
+    historyTotal: lists.historyTotal ?? lists.history.length,
+    historyPage: lists.historyPage ?? 1,
+    historyPageSize: lists.historyPageSize ?? Math.max(lists.history.length, 1),
+  }))
 
 const deniedListSchema = z.object({ denied: z.array(loginRequestSchema) })
 
+// History is one page of decided requests, newest first. HistoryPage is the page the server sent, which may be
+// the last one when the asked-for page was past the end.
 export interface LoginRequestLists {
   pending: LoginRequest[]
   history: LoginRequest[]
+  historyTotal: number
+  historyPage: number
+  historyPageSize: number
 }
 
 interface ListLoginRequestsOptions {
   isBackground?: boolean
+  historyPage?: number
 }
 
 export async function listLoginRequests({
   isBackground = false,
+  historyPage = 1,
 }: ListLoginRequestsOptions = {}): Promise<ApiResult<LoginRequestLists>> {
   return parseBody(
-    await apiRequest<unknown>('/api/login-requests', { isBackground }),
+    await apiRequest<unknown>(`/api/login-requests?historyPage=${historyPage}`, { isBackground }),
     loginRequestListsSchema,
     OK_STATUS,
   )
