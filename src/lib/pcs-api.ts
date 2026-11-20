@@ -2,7 +2,15 @@ import { z } from 'zod'
 import { apiRequest, type ApiResult } from './api'
 import { approvalChoiceSchema, OK_STATUS, parseBody } from './accounts-api'
 import { clientUpdateStatusSchema, clientVersionSchema } from './client-update-schema'
-import type { PcTimeCommand, ServerPc } from '../types'
+import { emptyRestrictions } from './restrictions'
+import {
+  DRIVE_LETTERS,
+  USER_POLICY_IDS,
+  type PcRestrictionsChange,
+  type PcTimeCommand,
+  type ServerPc,
+  type UserPolicyId,
+} from '../types'
 
 const bulkCommandResultSchema = z.object({ affected: z.number().int().nonnegative() })
 
@@ -23,6 +31,17 @@ const serverPcWallpaperSchema = z.object({
 const serverPcServiceSchema = z.object({
   lastSeenAt: z.string(),
   clientRunning: z.boolean(),
+})
+
+function isUserPolicyId(id: string): id is UserPolicyId {
+  return (USER_POLICY_IDS as readonly string[]).includes(id)
+}
+
+// Ids this page does not know, from a newer server, are left out rather than hiding the PC's other restrictions.
+const serverPcRestrictionsSchema = z.object({
+  policies: z.array(z.string()).transform((ids) => ids.filter(isUserPolicyId)),
+  hiddenDrives: z.array(z.enum(DRIVE_LETTERS)),
+  disabledDrives: z.array(z.enum(DRIVE_LETTERS)),
 })
 
 const serverPcSchema = z.object({
@@ -52,6 +71,10 @@ const serverPcSchema = z.object({
   keepAwake: z.boolean().catch(false),
   // An older server omits this, so a missing or odd value reads as allowed.
   fastUserSwitchingDisabled: z.boolean().catch(false),
+  // An older server omits this, so a missing or odd value reads as allowed.
+  taskManagerDisabled: z.boolean().catch(false),
+  // An older server omits this, so a missing or odd value reads as no restrictions.
+  restrictions: serverPcRestrictionsSchema.catch(() => emptyRestrictions()),
 })
 
 const serverPcListSchema = z.array(serverPcSchema)
@@ -219,6 +242,26 @@ export function setPcsFastUserSwitchingDisabled(
 ): Promise<ApiResult<BulkCommandResult>> {
   return sendPcBatches(ids, (batch) =>
     postBulkCommand('/api/pcs/fast-user-switching', { ids: batch, disabled }),
+  )
+}
+
+// Blocks or allows Task Manager on these PCs. Offline PCs change too; each PC's service applies it from its next report.
+export function setPcsTaskManagerDisabled(
+  ids: number[],
+  disabled: boolean,
+): Promise<ApiResult<BulkCommandResult>> {
+  return sendPcBatches(ids, (batch) =>
+    postBulkCommand('/api/pcs/task-manager', { ids: batch, disabled }),
+  )
+}
+
+// Changes only the listed policies and drives on these PCs. Offline PCs change too; each PC's service applies it from its next report.
+export function setPcsRestrictions(
+  ids: number[],
+  change: PcRestrictionsChange,
+): Promise<ApiResult<BulkCommandResult>> {
+  return sendPcBatches(ids, (batch) =>
+    postBulkCommand('/api/pcs/restrictions', { ids: batch, ...change }),
   )
 }
 

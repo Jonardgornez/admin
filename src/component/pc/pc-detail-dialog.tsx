@@ -130,7 +130,7 @@ export function PcDetailDialog({
           />
           <DetailRow
             label="Restrictions"
-            value={pc.restrictions && getRestrictionSummary(pc.restrictions)}
+            value={getRestrictionSummary(pc)}
           />
         </dl>
         {internetHint && <p className="m-0 text-sm text-ink-muted">{internetHint}</p>}

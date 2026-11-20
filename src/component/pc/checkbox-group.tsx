@@ -1,32 +1,77 @@
-import { getSelectionState } from '../../lib/pcs'
-import { toggleAllValues, toggleListValue } from '../../lib/restrictions'
+import { useId } from 'react'
+import {
+  getCombinedState,
+  setCheckStates,
+  type CheckState,
+  type CheckStates,
+} from '../../lib/restrictions'
 import { cn } from '../../lib/utils'
 import { Checkbox } from '../ui/choice'
 
-interface CheckboxGroupOption<T extends string> {
+export interface CheckboxGroupOption<T extends string> {
   value: T
   label: string
+  // A disabled option stays unchecked, shows the note, and is left out of Select/Deselect All.
+  disabledNote?: string
 }
 
 interface CheckboxGroupProps<T extends string> {
   legend: string
   options: CheckboxGroupOption<T>[]
-  selectedValues: T[]
-  onChange?: (values: T[]) => void
+  states: CheckStates<T>
+  onChange: (states: CheckStates<T>) => void
   disabled?: boolean
   className?: string
+}
+
+interface TriStateCheckboxProps {
+  label: string
+  state: CheckState
+  disabled: boolean
+  describedBy?: string
+  onChange: (state: CheckState) => void
+}
+
+// Indeterminate while the PCs differ, until the administrator picks a state.
+function TriStateCheckbox({ label, state, disabled, describedBy, onChange }: TriStateCheckboxProps) {
+  return (
+    <label className="flex items-center gap-2 text-ink">
+      <Checkbox
+        ref={(checkbox) => {
+          if (checkbox) checkbox.indeterminate = state === 'mixed'
+        }}
+        checked={state === 'on'}
+        disabled={disabled}
+        aria-describedby={describedBy}
+        onChange={(event) => onChange(event.target.checked ? 'on' : 'off')}
+      />
+      {label}
+    </label>
+  )
+}
+
+function DisabledOption({ label, note }: { label: string; note: string }) {
+  const noteId = useId()
+  return (
+    <div className="flex flex-col">
+      <TriStateCheckbox label={label} state="off" disabled describedBy={noteId} onChange={() => {}} />
+      <span id={noteId} className="ps-6 text-xs text-ink-muted">
+        {note}
+      </span>
+    </div>
+  )
 }
 
 export function CheckboxGroup<T extends string>({
   legend,
   options,
-  selectedValues,
+  states,
   onChange,
   disabled = false,
   className,
 }: CheckboxGroupProps<T>) {
-  const allValues = options.map((option) => option.value)
-  const selectionState = getSelectionState(allValues, selectedValues)
+  const enabledValues = options.filter((option) => !option.disabledNote).map((option) => option.value)
+  const combinedState = getCombinedState(states, enabledValues)
 
   return (
     <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
@@ -34,28 +79,30 @@ export function CheckboxGroup<T extends string>({
         {legend}
       </legend>
       <div className={cn('flex flex-col gap-2', className)}>
-        {options.map((option) => (
-          <label key={option.value} className="flex items-center gap-2 text-ink">
-            <Checkbox
-              checked={selectedValues.includes(option.value)}
+        {options.map((option) =>
+          option.disabledNote ? (
+            <DisabledOption key={option.value} label={option.label} note={option.disabledNote} />
+          ) : (
+            <TriStateCheckbox
+              key={option.value}
+              label={option.label}
+              state={states[option.value]}
               disabled={disabled}
-              onChange={() => onChange?.(toggleListValue(selectedValues, option.value))}
+              onChange={(state) => onChange({ ...states, [option.value]: state })}
             />
-            {option.label}
-          </label>
-        ))}
+          ),
+        )}
       </div>
-      <label className="flex items-center gap-2 border-t border-border pt-2 text-ink">
-        <Checkbox
-          ref={(checkbox) => {
-            if (checkbox) checkbox.indeterminate = selectionState === 'some'
-          }}
-          checked={selectionState === 'all'}
+      <div className="border-t border-border pt-2">
+        <TriStateCheckbox
+          label="Select/Deselect All"
+          state={combinedState}
           disabled={disabled}
-          onChange={() => onChange?.(toggleAllValues(allValues, selectedValues))}
+          onChange={() =>
+            onChange(setCheckStates(states, enabledValues, combinedState === 'on' ? 'off' : 'on'))
+          }
         />
-        Select/Deselect All
-      </label>
+      </div>
     </fieldset>
   )
 }
