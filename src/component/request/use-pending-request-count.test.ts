@@ -79,7 +79,7 @@ describe('startPendingCountPolling', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/login-requests',
+      '/api/login-requests?historyPage=1',
       expect.objectContaining({ headers: { 'X-Background-Refresh': '1' } }),
     )
     stop()

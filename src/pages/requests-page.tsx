@@ -1,15 +1,21 @@
+import { useState } from 'react'
 import { PageHeader } from '../component/layout/page-header'
 import { RequestCard } from '../component/request/request-card'
 import { useLoginRequests } from '../component/request/use-login-requests'
 import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
+import { ConfirmDialog } from '../component/ui/confirm-dialog'
 import { DataTable, type DataTableColumn } from '../component/ui/data-table'
 import { Icon } from '../component/ui/icon'
 import { useNotify } from '../component/ui/notification-context'
+import { Pagination } from '../component/ui/pagination'
+import { formatDefaultTime } from '../lib/accounts'
 import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
+import { buildApprovalChoice, getApprovalFormDefaults } from '../lib/request-schemas'
 import {
+  describeApproveAll,
   describeDenyAll,
   formatDecision,
   formatRequestDateTime,
@@ -43,16 +49,23 @@ export function RequestsPage() {
     busyRequestIds,
     isRefreshing,
     isDenyingAll,
+    isApprovingAll,
     reload,
     refresh,
+    goToHistoryPage,
     approve,
+    approveAll,
     deny,
     denyAll,
   } = useLoginRequests()
   const { isLoaded: areDefaultsLoaded, defaults } = useConsoleDefaults()
+  const [isApproveAllOpen, setIsApproveAllOpen] = useState(false)
   // Cards pre-fill from the saved default on mount, so they wait for it.
   const isLoaded = loadState.status === 'loaded' && areDefaultsLoaded
   const isLoading = loadState.status === 'loading' || !areDefaultsLoaded
+  const isBulkDisabled =
+    !isLoaded || pending.length === 0 || busyRequestIds.length > 0 || isApprovingAll || isDenyingAll
+  const defaultChoice = buildApprovalChoice(getApprovalFormDefaults(defaults.defaultApproval))
 
   // An expired session is handled by the sign-out redirect, so say nothing here.
   function notifyFailure(result: ApiResult<unknown>) {
@@ -78,8 +91,20 @@ export function RequestsPage() {
     else notifyFailure(result)
   }
 
+  // Uses the requests waiting when the dialog is confirmed, all with the console's default time.
+  async function approveAllRequests() {
+    setIsApproveAllOpen(false)
+    if (!defaultChoice || pending.length === 0) return
+    const { approved, failed } = await approveAll(pending, defaultChoice)
+    notify(describeApproveAll(approved, failed), failed > 0 ? 'alert' : undefined)
+  }
+
   async function refreshRequests() {
     notifyFailure(await refresh())
+  }
+
+  async function showHistoryPage(page: number) {
+    notifyFailure(await goToHistoryPage(page))
   }
 
   return (
@@ -97,8 +122,16 @@ export function RequestsPage() {
           {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </Button>
         <Button
+          variant="primary"
+          disabled={isBulkDisabled || !defaultChoice}
+          onClick={() => setIsApproveAllOpen(true)}
+        >
+          <Icon name="check" />
+          {isApprovingAll ? 'Approving...' : 'Approve all'}
+        </Button>
+        <Button
           variant="secondary"
-          disabled={!isLoaded || pending.length === 0 || busyRequestIds.length > 0}
+          disabled={isBulkDisabled}
           onClick={() => void denyAllRequests()}
         >
           <Icon name="x" />
@@ -153,13 +186,34 @@ export function RequestsPage() {
             </h2>
             <DataTable
               columns={historyColumns}
-              rows={history}
+              rows={history.items}
               getRowKey={(entry) => String(entry.id)}
               minWidthClassName="min-w-190"
               emptyMessage="No earlier requests."
             />
+            {history.totalItems > 0 && (
+              <Pagination
+                page={history}
+                itemLabel="requests"
+                onPageChange={(page) => void showHistoryPage(page)}
+              />
+            )}
           </section>
         </>
+      )}
+      {defaultChoice && (
+        <ConfirmDialog
+          isOpen={isApproveAllOpen}
+          title={`Approve ${pending.length} ${pending.length === 1 ? 'request' : 'requests'}?`}
+          confirmLabel="Approve all"
+          confirmVariant="primary"
+          isConfirmDisabled={isBulkDisabled}
+          onConfirm={() => void approveAllRequests()}
+          onCancel={() => setIsApproveAllOpen(false)}
+        >
+          Each PC gets {formatDefaultTime(defaultChoice)}, the default in Settings. A PC that can't be
+          approved stays waiting.
+        </ConfirmDialog>
       )}
     </>
   )

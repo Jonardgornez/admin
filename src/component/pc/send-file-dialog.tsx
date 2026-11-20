@@ -55,11 +55,13 @@ function UploadProgress({ percent, onCancel }: UploadProgressProps) {
 }
 
 interface SendFileDialogProps {
+  // Only online PCs; offline ones were left out when the dialog opened.
   targetPcs: RegisteredPc[]
+  skippedOfflineCount?: number
   onClose: () => void
 }
 
-export function SendFileDialog({ targetPcs, onClose }: SendFileDialogProps) {
+export function SendFileDialog({ targetPcs, skippedOfflineCount = 0, onClose }: SendFileDialogProps) {
   const baseId = useId()
   const titleId = `${baseId}-title`
   const fileId = `${baseId}-file`
@@ -132,17 +134,27 @@ export function SendFileDialog({ targetPcs, onClose }: SendFileDialogProps) {
   const targetLimitError = getSendFileTargetLimitError(targetPcs.length)
 
   if (sentFile) {
+    // The server skips a PC that went offline after the dialog opened.
+    const wentOfflineCount = targetPcs.filter(
+      (pc) => !sentFile.transfers.some((transfer) => transfer.pcId === pc.id),
+    ).length
     return (
       <Modal isOpen labelledBy={titleId} onClose={onClose}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 id={titleId} className="m-0 text-xl font-semibold">
-              Sending file to {countLabel}
+              Sending file to {formatPcCount(sentFile.transfers.length)}
             </h2>
             <p title={sentFile.name} className="m-0 min-w-0 truncate font-mono text-sm">
               {sentFile.name}
             </p>
           </div>
+          {wentOfflineCount > 0 && (
+            <p className="m-0 text-sm text-ink-muted">
+              {wentOfflineCount} {wentOfflineCount === 1 ? 'PC' : 'PCs'} went offline and{' '}
+              {wentOfflineCount === 1 ? 'was' : 'were'} skipped.
+            </p>
+          )}
           <FileTransferStatus initialTransfers={sentFile.transfers} />
           <div className="flex justify-end">
             <Button variant="primary" onClick={onClose}>
@@ -245,9 +257,12 @@ export function SendFileDialog({ targetPcs, onClose }: SendFileDialogProps) {
               {pathPreview}
             </span>
           </p>
-          <p className="m-0 text-sm text-ink-muted">
-            PCs that are offline get the file if they come back online within 1 hour.
-          </p>
+          {skippedOfflineCount > 0 && (
+            <p className="m-0 text-sm text-ink-muted">
+              {skippedOfflineCount} offline {skippedOfflineCount === 1 ? 'PC is' : 'PCs are'} skipped.
+              Only online PCs can be sent a file.
+            </p>
+          )}
 
           {isSubmitting && <UploadProgress percent={uploadPercent} onCancel={cancelUpload} />}
 

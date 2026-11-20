@@ -19,22 +19,41 @@ const NO_FAILURE: ApiResult<undefined> = { success: true, data: undefined }
 
 type ListsResult = ApiResult<requestsApi.LoginRequestLists>
 
+export interface LoginRequestHistoryPage {
+  items: LoginRequest[]
+  totalItems: number
+  page: number
+  pageSize: number
+}
+
+export interface ApproveAllOutcome {
+  approved: number
+  failed: number
+}
+
+const EMPTY_HISTORY: LoginRequestHistoryPage = { items: [], totalItems: 0, page: 1, pageSize: 10 }
+
 export function useLoginRequests() {
   const request = useSessionRequest()
   const [pending, setPending] = useState<LoginRequest[]>([])
-  const [history, setHistory] = useState<LoginRequest[]>([])
+  const [history, setHistory] = useState<LoginRequestHistoryPage>(EMPTY_HISTORY)
   const [now, setNow] = useState(() => new Date())
   const [loadState, setLoadState] = useState<LoginRequestsLoadState>({ status: 'loading' })
   const [busyRequestIds, setBusyRequestIds] = useState<number[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDenyingAll, setIsDenyingAll] = useState(false)
+  const [isApprovingAll, setIsApprovingAll] = useState(false)
   const latestLoadId = useRef(0)
+  // Read by every load, so the poll keeps the history page the administrator is on.
+  const historyPageRef = useRef(1)
 
   // Resolves with null when a newer load or a change started since, so the answer is stale.
   const fetchLists = useCallback(
     async (isBackground: boolean): Promise<ListsResult | null> => {
       const loadId = ++latestLoadId.current
-      const result = await request(requestsApi.listLoginRequests({ isBackground }))
+      const result = await request(
+        requestsApi.listLoginRequests({ isBackground, historyPage: historyPageRef.current }),
+      )
       return loadId === latestLoadId.current ? result : null
     },
     [request],
@@ -42,8 +61,11 @@ export function useLoginRequests() {
 
   const applyLists = useCallback((result: ListsResult | null) => {
     if (!result?.success) return
-    setPending(result.data.pending)
-    setHistory(result.data.history)
+    const { pending: waiting, history: items, historyTotal, historyPage, historyPageSize } = result.data
+    // The server clamps a page past the end, so the next poll asks for the page actually shown.
+    historyPageRef.current = historyPage
+    setPending(waiting)
+    setHistory({ items, totalItems: historyTotal, page: historyPage, pageSize: historyPageSize })
     setNow(new Date())
     setLoadState({ status: 'loaded' })
   }, [])
@@ -111,6 +133,7 @@ export function useLoginRequests() {
     [fetchLists, applyLists],
   )
 
+  // Page 1 shows the newest decisions at once; any other page only counts them until the next poll reloads it.
   const moveToHistory = useCallback(
     (entries: LoginRequest[]) => {
       discardLoadsInFlight()
@@ -121,9 +144,26 @@ export function useLoginRequests() {
           entries.map((entry) => entry.id),
         ),
       )
-      setHistory((current) => addToHistory(current, entries))
+      setHistory((current) => ({
+        ...current,
+        totalItems: current.totalItems + entries.length,
+        items:
+          current.page === 1
+            ? addToHistory(current.items, entries).slice(0, current.pageSize)
+            : current.items,
+      }))
     },
     [discardLoadsInFlight],
+  )
+
+  const goToHistoryPage = useCallback(
+    async (page: number): Promise<ApiResult<unknown>> => {
+      historyPageRef.current = page
+      const result = await fetchLists(false)
+      applyLists(result)
+      return result ?? NO_FAILURE
+    },
+    [fetchLists, applyLists],
   )
 
   const runForRequests = useCallback(
@@ -185,6 +225,34 @@ export function useLoginRequests() {
     [runForRequests, request, moveToHistory, fetchLists, applyLists],
   )
 
+  // One at a time through the normal approval, so each request gets the same checks as its own Approve button.
+  // Every request stays busy until its turn, so its card can't be decided by hand mid-run. A refused one stays
+  // waiting; the next poll moves it to history if it was decided or expired. A second call while one runs does nothing.
+  const isApprovingAllRef = useRef(false)
+  const approveAll = useCallback(
+    async (requests: LoginRequest[], time: ApprovalChoice): Promise<ApproveAllOutcome> => {
+      if (isApprovingAllRef.current) return { approved: 0, failed: 0 }
+      isApprovingAllRef.current = true
+      setIsApprovingAll(true)
+      try {
+        const counted = await runForRequests(
+          requests.map((loginRequest) => loginRequest.id),
+          async (): Promise<ApiResult<number>> => {
+            const results = []
+            for (const loginRequest of requests) results.push(await approve(loginRequest, time))
+            return { success: true, data: results.filter((result) => result.success).length }
+          },
+        )
+        const approved = counted.success ? counted.data : 0
+        return { approved, failed: requests.length - approved }
+      } finally {
+        isApprovingAllRef.current = false
+        setIsApprovingAll(false)
+      }
+    },
+    [approve, runForRequests],
+  )
+
   return {
     pending,
     history,
@@ -193,9 +261,12 @@ export function useLoginRequests() {
     busyRequestIds,
     isRefreshing,
     isDenyingAll,
+    isApprovingAll,
     reload,
     refresh,
+    goToHistoryPage,
     approve,
+    approveAll,
     deny,
     denyAll,
   }

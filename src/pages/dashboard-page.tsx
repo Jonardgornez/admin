@@ -26,6 +26,7 @@ import type { ApiResult } from '../lib/api'
 import { isSessionExpired } from '../lib/auth-state'
 import { getLockActionPcIds, type LockAction } from '../lib/pc-lock-action'
 import { describeInternetResult } from '../lib/internet'
+import { describeFastUserSwitchingResult } from '../lib/restrictions'
 import {
   canEditPcTime,
   countOnlinePcs,
@@ -56,8 +57,10 @@ import {
   getMessageTargets,
   getPcNamesToReboot,
   getPcNamesToShutDown,
+  getPcsToSendFile,
   getSelectionState,
   getScreenHref,
+  isPcSelectable,
   getServerPcPowerNote,
   toggleSelectAll,
   toggleSelectedId,
@@ -73,6 +76,11 @@ import type {
   ViewMode,
   WallpaperCommand,
 } from '../types'
+
+interface SendFileTargets {
+  targetPcs: RegisteredPc[]
+  skippedOfflineCount: number
+}
 
 const NOT_FOUND_STATUS = 404
 const NO_PCS_MESSAGE =
@@ -115,6 +123,7 @@ export function DashboardPage() {
     setPcsWallpaper,
     applyPcsWallpaper,
     setPcsKeepAwake,
+    setPcsFastUserSwitchingDisabled,
     queueClientUpdates,
     cancelClientUpdates,
     sendMessage,
@@ -139,7 +148,7 @@ export function DashboardPage() {
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null)
   const [messageTargets, setMessageTargets] = useState<MessageTargets | null>(null)
   const [wallpaperTargetPcs, setWallpaperTargetPcs] = useState<RegisteredPc[] | null>(null)
-  const [sendFileTargetPcs, setSendFileTargetPcs] = useState<RegisteredPc[] | null>(null)
+  const [sendFileTargets, setSendFileTargets] = useState<SendFileTargets | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const { defaults: consoleDefaults } = useConsoleDefaults()
   const detailScreenMode = detailViewMode ?? consoleDefaults.defaultViewMode
@@ -154,8 +163,11 @@ export function DashboardPage() {
   if (timeEditPcId !== null && !editablePc) setTimeEditPcId(null)
   const visiblePcs = filterPcs(pcs, searchQuery)
   const visiblePcIds = visiblePcs.map((pc) => pc.id)
-  // Ids of PCs that were removed drop out here, so the selection never points at a missing PC.
-  const selectedPcIds = selectedIds.filter((id) => pcs.some((pc) => pc.id === id))
+  const selectableVisiblePcIds = visiblePcs.filter(isPcSelectable).map((pc) => pc.id)
+  // PCs that were removed or went offline drop out here, so the selection only ever holds online PCs.
+  const selectedPcIds = selectedIds.filter((id) => pcs.some((pc) => pc.id === id && isPcSelectable(pc)))
+  // Forgotten for good, so a PC that comes back online doesn't reappear selected.
+  if (selectedPcIds.length !== selectedIds.length) setSelectedIds(selectedPcIds)
   const lockPcIds = getPcIdsToLock(pcs, selectedPcIds)
   const unlockPcIds = getPcIdsToUnlock(pcs, selectedPcIds)
   const editTimePcIds = getPcIdsToEditTime(pcs, selectedPcIds)
@@ -166,6 +178,7 @@ export function DashboardPage() {
   const cancelPowerPcIds = getPcIdsToCancelPower(pcs, selectedPcIds)
   const selectedMessageTargets = getMessageTargets(pcs, selectedPcIds)
   const selectedPcs = pcs.filter((pc) => selectedPcIds.includes(pc.id))
+  const sendFilePcs = getPcsToSendFile(pcs, selectedPcIds)
   const wallpaperTargetIds = wallpaperTargetPcs?.map((pc) => pc.id) ?? []
   // The server PC keeps its internet, so it is not counted for Restrictions.
   const restrictionTargetCount = selectedPcs.filter((pc) => !pc.isServerPc).length
@@ -203,7 +216,7 @@ export function DashboardPage() {
   }
 
   function toggleSelectAllVisiblePcs() {
-    setSelectedIds(toggleSelectAll(visiblePcIds, selectedPcIds))
+    setSelectedIds(toggleSelectAll(selectableVisiblePcIds, selectedPcIds))
   }
 
   function isRemoveDisabled(pcId: number): boolean {
@@ -317,12 +330,16 @@ export function DashboardPage() {
 
   // Null means the same bulk command is still running, so the dialog stays open and can try again.
   // A failed change keeps the dialog open with the error, and a successful one closes it.
+  // The Restrictions dialog closes itself once every change it made succeeded.
   async function applyRestrictionsInternet(pcIds: number[], blocked: boolean) {
     const result = await setPcsInternetBlocked(pcIds, blocked)
-    if (result?.success) {
-      setRestrictionTargetPcs(null)
-      notify(describeInternetResult(blocked, result.data), 'plug')
-    }
+    if (result?.success) notify(describeInternetResult(blocked, result.data), 'plug')
+    return result
+  }
+
+  async function applyRestrictionsFastUserSwitching(pcIds: number[], disabled: boolean) {
+    const result = await setPcsFastUserSwitchingDisabled(pcIds, disabled)
+    if (result?.success) notify(describeFastUserSwitchingResult(disabled, result.data.affected))
     return result
   }
 
@@ -443,7 +460,7 @@ export function DashboardPage() {
 
         {isLoaded && pcs.length > 0 && (
           <PcBulkToolbar
-            hasVisiblePcs={visiblePcs.length > 0}
+            hasVisiblePcs={selectableVisiblePcIds.length > 0}
             lockSelectedCount={lockPcIds.length}
             unlockSelectedCount={unlockPcIds.length}
             isBulkLockDisabled={isDisconnected || isBulkCommandBusy}
@@ -460,9 +477,14 @@ export function DashboardPage() {
             wallpaperCount={selectedPcs.length}
             isWallpaperDisabled={isDisconnected || isBulkCommandBusy}
             onWallpaper={() => setWallpaperTargetPcs(selectedPcs)}
-            sendFileCount={selectedPcs.length}
+            sendFileCount={sendFilePcs.length}
             isSendFileDisabled={isDisconnected}
-            onSendFile={() => setSendFileTargetPcs(selectedPcs)}
+            onSendFile={() =>
+              setSendFileTargets({
+                targetPcs: sendFilePcs,
+                skippedOfflineCount: selectedPcs.length - sendFilePcs.length,
+              })
+            }
             clientUpdateCount={clientUpdatePcIds.length}
             isClientUpdateDisabled={
               isDisconnected || isBulkCommandBusy || clientUpdates.release === null
@@ -478,7 +500,7 @@ export function DashboardPage() {
             keepAwakeOfflineCount={keepAwakeOfflineCount}
             isKeepAwakeDisabled={isDisconnected || isBulkCommandBusy}
             onKeepAwake={(keepAwake) => void setSelectedPcsKeepAwake(keepAwake)}
-            selectionState={getSelectionState(visiblePcIds, selectedPcIds)}
+            selectionState={getSelectionState(selectableVisiblePcIds, selectedPcIds)}
             selectedCount={selectedPcIds.length}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -629,6 +651,7 @@ export function DashboardPage() {
         <RestrictionsDialog
           targetPcs={restrictionTargetPcs}
           onApplyInternet={applyRestrictionsInternet}
+          onApplyFastUserSwitching={applyRestrictionsFastUserSwitching}
           onClose={() => setRestrictionTargetPcs(null)}
         />
       )}
@@ -647,8 +670,12 @@ export function DashboardPage() {
         />
       )}
 
-      {sendFileTargetPcs && (
-        <SendFileDialog targetPcs={sendFileTargetPcs} onClose={() => setSendFileTargetPcs(null)} />
+      {sendFileTargets && (
+        <SendFileDialog
+          targetPcs={sendFileTargets.targetPcs}
+          skippedOfflineCount={sendFileTargets.skippedOfflineCount}
+          onClose={() => setSendFileTargets(null)}
+        />
       )}
 
       <ClientUpdateDialog

@@ -202,7 +202,8 @@ describe('DashboardPage always awake', () => {
     vi.unstubAllGlobals()
   })
 
-  it('sends only the online selected PCs and reports the offline ones as skipped', async () => {
+  // Select all leaves the offline PC out, so it is never sent and never counted as skipped.
+  it('turns it on for the selected PCs, which are all online', async () => {
     const offlinePc = { ...serverPc(2), isOnline: false, session: null }
     const fetchMock = stubApi({
       ...standardRoutes(),
@@ -217,36 +218,33 @@ describe('DashboardPage always awake', () => {
     fireEvent.click(group.getByRole('button', { name: 'On (2)' }))
 
     await waitFor(() =>
-      expect(notify).toHaveBeenCalledWith(
-        'Always awake turned on for 2 PCs. 1 offline PC skipped.',
-        'eye',
-      ),
+      expect(notify).toHaveBeenCalledWith('Always awake turned on for 2 PCs.', 'eye'),
     )
     expect(commandCalls(fetchMock, '/api/pcs/keep-awake')[0][1]?.body).toBe(
       '{"ids":[1,3],"keepAwake":true}',
     )
   }, DASHBOARD_TEST_TIMEOUT_MS)
 
-  it('turns it off on every selected PC, offline ones too, with no skipped count', async () => {
+  it('turns it off for the selected online PCs', async () => {
     const awakePc = (id: number) => ({ ...serverPc(id), keepAwake: true })
     const offlinePc = { ...awakePc(2), isOnline: false, session: null }
     const fetchMock = stubApi({
       ...standardRoutes(),
       'GET /api/pcs': () => Response.json([awakePc(1), offlinePc, awakePc(3)]),
-      'POST /api/pcs/keep-awake': () => Response.json({ affected: 3 }),
+      'POST /api/pcs/keep-awake': () => Response.json({ affected: 2 }),
     })
     const notify = vi.fn()
     renderDashboard(notify)
 
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
     const group = within(screen.getByRole('group', { name: 'Always awake' }))
-    fireEvent.click(group.getByRole('button', { name: 'Off (3)' }))
+    fireEvent.click(group.getByRole('button', { name: 'Off (2)' }))
 
     await waitFor(() =>
-      expect(notify).toHaveBeenCalledWith('Always awake turned off for 3 PCs.', 'eye'),
+      expect(notify).toHaveBeenCalledWith('Always awake turned off for 2 PCs.', 'eye'),
     )
     expect(commandCalls(fetchMock, '/api/pcs/keep-awake')[0][1]?.body).toBe(
-      '{"ids":[1,2,3],"keepAwake":false}',
+      '{"ids":[1,3],"keepAwake":false}',
     )
   }, DASHBOARD_TEST_TIMEOUT_MS)
 
@@ -447,6 +445,88 @@ describe('DashboardPage send file', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByRole('heading', { name: 'Send file to 2 PCs' })).toBeNull()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('sends only to the online PCs, since an offline one cannot be selected', async () => {
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () =>
+        Response.json([serverPc(1), { ...serverPc(2), isOnline: false, session: null }]),
+    })
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send file (1)' }))
+    const dialog = screen.getByRole('heading', { name: 'Send file to 1 PC' }).closest('dialog')
+    if (!dialog) throw new Error('The send file dialog is not open')
+    expect(within(dialog).getByText('PC-01')).toBeTruthy()
+    expect(within(dialog).queryByText(/offline/)).toBeNull()
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+})
+
+describe('DashboardPage selection of online PCs only', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const offline = (id: number) => ({ ...serverPc(id), isOnline: false, session: null })
+
+  it('shows no checkbox on an offline or shut-down PC, and Select all takes only online ones', async () => {
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () =>
+        Response.json([serverPc(1), offline(2), { ...offline(3), shutdownState: 'shutdown' }]),
+    })
+    renderDashboard()
+
+    await screen.findByRole('checkbox', { name: 'Select PC-01' })
+    expect(screen.queryByRole('checkbox', { name: 'Select PC-02' })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: 'Select PC-03' })).toBeNull()
+
+    const selectAll = screen.getByRole<HTMLInputElement>('checkbox', { name: 'Select all' })
+    fireEvent.click(selectAll)
+
+    expect(screen.getByText('1 selected')).toBeTruthy()
+    expect(selectAll.checked).toBe(true)
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  it('disables Select all when no PC in view is online', async () => {
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json([offline(1), offline(2)]),
+    })
+    renderDashboard()
+
+    await screen.findByRole('button', { name: 'PC-01' })
+    expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'Select all' }).disabled).toBe(true)
+  }, DASHBOARD_TEST_TIMEOUT_MS)
+
+  // The list is read again after a rename, and in that list PC-01 has gone offline.
+  it('drops a selected PC from the selection when it goes offline', async () => {
+    let listedPcs: object[] = [serverPc(1), serverPc(2)]
+    stubApi({
+      ...standardRoutes(),
+      'GET /api/pcs': () => Response.json(listedPcs),
+      'PUT /api/pcs/2/name': () => {
+        listedPcs = [offline(1), { ...serverPc(2), name: 'PC-5' }]
+        return Response.json({ name: 'PC-5' })
+      },
+    })
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select PC-01' }))
+    expect(screen.getByText('1 selected')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'PC-02' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rename PC-02' }))
+    const dialog = screen.getByRole('heading', { name: 'Rename PC-02' }).closest('dialog')
+    if (!dialog) throw new Error('The rename dialog is not open')
+    fireEvent.change(within(dialog).getByLabelText('PC number'), { target: { value: '5' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }))
+
+    await screen.findByRole('button', { name: 'PC-5' })
+    await waitFor(() => expect(screen.queryByRole('checkbox', { name: 'Select PC-01' })).toBeNull())
+    expect(screen.getByText('0 selected')).toBeTruthy()
   }, DASHBOARD_TEST_TIMEOUT_MS)
 })
 

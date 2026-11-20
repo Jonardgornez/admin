@@ -22,6 +22,7 @@ export const EXPORT_ROW_LIMIT = 10_000
 
 const SESSION_LOG_PATH = '/api/session-logs'
 const SESSION_LOG_EXPORT_PATH = '/api/session-logs/export'
+const SESSION_LOG_PURGE_PATH = '/api/session-logs/purge'
 const DEFAULT_EXPORT_FILENAME = 'session-logs.csv'
 const TRUNCATED_HEADER = 'X-Export-Truncated'
 const FILENAME_PATTERN = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i
@@ -46,12 +47,40 @@ const sessionLogPageSchema = z.object({
   pageSize: z.number().int().positive(),
 })
 
+// The only ages "Purge old logs" offers; the server refuses anything else.
+export const PURGE_DAY_CHOICES = [30, 90, 180, 365] as const
+export type PurgeDays = (typeof PURGE_DAY_CHOICES)[number]
+
+const purgePreviewSchema = z.object({ count: z.number().int().nonnegative() })
+const purgeResultSchema = z.object({ deleted: z.number().int().nonnegative() })
+
+// How many ended sessions older than the given days a purge would delete.
+export async function previewSessionLogPurge(olderThanDays: PurgeDays): Promise<ApiResult<number>> {
+  const result = parseBody(
+    await apiRequest<unknown>(`${SESSION_LOG_PURGE_PATH}-preview?olderThanDays=${olderThanDays}`),
+    purgePreviewSchema,
+    OK_STATUS,
+  )
+  return result.success ? { success: true, data: result.data.count } : result
+}
+
+// Deletes ended sessions older than the given days and returns how many were deleted.
+export async function purgeSessionLogs(olderThanDays: PurgeDays): Promise<ApiResult<number>> {
+  const result = parseBody(
+    await apiRequest<unknown>(SESSION_LOG_PURGE_PATH, { method: 'POST', body: { olderThanDays } }),
+    purgeResultSchema,
+    OK_STATUS,
+  )
+  return result.success ? { success: true, data: result.data.deleted } : result
+}
+
 function buildFilterParams(filters: LogFilters): URLSearchParams {
   const params = new URLSearchParams()
   for (const field of ['from', 'to', 'pc', 'user'] as const) {
     const value = filters[field]?.trim() ?? ''
     if (value !== '') params.set(field, value)
   }
+  if (filters.pcId !== undefined) params.set('pcId', String(filters.pcId))
   return params
 }
 

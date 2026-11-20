@@ -80,6 +80,17 @@ export function addToHistory(history: LoginRequest[], entries: LoginRequest[]): 
   return [...entries, ...removeRequests(history, entryIds)]
 }
 
+function formatRequestCount(count: number): string {
+  return `${count} ${count === 1 ? 'request' : 'requests'}`
+}
+
+// Approve all goes one request at a time, so some can be refused while the rest go through.
+export function describeApproveAll(approved: number, failed: number): string {
+  if (approved === 0) return failed === 1 ? "The request couldn't be approved." : "No requests could be approved."
+  if (failed === 0) return `Approved ${formatRequestCount(approved)}.`
+  return `Approved ${approved} of ${approved + failed}. ${formatRequestCount(failed)} couldn't be approved.`
+}
+
 export function describeDenyAll(deniedCount: number): string {
   if (deniedCount === 0) return 'No requests were denied.'
   return `Denied ${deniedCount} ${deniedCount === 1 ? 'request' : 'requests'}.`

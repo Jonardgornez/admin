@@ -81,6 +81,7 @@ export function toRegisteredPc(serverPc: ServerPc, now: Date): RegisteredPc {
     wallpaperId: serverPc.wallpaper?.id ?? null,
     service: serverPc.service ?? null,
     keepAwake: serverPc.keepAwake,
+    fastUserSwitchingDisabled: serverPc.fastUserSwitchingDisabled,
     lastSeen: serverPc.isOnline ? 'Now' : formatLastSeen(serverPc.lastSeenAt),
     ipAddress: serverPc.ipAddress ?? undefined,
     ...(session && toSessionFields(session, now)),
@@ -147,6 +148,11 @@ export function toggleSelectAll<T>(visibleItems: T[], selectedItems: T[]): T[] {
     return selectedItems.filter((item) => !visibleItems.includes(item))
   }
   return [...new Set([...selectedItems, ...visibleItems])]
+}
+
+// Only an online PC can be selected: an offline, shut-down or restarting PC has no checkbox and is left out of Select all.
+export function isPcSelectable(pc: Pc): boolean {
+  return isPcOnline(pc)
 }
 
 // Selection is kept by id, since a rename can give another PC a selected PC's old name.
@@ -285,6 +291,11 @@ function getSelectedPcs(
   return pcs.filter((pc) => selectedIds.includes(pc.id) && canRun(pc))
 }
 
+// Only an online PC can be sent a file. The server skips offline ones too.
+export function getPcsToSendFile(pcs: RegisteredPc[], selectedIds: number[]): RegisteredPc[] {
+  return getSelectedPcs(pcs, selectedIds, isPcOnline)
+}
+
 export function getPcIdsToShutDown(pcs: RegisteredPc[], selectedIds: number[]): number[] {
   return getSelectedPcs(pcs, selectedIds, canShutDownPc).map((pc) => pc.id)
 }
@@ -407,8 +418,9 @@ export function describeRename(newName: string): string {
   return `Renamed to ${newName}.`
 }
 
-export function getLogsHref(pcName: string): string {
-  return `/logs?pc=${encodeURIComponent(pcName)}`
+// Matches the PC by id, so PC-1's history never includes PC-10. The name is only for the page to show.
+export function getLogsHref(pcId: number, pcName: string): string {
+  return `/logs?${new URLSearchParams({ pcId: String(pcId), pcName }).toString()}`
 }
 
 export function parseTimeAmount(amount: string, unit: TimeUnit): number | null {

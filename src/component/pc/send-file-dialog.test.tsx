@@ -32,11 +32,15 @@ function makePc(id: number): RegisteredPc {
   return { id, name: `PC-${id}`, status: 'locked', lastSeen: 'Now' }
 }
 
-function renderDialog(targetPcs: RegisteredPc[] = [makePc(1), makePc(2)]) {
+function renderDialog(targetPcs: RegisteredPc[] = [makePc(1), makePc(2)], skippedOfflineCount = 0) {
   const onClose = vi.fn()
   render(
     <TestProviders>
-      <SendFileDialog targetPcs={targetPcs} onClose={onClose} />
+      <SendFileDialog
+        targetPcs={targetPcs}
+        skippedOfflineCount={skippedOfflineCount}
+        onClose={onClose}
+      />
     </TestProviders>,
   )
   return { onClose }
@@ -118,6 +122,30 @@ describe('SendFileDialog', () => {
     })
     expect(screen.getByRole('status').textContent).toBe('Saved on 0 of 2 PCs.')
     expect(screen.getAllByText('Waiting for PC')).toHaveLength(2)
+    expect(screen.queryByText(/went offline/)).toBeNull()
+  })
+
+  it('says which PCs the server skipped because they went offline', async () => {
+    vi.mocked(sendFileToPcs).mockResolvedValue({ success: true, data: [makeTransfer(1)] })
+    renderDialog()
+    chooseFile(notes)
+    fireEvent.click(getSendButton())
+
+    expect(await screen.findByRole('heading', { name: 'Sending file to 1 PC' })).toBeTruthy()
+    expect(screen.getByText('1 PC went offline and was skipped.')).toBeTruthy()
+  })
+
+  it('shows the server message when none of the PCs is online any more', async () => {
+    vi.mocked(sendFileToPcs).mockResolvedValue({
+      success: false,
+      status: 400,
+      error: 'None of these PCs are online.',
+    })
+    renderDialog()
+    chooseFile(notes)
+    fireEvent.click(getSendButton())
+
+    expect((await screen.findByRole('alert')).textContent).toContain('None of these PCs are online.')
   })
 
   it('shows the upload progress and disables Send while uploading', async () => {
@@ -162,11 +190,16 @@ describe('SendFileDialog', () => {
     expect(sendFileToPcs).not.toHaveBeenCalled()
   })
 
-  it('says offline PCs get the file if they come back within 1 hour', () => {
-    renderDialog()
+  it('says how many offline PCs were skipped', () => {
+    renderDialog([makePc(1)], 2)
     expect(
-      screen.getByText('PCs that are offline get the file if they come back online within 1 hour.'),
+      screen.getByText('2 offline PCs are skipped. Only online PCs can be sent a file.'),
     ).toBeTruthy()
+  })
+
+  it('says nothing about offline PCs when none were skipped', () => {
+    renderDialog()
+    expect(screen.queryByText(/offline/)).toBeNull()
   })
 
   it('refuses a file name Windows cannot save under the picker, before uploading', async () => {

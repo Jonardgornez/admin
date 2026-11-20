@@ -174,7 +174,7 @@ describe('useLoginRequests', () => {
 
       expect(outcome).toEqual({ success: true, data: approvedFirst })
       expect(result.current.pending).toEqual([secondPending])
-      expect(result.current.history).toEqual([approvedFirst])
+      expect(result.current.history.items).toEqual([approvedFirst])
       expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/login-requests/1/approve')
     })
 
@@ -213,7 +213,138 @@ describe('useLoginRequests', () => {
       })
 
       expect(result.current.pending).toEqual([secondPending])
-      expect(result.current.history).toEqual([deniedFirst])
+      expect(result.current.history.items).toEqual([deniedFirst])
+    })
+  })
+
+  describe('approve all', () => {
+    it('approves each request in turn and counts the ones refused', async () => {
+      const approvedSecond = makeLoginRequest(2, {
+        status: 'approved',
+        time: { mode: 'time-limit', minutes: 60 },
+        decidedAt: DECIDED_AT,
+      })
+      fetchMock.mockResolvedValueOnce(listResponse([firstPending, secondPending]))
+      fetchMock.mockResolvedValueOnce(Response.json({ error: EXPIRED_MESSAGE }, { status: 409 }))
+      fetchMock.mockResolvedValueOnce(Response.json(approvedSecond))
+      const { result } = renderLoginRequests()
+      await advance(0)
+
+      let outcome: unknown
+      await act(async () => {
+        outcome = await result.current.approveAll([firstPending, secondPending], {
+          mode: 'time-limit',
+          minutes: 60,
+        })
+      })
+
+      expect(outcome).toEqual({ approved: 1, failed: 1 })
+      expect(fetchMock.mock.calls.slice(1).map(([input]) => input)).toEqual([
+        '/api/login-requests/1/approve',
+        '/api/login-requests/2/approve',
+      ])
+      expect(fetchMock.mock.calls[2]?.[1]?.body).toBe(
+        JSON.stringify({ time: { mode: 'time-limit', minutes: 60 } }),
+      )
+      expect(result.current.pending).toEqual([firstPending])
+      expect(result.current.isApprovingAll).toBe(false)
+      expect(result.current.busyRequestIds).toEqual([])
+    })
+
+    it('keeps the requests not yet reached busy, and ignores a second run', async () => {
+      const firstApproval = deferredResponse()
+      fetchMock.mockResolvedValueOnce(listResponse([firstPending, secondPending]))
+      fetchMock.mockReturnValueOnce(firstApproval.promise)
+      fetchMock.mockResolvedValueOnce(Response.json(makeLoginRequest(2, { status: 'approved', decidedAt: DECIDED_AT, time: { mode: 'open-time' } })))
+      const { result } = renderLoginRequests()
+      await advance(0)
+
+      let firstRun: Promise<unknown> = Promise.resolve()
+      let secondOutcome: unknown
+      await act(async () => {
+        firstRun = result.current.approveAll([firstPending, secondPending], { mode: 'open-time' })
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(result.current.busyRequestIds).toEqual(expect.arrayContaining([1, 2]))
+      await act(async () => {
+        secondOutcome = await result.current.approveAll([firstPending, secondPending], { mode: 'open-time' })
+      })
+      expect(secondOutcome).toEqual({ approved: 0, failed: 0 })
+
+      await act(async () => {
+        firstApproval.resolve(Response.json(approvedFirst))
+        await firstRun
+      })
+      expect(await firstRun).toEqual({ approved: 2, failed: 0 })
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    })
+  })
+
+  describe('history pages', () => {
+    const decided = (id: number) => makeLoginRequest(id, { status: 'denied', decidedAt: DECIDED_AT })
+
+    it('loads the chosen page and keeps it when the list polls', async () => {
+      fetchMock.mockResolvedValueOnce(
+        Response.json(loginRequestListsBody([], [decided(30)], { historyTotal: 25 })),
+      )
+      fetchMock.mockResolvedValueOnce(
+        Response.json(loginRequestListsBody([], [decided(20)], { historyTotal: 25, historyPage: 2 })),
+      )
+      fetchMock.mockResolvedValueOnce(
+        Response.json(loginRequestListsBody([], [decided(20)], { historyTotal: 25, historyPage: 2 })),
+      )
+      const { result } = renderLoginRequests()
+      await advance(0)
+
+      await act(async () => {
+        await result.current.goToHistoryPage(2)
+      })
+
+      expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/login-requests?historyPage=2')
+      expect(result.current.history).toEqual({
+        items: [decided(20)],
+        totalItems: 25,
+        page: 2,
+        pageSize: 10,
+      })
+
+      await advance(POLL_INTERVAL_MS)
+      expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/login-requests?historyPage=2')
+    })
+
+    it('asks for the page the server clamped to on the next poll', async () => {
+      fetchMock.mockResolvedValueOnce(Response.json(loginRequestListsBody([], [], { historyTotal: 5 })))
+      fetchMock.mockResolvedValueOnce(
+        Response.json(loginRequestListsBody([], [decided(1)], { historyTotal: 5, historyPage: 1 })),
+      )
+      fetchMock.mockResolvedValueOnce(Response.json(loginRequestListsBody([], [decided(1)], { historyTotal: 5 })))
+      const { result } = renderLoginRequests()
+      await advance(0)
+
+      await act(async () => {
+        await result.current.goToHistoryPage(4)
+      })
+      await advance(POLL_INTERVAL_MS)
+
+      expect(fetchMock.mock.calls[2]?.[0]).toBe(LOGIN_REQUEST_LIST_PATH)
+    })
+
+    it('counts a decision made on a later page without changing its rows', async () => {
+      fetchMock.mockResolvedValueOnce(
+        Response.json(
+          loginRequestListsBody([firstPending], [decided(20)], { historyTotal: 25, historyPage: 2 }),
+        ),
+      )
+      fetchMock.mockResolvedValueOnce(Response.json(deniedFirst))
+      const { result } = renderLoginRequests()
+      await advance(0)
+
+      await act(async () => {
+        await result.current.deny(firstPending)
+      })
+
+      expect(result.current.history.items).toEqual([decided(20)])
+      expect(result.current.history.totalItems).toBe(26)
     })
   })
 })

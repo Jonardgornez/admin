@@ -5,8 +5,53 @@ import {
   exportSessionLogs,
   listSessionLogs,
   parseExportFilename,
+  previewSessionLogPurge,
+  purgeSessionLogs,
   SESSION_LOG_PAGE_SIZE,
 } from './session-logs-api'
+
+describe('purge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('asks for the preview count of the chosen age', async () => {
+    const fetchMock = stubFetch(Response.json({ count: 7 }))
+
+    expect(await previewSessionLogPurge(180)).toEqual({ success: true, data: 7 })
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/session-logs/purge-preview?olderThanDays=180')
+  })
+
+  it('posts the chosen age and returns how many were deleted', async () => {
+    const fetchMock = stubFetch(Response.json({ deleted: 4 }))
+
+    expect(await purgeSessionLogs(30)).toEqual({ success: true, data: 4 })
+    const [path, init] = fetchMock.mock.calls[0] ?? []
+    expect(path).toBe('/api/session-logs/purge')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBe(JSON.stringify({ olderThanDays: 30 }))
+  })
+
+  it('returns the server message when the purge is refused', async () => {
+    stubFetch(Response.json({ error: 'Choose 30, 90, 180 or 365 days.' }, { status: 400 }))
+
+    expect(await purgeSessionLogs(30)).toEqual({
+      success: false,
+      status: 400,
+      error: 'Choose 30, 90, 180 or 365 days.',
+    })
+  })
+
+  it('treats an odd answer as a failure', async () => {
+    stubFetch(Response.json({ count: 'many' }))
+
+    expect(await previewSessionLogPurge(90)).toEqual({
+      success: false,
+      status: 200,
+      error: FALLBACK_ERROR_MESSAGE,
+    })
+  })
+})
 
 vi.mock('./file-download', () => ({ saveBlobAsFile: vi.fn() }))
 
@@ -79,6 +124,13 @@ describe('listSessionLogs', () => {
       expect(url.searchParams.get('user')).toBe('lab')
       expect(url.searchParams.get('page')).toBe('1')
       expect(url.searchParams.get('pageSize')).toBe(String(SESSION_LOG_PAGE_SIZE))
+    })
+
+    it('sends the PC id for an exact PC match', async () => {
+      const fetchMock = stubFetch(Response.json(listBody))
+      await listSessionLogs({ pcId: 3 }, 1)
+
+      expect(requestedUrl(fetchMock).searchParams.get('pcId')).toBe('3')
     })
 
     it('omits filters that are empty or only spaces', async () => {

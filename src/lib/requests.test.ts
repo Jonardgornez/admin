@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LoginRequest } from '../types'
 import {
   addToHistory,
+  describeApproveAll,
   describeDenyAll,
   formatDecision,
   formatLoginRequestsAriaLabel,
@@ -191,6 +192,23 @@ describe('addToHistory', () => {
   it('keeps the order of several new entries', () => {
     const result = addToHistory([older], [makeRequest(3), makeRequest(2)])
     expect(result.map((entry) => entry.id)).toEqual([3, 2, 1])
+  })
+})
+
+describe('describeApproveAll', () => {
+  it('reports when every request was approved', () => {
+    expect(describeApproveAll(1, 0)).toBe('Approved 1 request.')
+    expect(describeApproveAll(4, 0)).toBe('Approved 4 requests.')
+  })
+
+  it('reports how many were refused', () => {
+    expect(describeApproveAll(3, 2)).toBe("Approved 3 of 5. 2 requests couldn't be approved.")
+    expect(describeApproveAll(1, 1)).toBe("Approved 1 of 2. 1 request couldn't be approved.")
+  })
+
+  it('reports when none could be approved', () => {
+    expect(describeApproveAll(0, 1)).toBe("The request couldn't be approved.")
+    expect(describeApproveAll(0, 3)).toBe('No requests could be approved.')
   })
 })
 

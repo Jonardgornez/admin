@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Notify } from '../component/ui/notification-context'
 import { saveBlobAsFile } from '../lib/file-download'
 import { TestProviders } from '../test/test-providers'
@@ -9,8 +9,21 @@ import { LogsPage } from './logs-page'
 
 vi.mock('../lib/file-download', () => ({ saveBlobAsFile: vi.fn() }))
 
+// jsdom does not implement showModal, so the open state is set by hand.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  }
+})
+
 const LIST_PATH = '/api/session-logs'
 const EXPORT_PATH = '/api/session-logs/export'
+const PCS_PATH = '/api/pcs'
+const PURGE_PREVIEW_PATH = '/api/session-logs/purge-preview'
+const PURGE_PATH = '/api/session-logs/purge'
 
 const runningLog: SessionLog = {
   id: 2,
@@ -34,6 +47,23 @@ const endedLog: SessionLog = {
   endReason: 'time-expired',
 }
 
+function serverPc(id: number, name: string) {
+  return {
+    id,
+    name,
+    isOnline: true,
+    isLocked: false,
+    ipAddress: null,
+    registeredAt: '2026-11-01T08:00:00.000Z',
+    lastSeenAt: '2026-11-10T10:00:00.000Z',
+    session: null,
+    shutdownState: null,
+    isServerPc: false,
+  }
+}
+
+const PCS = [serverPc(10, 'PC-10'), serverPc(1, 'PC-1'), serverPc(2, 'PC-2')]
+
 // Serves the server's paging contract: 25 sessions in pages of 10, and a page past the end is clamped.
 function listPage(url: URL): Response {
   const requestedPage = Number(url.searchParams.get('page') ?? '1')
@@ -52,11 +82,13 @@ function listPage(url: URL): Response {
 
 type Responder = (url: URL, init?: RequestInit) => Response | Promise<Response>
 
-// Anything unrouted fails the test visibly instead of hanging on an undefined response.
+// The PC list is served for every test; anything else unrouted fails visibly instead of hanging.
 function stubFetch(respond: Responder) {
-  const fetchMock = vi.fn<typeof fetch>((input, init) =>
-    Promise.resolve(respond(new URL(String(input), 'http://localhost'), init)),
-  )
+  const fetchMock = vi.fn<typeof fetch>((input, init) => {
+    const url = new URL(String(input), 'http://localhost')
+    if (url.pathname === PCS_PATH) return Promise.resolve(Response.json(PCS))
+    return Promise.resolve(respond(url, init))
+  })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
@@ -77,8 +109,18 @@ function renderLogsPage(initialPath = '/logs', notify: Notify = vi.fn()) {
   )
 }
 
-function requestedUrls(fetchMock: ReturnType<typeof stubFetch>): URL[] {
-  return fetchMock.mock.calls.map(([input]) => new URL(String(input), 'http://localhost'))
+function requestedUrls(fetchMock: ReturnType<typeof stubFetch>, pathname = LIST_PATH): URL[] {
+  return fetchMock.mock.calls
+    .map(([input]) => new URL(String(input), 'http://localhost'))
+    .filter((url) => url.pathname === pathname)
+}
+
+function lastListSearch(fetchMock: ReturnType<typeof stubFetch>): string | undefined {
+  return requestedUrls(fetchMock).at(-1)?.search
+}
+
+function pcSelect(): HTMLSelectElement {
+  return screen.getByLabelText('PC') as HTMLSelectElement
 }
 
 describe('LogsPage', () => {
@@ -145,55 +187,213 @@ describe('LogsPage', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('sends the applied filters and goes back to page 1', async () => {
-    const fetchMock = stubFetch((url) => listPage(url))
-    renderLogsPage()
-    await screen.findByText('PC-01')
+  describe('filters', () => {
+    it('lists every registered PC by name after All PCs', async () => {
+      stubFetch((url) => listPage(url))
+      renderLogsPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    await screen.findByText('PC-11')
-    expect(screen.getByText('Page 2 of 3')).toBeTruthy()
+      await waitFor(() => expect(pcSelect().options).toHaveLength(4))
+      expect(Array.from(pcSelect().options).map((option) => option.text)).toEqual([
+        'All PCs',
+        'PC-1',
+        'PC-2',
+        'PC-10',
+      ])
+    })
 
-    fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-11-01' } })
-    fireEvent.change(screen.getByLabelText('PC'), { target: { value: 'pc-05' } })
-    fireEvent.change(screen.getByLabelText('User'), { target: { value: 'lab' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+    it('shows one day for one PC and goes back to page 1', async () => {
+      const fetchMock = stubFetch((url) => listPage(url))
+      renderLogsPage()
+      await screen.findByText('PC-01')
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+      await screen.findByText('Page 2 of 3')
 
-    await waitFor(() => expect(requestedUrls(fetchMock).at(-1)?.search).toBe(
-      '?from=2026-11-01&pc=pc-05&user=lab&page=1&pageSize=10',
-    ))
-    expect(await screen.findByText('Page 1 of 3')).toBeTruthy()
+      fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'day' } })
+      fireEvent.change(screen.getByLabelText('Day'), { target: { value: '2026-11-08' } })
+      await waitFor(() => expect(pcSelect().options).toHaveLength(4))
+      fireEvent.change(pcSelect(), { target: { value: '2' } })
+      fireEvent.change(screen.getByLabelText('User'), { target: { value: 'lab' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+
+      await waitFor(() =>
+        expect(lastListSearch(fetchMock)).toBe(
+          '?from=2026-11-08&to=2026-11-08&user=lab&pcId=2&page=1&pageSize=10',
+        ),
+      )
+      expect(await screen.findByText('Page 1 of 3')).toBeTruthy()
+    })
+
+    it('shows a whole month from the 1st to its last day', async () => {
+      const fetchMock = stubFetch((url) => listPage(url))
+      renderLogsPage()
+      await screen.findByText('PC-01')
+
+      fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'month' } })
+      fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-02' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+
+      await waitFor(() =>
+        expect(lastListSearch(fetchMock)).toBe('?from=2026-02-01&to=2026-02-28&page=1&pageSize=10'),
+      )
+    })
+
+    it('only shows the picker for the chosen period', async () => {
+      stubFetch((url) => listPage(url))
+      renderLogsPage()
+      await screen.findByText('PC-01')
+
+      expect(screen.queryByLabelText('Day')).toBeNull()
+      expect(screen.queryByLabelText('Month')).toBeNull()
+
+      fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'day' } })
+      expect(screen.getByLabelText('Day')).toBeTruthy()
+      expect(screen.queryByLabelText('Month')).toBeNull()
+    })
+
+    it('clears the filters and reloads every session', async () => {
+      const fetchMock = stubFetch((url) => listPage(url))
+      renderLogsPage('/logs?pcId=2&pcName=PC-2')
+      await screen.findByText('PC-01')
+      fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'month' } })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+
+      await waitFor(() => expect(lastListSearch(fetchMock)).toBe('?page=1&pageSize=10'))
+      expect(pcSelect().value).toBe('')
+      expect((screen.getByLabelText('Show') as HTMLSelectElement).value).toBe('all')
+      expect(screen.getByRole('link', { name: 'Back to dashboard' })).toBeTruthy()
+    })
   })
 
-  it('clears the filters and reloads every session', async () => {
-    const fetchMock = stubFetch((url) => listPage(url))
-    renderLogsPage('/logs?pc=PC-05')
-    await screen.findByText('PC-01')
+  describe('opened from View history', () => {
+    it('selects that PC and asks only for it', async () => {
+      const fetchMock = stubFetch((url) => listPage(url))
+      renderLogsPage('/logs?pcId=1&pcName=PC-1')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+      expect(await screen.findByRole('link', { name: 'Back to dashboard' })).toBeTruthy()
+      await waitFor(() => expect(requestedUrls(fetchMock)[0]?.search).toBe('?pcId=1&page=1&pageSize=10'))
+      await waitFor(() => expect(pcSelect().selectedOptions[0]?.text).toBe('PC-1'))
+    })
 
-    await waitFor(() => expect(requestedUrls(fetchMock).at(-1)?.search).toBe('?page=1&pageSize=10'))
-    expect((screen.getByLabelText('PC') as HTMLInputElement).value).toBe('')
+    it('still offers a removed PC under the name from the link', async () => {
+      stubFetch((url) => listPage(url))
+      renderLogsPage('/logs?pcId=99&pcName=Old-PC')
+
+      await waitFor(() => expect(pcSelect().selectedOptions[0]?.text).toBe('Old-PC'))
+    })
+
+    it('exports only that PC', async () => {
+      const fetchMock = stubFetch((url) =>
+        url.pathname === EXPORT_PATH ? new Response('id\n') : listPage(url),
+      )
+      renderLogsPage('/logs?pcId=1&pcName=PC-1')
+      await screen.findByText('PC-01')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+
+      await waitFor(() => expect(saveBlobAsFile).toHaveBeenCalledTimes(1))
+      expect(requestedUrls(fetchMock, EXPORT_PATH)[0]?.search).toBe('?pcId=1')
+    })
   })
 
-  it('prefills the PC filter from the URL and offers a way back to the dashboard', async () => {
-    const fetchMock = stubFetch((url) => listPage(url))
-    renderLogsPage('/logs?pc=PC-05')
+  describe('purge old logs', () => {
+    function purgeRoutes(count: number, deleted = count): Responder {
+      return (url, init) => {
+        if (url.pathname === PURGE_PREVIEW_PATH) return Response.json({ count })
+        if (url.pathname === PURGE_PATH && init?.method === 'POST') return Response.json({ deleted })
+        return listPage(url)
+      }
+    }
 
-    expect(await screen.findByRole('link', { name: 'Back to dashboard' })).toBeTruthy()
-    expect((screen.getByLabelText('PC') as HTMLInputElement).value).toBe('PC-05')
-    await waitFor(() => expect(requestedUrls(fetchMock)[0]?.search).toBe('?pc=PC-05&page=1&pageSize=10'))
-  })
+    function openPurge() {
+      fireEvent.click(screen.getByRole('button', { name: 'Purge old logs' }))
+      const dialog = screen.getByRole('heading', { name: 'Purge old logs' }).closest('dialog')
+      if (!dialog) throw new Error('The purge dialog is not open')
+      return dialog
+    }
 
-  it('keeps Purge old logs disabled and says why', () => {
-    stubFetch(listOnly({ items: [], totalItems: 0, page: 1, pageSize: 10 }))
-    renderLogsPage()
+    it('shows how many sessions a choice deletes before anything is deleted', async () => {
+      const fetchMock = stubFetch(purgeRoutes(12))
+      renderLogsPage()
+      await screen.findByText('PC-01')
 
-    const purge = screen.getByRole('button', { name: 'Purge old logs' }) as HTMLButtonElement
-    expect(purge.disabled).toBe(true)
-    expect(purge.title).toBe('Not available yet')
-    const hint = document.getElementById(purge.getAttribute('aria-describedby') ?? '')
-    expect(hint?.textContent).toBe('Not available yet')
+      const dialog = openPurge()
+
+      expect(
+        await within(dialog).findByText(
+          "This deletes 12 sessions on all PCs that started more than 90 days ago, whatever the filters show. Running sessions are kept. This can't be undone.",
+        ),
+      ).toBeTruthy()
+      expect(requestedUrls(fetchMock, PURGE_PREVIEW_PATH)[0]?.search).toBe('?olderThanDays=90')
+
+      fireEvent.change(within(dialog).getByLabelText('Delete ended sessions on all PCs older than'), {
+        target: { value: '365' },
+      })
+      await waitFor(() =>
+        expect(requestedUrls(fetchMock, PURGE_PREVIEW_PATH).at(-1)?.search).toBe('?olderThanDays=365'),
+      )
+      expect(requestedUrls(fetchMock, PURGE_PATH)).toHaveLength(0)
+    })
+
+    it('deletes, says how many, closes and reloads the list', async () => {
+      const fetchMock = stubFetch(purgeRoutes(12))
+      const notify = vi.fn()
+      renderLogsPage('/logs', notify)
+      await screen.findByText('PC-01')
+      const listRequestsBefore = requestedUrls(fetchMock).length
+
+      const dialog = openPurge()
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Delete 12 sessions' }))
+
+      await waitFor(() => expect(notify).toHaveBeenCalledWith('Deleted 12 sessions.'))
+      const purgeCall = fetchMock.mock.calls.find(([input]) => String(input) === PURGE_PATH)
+      expect(purgeCall?.[1]?.body).toBe(JSON.stringify({ olderThanDays: 90 }))
+      expect(screen.queryByRole('heading', { name: 'Purge old logs' })).toBeNull()
+      await waitFor(() => expect(requestedUrls(fetchMock).length).toBeGreaterThan(listRequestsBefore))
+    })
+
+    it('cannot delete when nothing is old enough', async () => {
+      stubFetch(purgeRoutes(0))
+      renderLogsPage()
+      await screen.findByText('PC-01')
+
+      const dialog = openPurge()
+
+      expect(await within(dialog).findByText('No ended sessions started more than 90 days ago.')).toBeTruthy()
+      expect((within(dialog).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('shows the server error and keeps the dialog open when the delete fails', async () => {
+      stubFetch((url, init) => {
+        if (url.pathname === PURGE_PREVIEW_PATH) return Response.json({ count: 3 })
+        if (url.pathname === PURGE_PATH && init?.method === 'POST') {
+          return Response.json({ error: 'Database is busy.' }, { status: 500 })
+        }
+        return listPage(url)
+      })
+      const notify = vi.fn()
+      renderLogsPage('/logs', notify)
+      await screen.findByText('PC-01')
+
+      const dialog = openPurge()
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Delete 3 sessions' }))
+
+      expect((await within(dialog).findByRole('alert')).textContent).toBe('Database is busy.')
+      expect(notify).not.toHaveBeenCalled()
+    })
+
+    it('closes without deleting when Cancel is pressed', async () => {
+      const fetchMock = stubFetch(purgeRoutes(5))
+      renderLogsPage()
+      await screen.findByText('PC-01')
+
+      const dialog = openPurge()
+      await within(dialog).findByRole('button', { name: 'Delete 5 sessions' })
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByRole('heading', { name: 'Purge old logs' })).toBeNull()
+      expect(requestedUrls(fetchMock, PURGE_PATH)).toHaveLength(0)
+    })
   })
 
   describe('export', () => {
@@ -207,14 +407,16 @@ describe('LogsPage', () => {
         return listPage(url)
       })
       const notify = vi.fn()
-      renderLogsPage('/logs?pc=PC-05', notify)
+      renderLogsPage('/logs', notify)
       await screen.findByText('PC-01')
+      fireEvent.change(screen.getByLabelText('User'), { target: { value: 'lab' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+      await waitFor(() => expect(lastListSearch(fetchMock)).toContain('user=lab'))
 
       fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
 
       await waitFor(() => expect(saveBlobAsFile).toHaveBeenCalledTimes(1))
-      const exportUrl = requestedUrls(fetchMock).find((url) => url.pathname === EXPORT_PATH)
-      expect(exportUrl?.search).toBe('?pc=PC-05')
+      expect(requestedUrls(fetchMock, EXPORT_PATH)[0]?.search).toBe('?user=lab')
       expect(saveBlobAsFile).toHaveBeenCalledWith(expect.any(Blob), 'session-logs.csv')
       expect(notify).not.toHaveBeenCalled()
     })

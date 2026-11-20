@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Pc, PcRestrictions } from '../types'
+import type { Pc, PcRestrictions, RegisteredPc } from '../types'
 import {
   EMPTY_RESTRICTIONS,
   countActiveRestrictions,
+  describeFastUserSwitchingResult,
   getCommonRestrictions,
+  getFastUserSwitchingChoice,
+  getPcIdsToSetFastUserSwitching,
   getRestrictionSummary,
   toggleAllValues,
   toggleListValue,
@@ -18,6 +21,35 @@ const noReboot: PcRestrictions = {
   hiddenDrives: [],
   disabledDrives: [],
 }
+
+describe('Fast User Switching helpers', () => {
+  const pc = (id: number, fastUserSwitchingDisabled?: boolean): RegisteredPc => ({
+    id,
+    name: `PC-${id}`,
+    status: 'locked',
+    lastSeen: 'Now',
+    fastUserSwitchingDisabled,
+  })
+
+  it('reads the choice as disabled, allowed or mixed', () => {
+    expect(getFastUserSwitchingChoice([pc(1, true), pc(2, true)])).toBe('disabled')
+    expect(getFastUserSwitchingChoice([pc(1), pc(2, false)])).toBe('allowed')
+    expect(getFastUserSwitchingChoice([pc(1, true), pc(2)])).toBe('mixed')
+    expect(getFastUserSwitchingChoice([])).toBe('allowed')
+  })
+
+  it('sends only the PCs not in the wanted state yet', () => {
+    const pcs = [pc(1), pc(2, true), pc(3, false)]
+    expect(getPcIdsToSetFastUserSwitching(pcs, true)).toEqual([1, 3])
+    expect(getPcIdsToSetFastUserSwitching(pcs, false)).toEqual([2])
+  })
+
+  it('describes the result', () => {
+    expect(describeFastUserSwitchingResult(true, 3)).toBe('Fast User Switching turned off for 3 PCs.')
+    expect(describeFastUserSwitchingResult(false, 1)).toBe('Fast User Switching allowed again for 1 PC.')
+    expect(describeFastUserSwitchingResult(true, 0)).toBe('No PCs had Fast User Switching changed.')
+  })
+})
 
 describe('EMPTY_RESTRICTIONS', () => {
   it('has no policies or drives', () => {

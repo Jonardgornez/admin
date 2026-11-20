@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Notify } from '../component/ui/notification-context'
 import {
   LOGIN_REQUEST_LIST_PATH,
@@ -23,6 +23,16 @@ const SETTINGS_BODY = {
 }
 
 type Responder = () => Response
+
+// jsdom does not implement showModal, so the open state is set by hand.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  }
+})
 
 // Routes are keyed by "METHOD path". Anything unrouted fails the test visibly.
 function stubApi(routes: Record<string, Responder>) {
@@ -154,6 +164,97 @@ describe('RequestsPage', () => {
     await waitFor(() => expect(notify).toHaveBeenCalledWith('Request from PC-01 approved.'))
     expect(screen.queryByRole('heading', { name: 'PC-01' })).toBeNull()
     expect(screen.getByText('No requests waiting.')).toBeTruthy()
+  })
+
+  describe('approve all', () => {
+    function approvedRequest(id: number) {
+      return makeLoginRequest(id, {
+        status: 'approved',
+        time: { mode: 'time-limit', minutes: 60 },
+        decidedAt: '2026-11-05T10:06:00.000Z',
+      })
+    }
+
+    it('asks first, then approves every waiting request with the default time', async () => {
+      const notify = vi.fn()
+      const fetchMock = stubApi({
+        [`GET ${LOGIN_REQUEST_LIST_PATH}`]: listRoute([makeLoginRequest(1), makeLoginRequest(2)]),
+        'GET /api/settings': settingsRoute(),
+        'POST /api/login-requests/1/approve': () => Response.json(approvedRequest(1)),
+        'POST /api/login-requests/2/approve': () => Response.json(approvedRequest(2)),
+      })
+      renderRequestsPage(notify)
+      await screen.findByRole('heading', { name: 'PC-01' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Approve all' }))
+      const dialog = screen.getByRole('heading', { name: 'Approve 2 requests?' }).closest('dialog')
+      if (!dialog) throw new Error('The approve all dialog is not open')
+      expect(dialog.textContent).toContain('Each PC gets 1h, the default in Settings.')
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Approve all' }))
+
+      await waitFor(() => expect(notify).toHaveBeenCalledWith('Approved 2 requests.', undefined))
+      expect(screen.getByText('No requests waiting.')).toBeTruthy()
+      const approveCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/1/approve'))
+      expect(approveCall?.[1]?.body).toBe(JSON.stringify({ time: { mode: 'time-limit', minutes: 60 } }))
+    })
+
+    it('says how many could not be approved and leaves them waiting', async () => {
+      const notify = vi.fn()
+      stubApi({
+        [`GET ${LOGIN_REQUEST_LIST_PATH}`]: listRoute([makeLoginRequest(1), makeLoginRequest(2)]),
+        'GET /api/settings': settingsRoute(),
+        'POST /api/login-requests/1/approve': () =>
+          Response.json({ error: EXPIRED_MESSAGE }, { status: 409 }),
+        'POST /api/login-requests/2/approve': () => Response.json(approvedRequest(2)),
+      })
+      renderRequestsPage(notify)
+      await screen.findByRole('heading', { name: 'PC-01' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Approve all' }))
+      const dialog = screen.getByRole('heading', { name: 'Approve 2 requests?' }).closest('dialog')
+      if (!dialog) throw new Error('The approve all dialog is not open')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Approve all' }))
+
+      await waitFor(() =>
+        expect(notify).toHaveBeenCalledWith("Approved 1 of 2. 1 request couldn't be approved.", 'alert'),
+      )
+      expect(screen.getByRole('heading', { name: 'PC-01' })).toBeTruthy()
+    })
+
+    it('is disabled when nothing is waiting', async () => {
+      stubApi({
+        [`GET ${LOGIN_REQUEST_LIST_PATH}`]: listRoute([]),
+        'GET /api/settings': settingsRoute(),
+      })
+      renderRequestsPage()
+      await screen.findByText('No requests waiting.')
+
+      expect((screen.getByRole('button', { name: 'Approve all' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+  })
+
+  it('pages through the history', async () => {
+    const decided = (id: number) =>
+      makeLoginRequest(id, { status: 'denied', decidedAt: '2026-11-05T09:00:00.000Z' })
+    stubApi({
+      [`GET ${LOGIN_REQUEST_LIST_PATH}`]: () =>
+        Response.json(loginRequestListsBody([], [decided(30)], { historyTotal: 15 })),
+      'GET /api/login-requests?historyPage=2': () =>
+        Response.json(loginRequestListsBody([], [decided(12)], { historyTotal: 15, historyPage: 2 })),
+      'GET /api/settings': settingsRoute(),
+    })
+    renderRequestsPage()
+
+    expect(await screen.findByText('PC-30')).toBeTruthy()
+    expect(screen.getByText('Page 1 of 2')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    expect(await screen.findByText('PC-12')).toBeTruthy()
+    expect(screen.getByText('Page 2 of 2')).toBeTruthy()
+    expect(screen.queryByText('PC-30')).toBeNull()
   })
 
   it('keeps an edit in progress when a poll brings new data for the same request', async () => {
