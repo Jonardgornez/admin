@@ -68,9 +68,9 @@ describe('getScreenTileName', () => {
     expect(getScreenTileName('PC-3', { kind: 'live' }, false)).toBe('PC-3 screen, live')
   })
 
-  it('says when the PC is open in full view elsewhere', () => {
+  it('says when the PC has too many views open', () => {
     expect(getScreenTileName('PC-3', { kind: 'ended', message: 'x' }, true)).toBe(
-      'PC-3 screen, open in full view elsewhere',
+      'PC-3 screen, too many views open',
     )
   })
 })

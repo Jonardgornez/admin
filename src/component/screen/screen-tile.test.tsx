@@ -147,16 +147,16 @@ describe('ScreenTile', () => {
     ['a busy close (4005)', 4005, true],
     ['a replaced close (4001)', 4001, true],
   ] as const)(
-    'shows the PC open elsewhere after %s, and checks again passively every 10 s',
+    'shows that the PC has too many views after %s, and checks again passively every 10 s',
     (_, code, wasOpen) => {
       renderTile()
       showTile()
 
       act(() => latestConnection().options.onClose(code, wasOpen))
 
-      expect(screen.getByText('Open in full view elsewhere')).toBeTruthy()
+      expect(screen.getByText('Too many views of this PC are open')).toBeTruthy()
       expect(
-        screen.getByRole('link', { name: 'PC-3 screen, open in full view elsewhere' }),
+        screen.getByRole('link', { name: 'PC-3 screen, too many views open' }),
       ).toBeTruthy()
       act(() => vi.advanceTimersByTime(TILE_ELSEWHERE_RETRY_MS - 1))
       expect(connections.opened).toHaveLength(1)
@@ -165,7 +165,7 @@ describe('ScreenTile', () => {
       expect(latestConnection().options.url).toMatch(/passive=1$/)
 
       act(() => latestConnection().options.onServerState('live'))
-      expect(screen.queryByText('Open in full view elsewhere')).toBeNull()
+      expect(screen.queryByText('Too many views of this PC are open')).toBeNull()
     },
   )
 

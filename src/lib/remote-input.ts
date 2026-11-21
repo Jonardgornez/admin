@@ -12,6 +12,7 @@ export const CONTROL_OFF_REASONS = [
   'unsupported',
   'connection',
   'pc-ended',
+  'in-use',
 ] as const
 
 export type ControlOffReason = (typeof CONTROL_OFF_REASONS)[number]

@@ -74,6 +74,17 @@ describe('describeScreenClose', () => {
     })
   })
 
+  it('explains a PC with too many views (4005) and a tile whose place was taken (4001), without retrying', () => {
+    expect(describeScreenClose(4005)).toEqual({
+      message: 'Too many views of this PC are open. Close one and try again.',
+      canRetry: false,
+      isSessionEnded: false,
+    })
+    expect(describeScreenClose(4001).message).toBe(
+      "A full view of this PC needed this view's place, so this view closed.",
+    )
+  })
+
   it('retries abnormal closes such as 1006, 1001 and 1008', () => {
     expect(describeScreenClose(1006).canRetry).toBe(true)
     expect(describeScreenClose(1001).canRetry).toBe(true)

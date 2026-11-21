@@ -237,6 +237,7 @@ describe('parseServerControlMessage', () => {
       'unsupported',
       'connection',
       'pc-ended',
+      'in-use',
     ]) {
       expect(parseServerControlMessage(`{"control":"off","reason":"${reason}"}`)).toEqual({
         control: 'off',

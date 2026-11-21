@@ -39,11 +39,11 @@ export interface ScreenTile {
   tileRef: RefObject<HTMLLIElement | null>
   canvasRef: RefObject<HTMLCanvasElement | null>
   status: ScreenStreamStatus
-  // Someone has the PC open in full view, so this tile waits and checks again every few seconds.
+  // The PC already has as many views as it may have, so this tile waits and checks again every few seconds.
   isViewedElsewhere: boolean
   isFrameVisible: boolean
   reconnect: () => void
-  // Opens once as a full view, which replaces the other view of the PC.
+  // Opens once as a full view, which takes the place of another tile's view when the PC has too many.
   takeOver: () => void
 }
 
@@ -103,7 +103,7 @@ export function useDebouncedVisibility(elementRef: RefObject<Element | null>): b
 
 // One live connection for one grid tile. Frames are acked late, so the PC sends about one a second
 // at its smallest size. The connection is closed while the tile is off screen or the tab is hidden.
-// Tiles open passively, so they never take the place of someone's full view or remote control.
+// Tiles open passively and share the PC's stream with its other views, so they never take another view's place.
 // Only Take over opens a full view, once.
 export function useScreenTile({ pcId, mode }: UseScreenTileOptions): ScreenTile {
   const { markSignedOut } = useAuth()
@@ -157,8 +157,8 @@ export function useScreenTile({ pcId, mode }: UseScreenTileOptions): ScreenTile 
     }
 
     function handleClose(code: number, wasOpen: boolean) {
-      // Browsers hide why an upgrade was refused. For a passive tile the usual reason is a view
-      // open elsewhere (409); an offline PC or an ended session is caught by the PC list poll.
+      // Browsers hide why an upgrade was refused. For a passive tile the usual reason is a PC
+      // with too many views (409); an offline PC or an ended session is caught by the PC list poll.
       if (!wasOpen) {
         if (isPassive) showViewedElsewhere()
         else setState((previous) => withStatus(previous, { kind: 'ended', message: TILE_REFUSED_MESSAGE }))
@@ -208,7 +208,7 @@ export function useScreenTile({ pcId, mode }: UseScreenTileOptions): ScreenTile 
     }
   }, [pcId, mode, attempt, isVisible, isEnded, isTakingOver, connectAgain])
 
-  // While the PC is viewed elsewhere, a passive connection checks again now and then.
+  // While the PC has too many views, a passive connection checks again now and then.
   useEffect(() => {
     if (!isVisible || !isEnded || !state.isViewedElsewhere) return
     const timer = setTimeout(() => {
