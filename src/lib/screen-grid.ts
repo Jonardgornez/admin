@@ -5,7 +5,7 @@ import type { ScreenStreamStatus } from './screen-stream'
 export const TILE_SIZES = ['small', 'medium', 'large'] as const
 export type TileSize = (typeof TILE_SIZES)[number]
 
-export const DEFAULT_TILE_SIZE: TileSize = 'medium'
+export const DEFAULT_TILE_SIZE: TileSize = 'small'
 
 export const TILE_SIZE_LABELS: Record<TileSize, string> = {
   small: 'Small',

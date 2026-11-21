@@ -72,14 +72,14 @@ describe('ScreensPage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('counts the online PCs and starts in notified mode at medium size', async () => {
+  it('counts the online PCs and starts in anonymous mode at small size', async () => {
     renderPage()
 
     expect(await screen.findByText('1 online')).toBeTruthy()
-    expect(radio('Notified – the user sees a notice').checked).toBe(true)
-    expect(radio('Medium').checked).toBe(true)
+    expect(radio('Anonymous – no sign on the PC').checked).toBe(true)
+    expect(radio('Small').checked).toBe(true)
     expect(screen.getByRole('link', { name: /^PC-1 screen/ }).getAttribute('href')).toBe(
-      '/pc/1/screen?mode=notified',
+      '/pc/1/screen?mode=anonymous',
     )
   })
 
@@ -98,12 +98,12 @@ describe('ScreensPage', () => {
     renderPage()
     await screen.findByText('1 online')
 
-    fireEvent.click(radio('Anonymous – no sign on the PC'))
-    fireEvent.click(radio('Small'))
+    fireEvent.click(radio('Notified – the user sees a notice'))
+    fireEvent.click(radio('Medium'))
 
     const params = new URLSearchParams(currentSearch())
-    expect(params.get('mode')).toBe('anonymous')
-    expect(params.get('size')).toBe('small')
+    expect(params.get('mode')).toBe('notified')
+    expect(params.get('size')).toBe('medium')
   })
 
   it('shows offline PCs only after the box is ticked, and remembers it', async () => {
@@ -122,38 +122,16 @@ describe('ScreensPage', () => {
     expect(new URLSearchParams(currentSearch()).has('offline')).toBe(false)
   })
 
-  it('waits for the saved default mode before opening any tile, then uses it', async () => {
-    let answerSettings: (response: Response) => void = () => undefined
-    stubApi(() => new Promise((resolve) => (answerSettings = resolve)))
+  it('opens tiles anonymous even when the saved console default is notified', async () => {
     renderPage()
-
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/pcs', expect.anything()))
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    expect(screen.getByText('Loading PCs...')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: /^PC-1 screen/ })).toBeNull()
-    expect(connections.urls).toEqual([])
-
-    answerSettings(Response.json(settingsBody('anonymous')))
 
     const link = await screen.findByRole('link', { name: /^PC-1 screen/ })
     expect(link.getAttribute('href')).toBe('/pc/1/screen?mode=anonymous')
-    expect(radio('Anonymous – no sign on the PC').checked).toBe(true)
     await waitFor(() => expect(connections.urls).toHaveLength(1))
     expect(connections.urls[0]).toMatch(/mode=anonymous&passive=1$/)
   })
 
-  it('falls back to notified, with no error shown, when the settings fail to load', async () => {
-    stubApi(() => Promise.resolve(Response.json({ error: 'Down' }, { status: 500 })))
-    renderPage()
-
-    const link = await screen.findByRole('link', { name: /^PC-1 screen/ })
-    expect(link.getAttribute('href')).toBe('/pc/1/screen?mode=notified')
-    expect(screen.queryByRole('alert')).toBeNull()
-    await waitFor(() => expect(connections.urls).toHaveLength(1))
-    expect(connections.urls[0]).toMatch(/mode=notified&passive=1$/)
-  })
-
-  it('lets a mode in the address win over the saved default', async () => {
+  it('lets a mode in the address win over the anonymous default', async () => {
     stubApi(() => Promise.resolve(Response.json(settingsBody('anonymous'))))
     renderPage('/screens?mode=notified')
 
