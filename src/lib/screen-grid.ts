@@ -46,9 +46,12 @@ const TILE_STATUS_TEXTS: Record<ScreenStreamStatus['kind'], string> = {
   ended: 'ended',
 }
 
-export const VIEWED_ELSEWHERE_TEXT = 'Open in full view elsewhere'
+const TOO_MANY_VIEWS_STATUS_TEXT = 'too many views open'
 
-// How often a tile whose PC is viewed elsewhere checks again whether it is free.
+// Up to four views of a PC share its stream; a tile waits only when all of them are taken.
+export const VIEWED_ELSEWHERE_TEXT = 'Too many views of this PC are open'
+
+// How often a tile whose PC has too many views checks again whether there is room.
 export const TILE_ELSEWHERE_RETRY_MS = 10_000
 
 // The tile's accessible name, such as "PC-3 screen, live".
@@ -58,7 +61,7 @@ export function getScreenTileName(
   isViewedElsewhere: boolean,
 ): string {
   const statusText = isViewedElsewhere
-    ? VIEWED_ELSEWHERE_TEXT.toLowerCase()
+    ? TOO_MANY_VIEWS_STATUS_TEXT
     : TILE_STATUS_TEXTS[status.kind]
   return `${pcName} screen, ${statusText}`
 }

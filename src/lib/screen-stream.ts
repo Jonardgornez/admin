@@ -41,9 +41,9 @@ const NORMAL_CLOSE_CODE = 1000
 const SERVER_STOPPING_CLOSE_CODE = 1001
 const ABNORMAL_CLOSE_CODE = 1006
 const BROWSER_BEHIND_CLOSE_CODE = 1008
-// A newer view of the same PC took this one's place, for example the full view opened from a tile.
+// A full view of the PC took this tile's place, because the PC already had as many views as it may have.
 export const REPLACED_CLOSE_CODE = 4001
-// A passive view found someone else viewing the PC, so the server left that view alone.
+// The PC already has as many views as it may have, so the server didn't open this one.
 export const BUSY_CLOSE_CODE = 4005
 const PC_GONE_CLOSE_CODE = 4002
 const SESSION_ENDED_CLOSE_CODE = 4003
@@ -64,7 +64,7 @@ interface ScreenCloseOutcome {
   isSessionEnded: boolean
 }
 
-// A passive view (a grid tile) never takes the place of a view that is already open; the server refuses it instead.
+// A passive view (a grid tile) never takes another view's place; when the PC has too many views the server refuses it.
 export function buildScreenStreamUrl(
   location: ScreenStreamLocation,
   pcId: number,
@@ -100,11 +100,11 @@ function getCloseMessage(code: number): string {
     case BROWSER_BEHIND_CLOSE_CODE:
       return 'This browser fell behind the screen updates, so the view stopped.'
     case REPLACED_CLOSE_CODE:
-      return 'Another admin started viewing this PC, so this view was replaced.'
+      return "A full view of this PC needed this view's place, so this view closed."
     case PC_GONE_CLOSE_CODE:
       return PC_GONE_MESSAGE
     case BUSY_CLOSE_CODE:
-      return 'Someone else is viewing this PC.'
+      return 'Too many views of this PC are open. Close one and try again.'
     default:
       return 'The screen view ended unexpectedly.'
   }

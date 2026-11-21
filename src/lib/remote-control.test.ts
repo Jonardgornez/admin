@@ -116,6 +116,9 @@ describe('getControlEndMessage', () => {
     expect(getControlEndMessage({ kind: 'off', reason: 'pc-ended' })).toBe(
       'The PC ended remote control.',
     )
+    expect(getControlEndMessage({ kind: 'off', reason: 'in-use' })).toBe(
+      'Another view of this PC is controlling it. Wait until it stops, then try again.',
+    )
   })
 
   it('shows no error for a stop the admin asked for', () => {

@@ -27,6 +27,8 @@ const CONTROL_END_MESSAGES: Record<RemoteControlEndReason, string | null> = {
   unsupported: `This PC's client is too old for remote control. Update it to ${REQUIRED_CLIENT_VERSION}.`,
   connection: 'The connection to the PC dropped, so control stopped.',
   'pc-ended': 'The PC ended remote control.',
+  // Only one view of a PC may control it at a time.
+  'in-use': 'Another view of this PC is controlling it. Wait until it stops, then try again.',
   // Only a PC without the secure-screen helper pauses. With the helper the screen stays visible.
   paused: `The PC is showing a protected screen that can't be shown, so control stopped. Update the PC's client to ${SECURE_SCREEN_CLIENT_VERSION} to see these screens.`,
 }

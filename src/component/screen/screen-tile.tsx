@@ -62,7 +62,7 @@ export function ScreenTile({ pcId, pcName, mode }: ScreenTileProps) {
             variant="secondary"
             size="sm"
             aria-label={`Take over ${pcName}`}
-            title="Opens this tile as a full view, which ends the other view of this PC."
+            title="Opens this tile as a full view, which takes the place of another tile's view of this PC."
             onClick={takeOver}
           >
             <Icon name="eye" />
