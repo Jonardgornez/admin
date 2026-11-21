@@ -2,7 +2,6 @@ import { useSearchParams } from 'react-router'
 import { PageHeader } from '../component/layout/page-header'
 import { ScreenGrid } from '../component/screen/screen-grid'
 import { usePcs } from '../component/pc/use-pcs'
-import { useConsoleDefaults } from '../component/settings/use-console-defaults'
 import { Banner } from '../component/ui/banner'
 import { Button } from '../component/ui/button'
 import { Checkbox, RadioOption } from '../component/ui/choice'
@@ -19,20 +18,17 @@ const MODE_PARAM = 'mode'
 const SIZE_PARAM = 'size'
 const OFFLINE_PARAM = 'offline'
 const OFFLINE_SHOWN_VALUE = 'shown'
+const DEFAULT_SCREENS_VIEW_MODE = 'anonymous'
 
 const legendClassName = 'p-0 pb-1 text-xs font-semibold tracking-label text-ink-muted'
 const fieldsetClassName = 'm-0 flex flex-wrap items-center gap-x-4 gap-y-2 border-0 p-0'
 
 export function ScreensPage() {
   const { pcs, loadState, isDisconnected, retry } = usePcs()
-  const consoleDefaults = useConsoleDefaults()
   const [searchParams, setSearchParams] = useSearchParams()
-  // The address wins. Otherwise the saved default, which falls back to notified if it can't load.
-  // Null until it is known, so no tile opens in the wrong mode.
-  const mode =
-    parseViewModeParam(searchParams.get(MODE_PARAM)) ??
-    (consoleDefaults.isLoaded ? consoleDefaults.defaults.defaultViewMode : null)
-  const isLoading = loadState.status === 'loading' || (loadState.status === 'loaded' && mode === null)
+  // The address wins. Otherwise the wall opens anonymous, so watching many PCs shows no notice on them.
+  const mode = parseViewModeParam(searchParams.get(MODE_PARAM)) ?? DEFAULT_SCREENS_VIEW_MODE
+  const isLoading = loadState.status === 'loading'
   const size = parseTileSizeParam(searchParams.get(SIZE_PARAM))
   const isOfflineShown = searchParams.get(OFFLINE_PARAM) === OFFLINE_SHOWN_VALUE
 
@@ -136,7 +132,7 @@ export function ScreensPage() {
         </div>
       )}
 
-      {loadState.status === 'loaded' && mode !== null && (
+      {loadState.status === 'loaded' && (
         <ScreenGrid
           pcs={pcs}
           mode={mode}

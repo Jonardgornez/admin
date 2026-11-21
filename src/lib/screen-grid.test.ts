@@ -36,9 +36,9 @@ describe('parseTileSizeParam', () => {
     expect(parseTileSizeParam('large')).toBe('large')
   })
 
-  it('falls back to medium', () => {
-    expect(parseTileSizeParam(null)).toBe('medium')
-    expect(parseTileSizeParam('huge')).toBe('medium')
+  it('falls back to small', () => {
+    expect(parseTileSizeParam(null)).toBe('small')
+    expect(parseTileSizeParam('huge')).toBe('small')
   })
 })
 
